@@ -1,87 +1,59 @@
 using System;
 using System.IO;
-using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace TimelapseCapture
 {
-    public static class FfmpegDownloader
+    internal static class FfmpegDownloader
     {
-        private const string WindowsZipUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
+        private const string FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 
-        public static async Task<string> EnsureFfmpegPresentAsync(string ffmpegDir)
+        /// <summary>
+        /// Ensures ffmpeg.exe is available at the given path.
+        /// If not found, attempts to download and extract it automatically.
+        /// </summary>
+        public static async Task<string?> EnsureFfmpegPresentAsync(string? targetPath)
         {
             try
             {
-                Directory.CreateDirectory(ffmpegDir);
-                string exePath = Path.Combine(ffmpegDir, "ffmpeg.exe");
+                if (string.IsNullOrWhiteSpace(targetPath))
+                    targetPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+
+                string exePath = Path.Combine(targetPath, "ffmpeg.exe");
 
                 if (File.Exists(exePath))
-                {
                     return exePath;
-                }
 
-                string tempZip = Path.Combine(Path.GetTempPath(), "ffmpeg_download.zip");
-                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extracted");
+                Directory.CreateDirectory(targetPath);
+                string zipPath = Path.Combine(targetPath, "ffmpeg.zip");
 
-                // Download ZIP if not already present
-                if (!File.Exists(tempZip))
-                {
-                    using (var http = new HttpClient())
-                    {
-                        var bytes = await http.GetByteArrayAsync(WindowsZipUrl);
-                        await File.WriteAllBytesAsync(tempZip, bytes);
-                    }
-                }
+                using var client = new HttpClient();
+                using var response = await client.GetAsync(FFMPEG_URL);
+                response.EnsureSuccessStatusCode();
+                await using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write);
+                await response.Content.CopyToAsync(fs);
 
-                // Clean up previous extract directory
-                if (Directory.Exists(extractDir))
-                {
-                    try
-                    {
-                        Directory.Delete(extractDir, true);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error deleting existing extraction directory: {ex.Message}");
-                    }
-                }
+                System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, targetPath, overwriteFiles: true);
+                File.Delete(zipPath);
 
-                ZipFile.ExtractToDirectory(tempZip, extractDir);
+                // Attempt to locate ffmpeg.exe in extracted structure
+                string? foundExe = Directory.GetFiles(targetPath, "ffmpeg.exe", SearchOption.AllDirectories)
+                                            .FirstOrDefault();
 
-                // Find ffmpeg.exe in extracted tree
-                var matches = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
-                if (matches.Length == 0)
-                {
-                    return null;
-                }
+                if (foundExe == null)
+                    throw new FileNotFoundException("ffmpeg.exe not found after extraction.");
 
-                // Copy ffmpeg.exe to target folder
-                File.Copy(matches[0], exePath, overwrite: true);
-
-                // Also attempt to copy ffprobe.exe
-                var fp = Directory.GetFiles(extractDir, "ffprobe.exe", SearchOption.AllDirectories);
-                if (fp.Length > 0)
-                {
-                    File.Copy(fp[0], Path.Combine(ffmpegDir, "ffprobe.exe"), overwrite: true);
-                }
-
-                // Clean up extraction folder
-                try
-                {
-                    Directory.Delete(extractDir, true);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting extraction directory: {ex.Message}");
-                }
+                // Move it to root path if nested
+                if (Path.GetDirectoryName(foundExe) != targetPath)
+                    File.Move(foundExe, exePath, overwrite: true);
 
                 return exePath;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error ensuring ffmpeg presence: {ex.Message}");
+                Console.WriteLine("Error ensuring ffmpeg: " + ex.Message);
                 return null;
             }
         }
