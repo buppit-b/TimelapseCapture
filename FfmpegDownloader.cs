@@ -19,39 +19,44 @@ namespace TimelapseCapture
                 if (File.Exists(exePath))
                     return exePath;
 
-                // Download ffmpeg zip to a temp path
                 string tempZip = Path.Combine(Path.GetTempPath(), "ffmpeg.zip");
-                using (var http = new HttpClient())
+                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extract");
+
+                // Download fresh each time if not already cached
+                if (!File.Exists(tempZip))
                 {
+                    using var http = new HttpClient();
                     var data = await http.GetByteArrayAsync(WindowsZipUrl);
                     await File.WriteAllBytesAsync(tempZip, data);
                 }
 
-                // Extract just ffmpeg.exe and ffprobe.exe from archive
-                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extract");
                 if (Directory.Exists(extractDir))
                     Directory.Delete(extractDir, true);
+
                 ZipFile.ExtractToDirectory(tempZip, extractDir);
 
-                string[] found = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
+                // Find ffmpeg.exe inside extracted folders
+                var found = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
                 if (found.Length == 0)
-                    return null;
+                    throw new Exception("ffmpeg.exe not found in downloaded archive.");
 
                 File.Copy(found[0], exePath, overwrite: true);
 
-                // Optional: copy ffprobe too
                 var ffprobe = Directory.GetFiles(extractDir, "ffprobe.exe", SearchOption.AllDirectories);
                 if (ffprobe.Length > 0)
                     File.Copy(ffprobe[0], Path.Combine(ffmpegDir, "ffprobe.exe"), overwrite: true);
 
-                // Clean up temp
-                try { File.Delete(tempZip); Directory.Delete(extractDir, true); } catch { }
+                try
+                {
+                    Directory.Delete(extractDir, true);
+                }
+                catch { }
 
                 return exePath;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("FFmpeg download failed: " + ex.Message);
+                Console.WriteLine("FFmpeg download/extract failed: " + ex.Message);
                 return null;
             }
         }

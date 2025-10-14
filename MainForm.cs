@@ -44,6 +44,15 @@ namespace TimelapseCapture
             UpdateEstimate();
         }
 
+        private void SafeInvoke(Action action)
+        {
+            if (InvokeRequired)
+                Invoke(action);
+            else
+                action();
+        }
+
+
         private void ApplyModernStyling()
         {
             foreach (Control c in this.Controls) c.Font = new Font("Segoe UI", 9f);
@@ -433,3 +442,4 @@ namespace TimelapseCapture
         }
     }
 }
+

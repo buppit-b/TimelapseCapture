@@ -77,6 +77,8 @@ namespace TimelapseCapture
             grpCapture.BackColor = System.Drawing.Color.FromArgb(28, 28, 30);
             grpCapture.Controls.Add(btnSelectRegion);
             grpCapture.Controls.Add(lblRegion);
+            grpCapture.Controls.Add(btnEncode);
+            grpCapture.Controls.Add(btnOpenFolder);
             grpCapture.Controls.Add(btnChooseFolder);
             grpCapture.Controls.Add(btnBrowseFfmpeg);
             grpCapture.Controls.Add(lblFolder);
@@ -229,8 +231,6 @@ namespace TimelapseCapture
             grpActions.BackColor = System.Drawing.Color.FromArgb(28, 28, 30);
             grpActions.Controls.Add(btnStart);
             grpActions.Controls.Add(btnStop);
-            grpActions.Controls.Add(btnOpenFolder);
-            grpActions.Controls.Add(btnEncode);
             grpActions.Controls.Add(lblStatus);
             grpActions.Controls.Add(lblEstimate);
             grpActions.ForeColor = System.Drawing.Color.FromArgb(234, 234, 234);
@@ -274,7 +274,7 @@ namespace TimelapseCapture
             btnOpenFolder.BackColor = System.Drawing.Color.FromArgb(45, 45, 45);
             btnOpenFolder.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnOpenFolder.ForeColor = System.Drawing.Color.White;
-            btnOpenFolder.Location = new System.Drawing.Point(314, 30);
+            btnOpenFolder.Location = new System.Drawing.Point(316, 74);
             btnOpenFolder.Name = "btnOpenFolder";
             btnOpenFolder.Size = new System.Drawing.Size(110, 34);
             btnOpenFolder.TabIndex = 2;
@@ -287,7 +287,7 @@ namespace TimelapseCapture
             btnEncode.BackColor = System.Drawing.Color.FromArgb(0, 140, 80);
             btnEncode.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnEncode.ForeColor = System.Drawing.Color.White;
-            btnEncode.Location = new System.Drawing.Point(430, 30);
+            btnEncode.Location = new System.Drawing.Point(440, 74);
             btnEncode.Name = "btnEncode";
             btnEncode.Size = new System.Drawing.Size(150, 34);
             btnEncode.TabIndex = 3;
