@@ -1,6 +1,36 @@
+# Build outputs
 bin/
 obj/
-*.exe
-*.zip
-ffmpeg/
+
+# Visual Studio
 .vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# FFmpeg binaries (downloaded at runtime)
+ffmpeg.exe
+ffprobe.exe
+ffmpeg/
+
+# Archives
+*.zip
+*.7z
+*.rar
+
+# User-specific settings (keep template only)
+settings.json
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Application data
+screenshots/
+output/
+captures/
+timelapse/
+
+# Logs
+*.log
