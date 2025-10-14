@@ -10,6 +10,11 @@ namespace TimelapseCapture
     {
         private const string WindowsZipUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 
+        /// <summary>
+        /// Ensures ffmpeg.exe is available in the target folder.
+        /// If not, downloads and extracts from ZIP.
+        /// Returns the full path to ffmpeg.exe, or null if failed.
+        /// </summary>
         public static async Task<string?> EnsureFfmpegPresentAsync(string ffmpegDir)
         {
             try
@@ -17,35 +22,53 @@ namespace TimelapseCapture
                 Directory.CreateDirectory(ffmpegDir);
                 string exePath = Path.Combine(ffmpegDir, "ffmpeg.exe");
                 if (File.Exists(exePath))
-                    return exePath;
-
-                string tempZip = Path.Combine(Path.GetTempPath(), "ffmpeg.zip");
-                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extract");
-
-                // Download fresh each time if not already cached
-                if (!File.Exists(tempZip))
                 {
-                    using var http = new HttpClient();
-                    var data = await http.GetByteArrayAsync(WindowsZipUrl);
-                    await File.WriteAllBytesAsync(tempZip, data);
+                    return exePath;
                 }
 
+                string tempZip = Path.Combine(Path.GetTempPath(), "ffmpeg_download.zip");
+                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extracted");
+
+                // Download ZIP if not already present
+                if (!File.Exists(tempZip))
+                {
+                    using (var http = new HttpClient())
+                    {
+                        var bytes = await http.GetByteArrayAsync(WindowsZipUrl);
+                        await File.WriteAllBytesAsync(tempZip, bytes);
+                    }
+                }
+
+                // Clean up previous extract directory
                 if (Directory.Exists(extractDir))
-                    Directory.Delete(extractDir, true);
+                {
+                    try
+                    {
+                        Directory.Delete(extractDir, true);
+                    }
+                    catch { }
+                }
 
                 ZipFile.ExtractToDirectory(tempZip, extractDir);
 
-                // Find ffmpeg.exe inside extracted folders
-                var found = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
-                if (found.Length == 0)
-                    throw new Exception("ffmpeg.exe not found in downloaded archive.");
+                // Find ffmpeg.exe in extracted tree
+                var matches = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
+                if (matches.Length == 0)
+                {
+                    return null;
+                }
 
-                File.Copy(found[0], exePath, overwrite: true);
+                // Copy ffmpeg.exe to target folder
+                File.Copy(matches[0], exePath, overwrite: true);
 
-                var ffprobe = Directory.GetFiles(extractDir, "ffprobe.exe", SearchOption.AllDirectories);
-                if (ffprobe.Length > 0)
-                    File.Copy(ffprobe[0], Path.Combine(ffmpegDir, "ffprobe.exe"), overwrite: true);
+                // Also attempt ffprobe.exe
+                var fp = Directory.GetFiles(extractDir, "ffprobe.exe", SearchOption.AllDirectories);
+                if (fp.Length > 0)
+                {
+                    File.Copy(fp[0], Path.Combine(ffmpegDir, "ffprobe.exe"), overwrite: true);
+                }
 
+                // Clean up extraction folder (optional)
                 try
                 {
                     Directory.Delete(extractDir, true);
@@ -56,7 +79,7 @@ namespace TimelapseCapture
             }
             catch (Exception ex)
             {
-                Console.WriteLine("FFmpeg download/extract failed: " + ex.Message);
+                Console.WriteLine("FFmpegDownloader: error ensuring ffmpeg: " + ex.Message);
                 return null;
             }
         }
