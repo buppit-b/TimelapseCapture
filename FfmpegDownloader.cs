@@ -48,15 +48,13 @@ namespace TimelapseCapture
                     }
                 }
 
-                // Extract ZIP
                 ZipFile.ExtractToDirectory(tempZip, extractDir);
 
                 // Find ffmpeg.exe in extracted tree
                 var matches = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
                 if (matches.Length == 0)
                 {
-                    Console.WriteLine("ffmpeg.exe not found in the extracted archive.");
-                    return null!;
+                    return null;
                 }
 
                 // Copy ffmpeg.exe to target folder
@@ -84,7 +82,7 @@ namespace TimelapseCapture
             catch (Exception ex)
             {
                 Console.WriteLine($"Error ensuring ffmpeg presence: {ex.Message}");
-                return null!;
+                return null;
             }
         }
     }
