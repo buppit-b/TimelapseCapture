@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Linq;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -8,52 +8,50 @@ namespace TimelapseCapture
 {
     internal static class FfmpegDownloader
     {
-        private const string FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
+        private const string WindowsZipUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 
-        /// <summary>
-        /// Ensures ffmpeg.exe is available at the given path.
-        /// If not found, attempts to download and extract it automatically.
-        /// </summary>
-        public static async Task<string?> EnsureFfmpegPresentAsync(string? targetPath)
+        public static async Task<string?> EnsureFfmpegPresentAsync(string ffmpegDir)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(targetPath))
-                    targetPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-
-                string exePath = Path.Combine(targetPath, "ffmpeg.exe");
-
+                Directory.CreateDirectory(ffmpegDir);
+                string exePath = Path.Combine(ffmpegDir, "ffmpeg.exe");
                 if (File.Exists(exePath))
                     return exePath;
 
-                Directory.CreateDirectory(targetPath);
-                string zipPath = Path.Combine(targetPath, "ffmpeg.zip");
+                // Download ffmpeg zip to a temp path
+                string tempZip = Path.Combine(Path.GetTempPath(), "ffmpeg.zip");
+                using (var http = new HttpClient())
+                {
+                    var data = await http.GetByteArrayAsync(WindowsZipUrl);
+                    await File.WriteAllBytesAsync(tempZip, data);
+                }
 
-                using var client = new HttpClient();
-                using var response = await client.GetAsync(FFMPEG_URL);
-                response.EnsureSuccessStatusCode();
-                await using var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write);
-                await response.Content.CopyToAsync(fs);
+                // Extract just ffmpeg.exe and ffprobe.exe from archive
+                string extractDir = Path.Combine(Path.GetTempPath(), "ffmpeg_extract");
+                if (Directory.Exists(extractDir))
+                    Directory.Delete(extractDir, true);
+                ZipFile.ExtractToDirectory(tempZip, extractDir);
 
-                System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, targetPath, overwriteFiles: true);
-                File.Delete(zipPath);
+                string[] found = Directory.GetFiles(extractDir, "ffmpeg.exe", SearchOption.AllDirectories);
+                if (found.Length == 0)
+                    return null;
 
-                // Attempt to locate ffmpeg.exe in extracted structure
-                string? foundExe = Directory.GetFiles(targetPath, "ffmpeg.exe", SearchOption.AllDirectories)
-                                            .FirstOrDefault();
+                File.Copy(found[0], exePath, overwrite: true);
 
-                if (foundExe == null)
-                    throw new FileNotFoundException("ffmpeg.exe not found after extraction.");
+                // Optional: copy ffprobe too
+                var ffprobe = Directory.GetFiles(extractDir, "ffprobe.exe", SearchOption.AllDirectories);
+                if (ffprobe.Length > 0)
+                    File.Copy(ffprobe[0], Path.Combine(ffmpegDir, "ffprobe.exe"), overwrite: true);
 
-                // Move it to root path if nested
-                if (Path.GetDirectoryName(foundExe) != targetPath)
-                    File.Move(foundExe, exePath, overwrite: true);
+                // Clean up temp
+                try { File.Delete(tempZip); Directory.Delete(extractDir, true); } catch { }
 
                 return exePath;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error ensuring ffmpeg: " + ex.Message);
+                Console.WriteLine("FFmpeg download failed: " + ex.Message);
                 return null;
             }
         }
