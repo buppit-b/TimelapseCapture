@@ -217,50 +217,69 @@ namespace TimelapseCapture
         {
             try
             {
-                // Download or verify ffmpeg binaries in the default location (FFmpeg.ExecutablesPath)
-                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
-
-                // Optionally use a custom path from settings, if defined
-                if (!string.IsNullOrEmpty(settings.FfmpegPath))
+                // Determine target directory for ffmpeg binaries
+                string ffmpegDir;
+                if (!string.IsNullOrWhiteSpace(settings.FfmpegPath))
                 {
-                    FFmpeg.SetExecutablesPath(settings.FfmpegPath);
+                    // If the user selected a file, use its folder; otherwise assume folder
+                    if (File.Exists(settings.FfmpegPath))
+                        ffmpegDir = Path.GetDirectoryName(settings.FfmpegPath)!;
+                    else
+                        ffmpegDir = settings.FfmpegPath!;
                 }
-
-                string ffmpegPath = FFmpeg.ExecutablesPath;
-                if (string.IsNullOrEmpty(ffmpegPath) || !Directory.Exists(ffmpegPath))
+                else
                 {
-                    MessageBox.Show("ffmpeg not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // Use default local app directory fallback
+                    ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+                }
+                Directory.CreateDirectory(ffmpegDir);
+
+                // Ensure ffmpeg is present (download if needed)
+                string? exePath = await FfmpegDownloader.EnsureFfmpegPresentAsync(ffmpegDir);
+                if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+                {
+                    MessageBox.Show($"ffmpeg not available in: {exePath ?? ffmpegDir}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
+                // Setup capture and output folders
                 var capturesFolder = Path.Combine(settings.SaveFolder ?? AppContext.BaseDirectory, "captures");
                 var timelapsesFolder = Path.Combine(settings.SaveFolder ?? AppContext.BaseDirectory, "timelapses");
                 Directory.CreateDirectory(capturesFolder);
                 Directory.CreateDirectory(timelapsesFolder);
 
-                var pattern = Path.Combine(capturesFolder, "*.jpg");
-                var output = Path.Combine(timelapsesFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+                // Decide input pattern based on format
+                string useFormat = (cmbFormat?.SelectedItem?.ToString() ?? settings.Format) ?? "JPEG";
+                string pattern = useFormat.Equals("PNG", StringComparison.OrdinalIgnoreCase)
+                    ? Path.Combine(capturesFolder, "*.png")
+                    : Path.Combine(capturesFolder, "*.jpg");
+
+                string output = Path.Combine(timelapsesFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
                 int framerate = 30;
+
+                // Build ffmpeg argument string
                 string args = $"-y -framerate {framerate} -pattern_type glob -i \"{pattern}\" -c:v libx264 -pix_fmt yuv420p \"{output}\"";
 
-                if (lblStatus != null) lblStatus.Text = "Encoding...";
-                var result = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args);
+                lblStatus.Text = "Encoding...";
+                var result = await FfmpegRunner.RunFfmpegAsync(exePath, args);
+
                 if (result.exitCode == 0)
                 {
-                    if (lblStatus != null) lblStatus.Text = "Encoding complete: " + Path.GetFileName(output);
-                    Process.Start(new ProcessStartInfo() { FileName = output, UseShellExecute = true });
+                    lblStatus.Text = "Encoding complete: " + Path.GetFileName(output);
+                    Process.Start(new ProcessStartInfo { FileName = output, UseShellExecute = true });
                 }
                 else
                 {
-                    if (lblStatus != null) lblStatus.Text = "ffmpeg error: see log";
+                    lblStatus.Text = "ffmpeg error: see log";
                     MessageBox.Show("ffmpeg failed:\n" + result.error, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error while encoding:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Error during encoding:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
 
 
         private void CaptureFrame(object? state)

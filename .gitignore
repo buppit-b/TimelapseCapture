@@ -1,0 +1,19 @@
+# Ignore build outputs
+bin/
+obj/
+publish/
+*.exe
+*.dll
+*.pdb
+*.zip
+*.7z
+*.msi
+
+# User files
+*.user
+*.suo
+*.log
+
+# Visual Studio and JetBrains
+.vs/
+.idea/
