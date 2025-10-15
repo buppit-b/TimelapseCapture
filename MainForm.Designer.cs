@@ -1,4 +1,6 @@
-// MainForm.Designer.cs
+using System;
+using System.Windows.Forms;
+
 namespace TimelapseCapture
 {
     partial class MainForm
@@ -309,7 +311,8 @@ namespace TimelapseCapture
             // 
             lblEstimate.AutoSize = true;
             lblEstimate.ForeColor = System.Drawing.Color.FromArgb(234, 234, 234);
-            lblEstimate.Location = new System.Drawing.Point(18, 66);
+            lblEstimate.Location = new System.Drawing.Point(18, 75);
+            lblEstimate.MaximumSize = new System.Drawing.Size(560, 0);
             lblEstimate.Name = "lblEstimate";
             lblEstimate.Size = new System.Drawing.Size(0, 15);
             lblEstimate.TabIndex = 7;
@@ -363,12 +366,6 @@ namespace TimelapseCapture
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).EndInit();
             ResumeLayout(false);
             PerformLayout();
-        }
-
-        // Add this event handler method to fix CS0123
-        private void grpActions_Enter(object sender, EventArgs e)
-        {
-            // You can leave this empty or add logic as needed
         }
     }
 }
