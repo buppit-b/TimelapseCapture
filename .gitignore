@@ -34,3 +34,5 @@ timelapse/
 
 # Logs
 *.log
+/bfg.jar
+/git-filter-repo.py
