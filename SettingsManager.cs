@@ -1,81 +1,64 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Drawing;
 
 namespace TimelapseCapture
 {
-    /// <summary>
-    /// Holds configuration values for timelapse capture.
-    /// </summary>
     public class CaptureSettings
     {
-        /// <summary>
-        /// Directory under which all capture sessions/images are stored.
-        /// </summary>
-        public string CapturesRoot { get; set; } = "";
+        public string SaveFolder { get; set; } = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+            "TimelapseCapture");
 
-        /// <summary>
-        /// Interval between frames (in seconds).
-        /// </summary>
-        public int IntervalSeconds { get; set; }
-
-        /// <summary>
-        /// Frames per second in the output video.
-        /// </summary>
-        public int VideoFps { get; set; }
-
-        // You can add more settings fields here, e.g. image format, resolution, etc.
+        public Rectangle? Region { get; set; }
+        public string? Format { get; set; } = "JPEG";
+        public int JpegQuality { get; set; } = 90;
+        public int IntervalSeconds { get; set; } = 5;
+        public string? FfmpegPath { get; set; }
+        public int VideoFps { get; set; } = 30;
     }
 
     public static class SettingsManager
     {
-        private const string SettingsFileName = "settings.json";
+        private static readonly string SettingsFilePath =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TimelapseCapture", "settings.json");
 
-        /// <summary>
-        /// Loads settings from the given base folder. Returns null if file is missing or fails to parse.
-        /// </summary>
-        public static CaptureSettings? LoadSettings(string baseFolder)
+        public static CaptureSettings Load()
         {
-            if (string.IsNullOrEmpty(baseFolder))
-                throw new ArgumentNullException(nameof(baseFolder));
-
-            string filePath = Path.Combine(baseFolder, SettingsFileName);
-            if (!File.Exists(filePath))
-                return null;
-
             try
             {
-                string json = File.ReadAllText(filePath);
-                var opts = new JsonSerializerOptions
+                if (File.Exists(SettingsFilePath))
                 {
-                    PropertyNameCaseInsensitive = true
-                };
-                return JsonSerializer.Deserialize<CaptureSettings>(json, opts);
+                    string json = File.ReadAllText(SettingsFilePath);
+                    var settings = JsonSerializer.Deserialize<CaptureSettings>(json);
+                    return settings ?? new CaptureSettings();
+                }
             }
             catch (Exception ex)
             {
-                // Optionally log ex.Message
-                return null;
+                Console.WriteLine($"Error loading settings: {ex.Message}");
             }
+
+            return new CaptureSettings();
         }
 
-        /// <summary>
-        /// Saves the provided settings to the given base folder (writes JSON).
-        /// </summary>
-        public static void SaveSettings(string baseFolder, CaptureSettings settings)
+        public static void Save(CaptureSettings settings)
         {
-            if (string.IsNullOrEmpty(baseFolder))
-                throw new ArgumentNullException(nameof(baseFolder));
-            if (settings is null)
-                throw new ArgumentNullException(nameof(settings));
-
-            string filePath = Path.Combine(baseFolder, SettingsFileName);
-            var opts = new JsonSerializerOptions
+            try
             {
-                WriteIndented = true
-            };
-            string json = JsonSerializer.Serialize(settings, opts);
-            File.WriteAllText(filePath, json);
+                string? dir = Path.GetDirectoryName(SettingsFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(SettingsFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving settings: {ex.Message}");
+            }
         }
     }
 }
