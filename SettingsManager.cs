@@ -12,9 +12,6 @@ namespace TimelapseCapture
         public string? Format { get; set; } = "JPEG";
         public int JpegQuality { get; set; } = 90;
         public Rectangle? Region { get; set; }
-        // hotkey
-        public int HotkeyModifiers { get; set; } = 0x0002 | 0x0004; // Ctrl + Shift
-        public int HotkeyKey { get; set; } = 0x54; // 'T'
         public string? FfmpegPath { get; set; }
     }
 

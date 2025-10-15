@@ -364,5 +364,11 @@ namespace TimelapseCapture
             ResumeLayout(false);
             PerformLayout();
         }
+
+        // Add this event handler method to fix CS0123
+        private void grpActions_Enter(object sender, EventArgs e)
+        {
+            // You can leave this empty or add logic as needed
+        }
     }
 }

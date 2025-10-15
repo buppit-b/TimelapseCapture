@@ -1,15 +1,11 @@
-// MainForm.cs
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
-using System.Runtime.InteropServices;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Xabe.FFmpeg;
-using Xabe.FFmpeg.Downloader;
 
 namespace TimelapseCapture
 {
@@ -18,16 +14,7 @@ namespace TimelapseCapture
         private Rectangle captureRegion = Rectangle.Empty;
         private System.Threading.Timer? _captureTimer;
         private CaptureSettings settings = new CaptureSettings();
-        private int hotkeyId = 0x1000;
-
-        // Win32 hotkey constants
-        private const int WM_HOTKEY = 0x0312;
-
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+        private string? _ffmpegPath;
 
         public MainForm()
         {
@@ -35,18 +22,45 @@ namespace TimelapseCapture
             ApplyModernStyling();
             LoadSettings();
             WireInitialValues();
-            // register hotkey (use settings, ignore failure)
-            try
-            {
-                RegisterHotKey(this.Handle, hotkeyId, (uint)settings.HotkeyModifiers, (uint)settings.HotkeyKey);
-            }
-            catch { }
             UpdateEstimate();
+            InitializeFfmpeg();
         }
 
         private void ApplyModernStyling()
         {
-            foreach (Control c in this.Controls) c.Font = new Font("Segoe UI", 9f);
+            foreach (Control c in this.Controls) 
+                c.Font = new Font("Segoe UI", 9f);
+        }
+
+        private async void InitializeFfmpeg()
+        {
+            // Try to find or download FFmpeg
+            _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
+            
+            if (string.IsNullOrEmpty(_ffmpegPath))
+            {
+                // Try to download FFmpeg
+                if (lblStatus != null) lblStatus.Text = "Downloading FFmpeg...";
+                var ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+                _ffmpegPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(ffmpegDir);
+                
+                if (!string.IsNullOrEmpty(_ffmpegPath))
+                {
+                    settings.FfmpegPath = _ffmpegPath;
+                    SaveSettings();
+                    if (lblStatus != null) lblStatus.Text = "FFmpeg ready";
+                }
+                else
+                {
+                    if (lblStatus != null) lblStatus.Text = "FFmpeg not available - please browse to ffmpeg.exe";
+                }
+            }
+            else
+            {
+                if (lblStatus != null) lblStatus.Text = "Ready";
+            }
+
+            if (txtFfmpegPath != null) txtFfmpegPath.Text = _ffmpegPath ?? "";
         }
 
         private void WireInitialValues()
@@ -64,7 +78,6 @@ namespace TimelapseCapture
             }
             if (trkQuality != null) trkQuality.Value = settings.JpegQuality;
             if (numQuality != null) numQuality.Value = settings.JpegQuality;
-            if (txtFfmpegPath != null) txtFfmpegPath.Text = settings.FfmpegPath ?? "";
             UpdateQualityControls();
         }
 
@@ -73,11 +86,10 @@ namespace TimelapseCapture
         private void SaveSettings()
         {
             settings.Region = captureRegion;
-            settings.SaveFolder = settings.SaveFolder;
             settings.IntervalSeconds = (int)(numInterval?.Value ?? 5);
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
-            settings.FfmpegPath = txtFfmpegPath?.Text;
+            settings.FfmpegPath = _ffmpegPath;
             SettingsManager.Save(settings);
         }
 
@@ -138,7 +150,7 @@ namespace TimelapseCapture
                 return;
             }
 
-            // lock UI fields while capturing
+            // Lock UI fields while capturing
             if (numInterval != null) numInterval.Enabled = false;
             if (cmbFormat != null) cmbFormat.Enabled = false;
             if (trkQuality != null) trkQuality.Enabled = false;
@@ -151,7 +163,6 @@ namespace TimelapseCapture
             if (btnStop != null) btnStop.Enabled = true;
             if (lblStatus != null) lblStatus.Text = "Capturing...";
 
-            settings.SaveFolder = settings.SaveFolder;
             settings.IntervalSeconds = intervalSec;
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
@@ -206,8 +217,9 @@ namespace TimelapseCapture
                 ofd.Filter = "ffmpeg.exe|ffmpeg.exe|All files|*.*";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    if (txtFfmpegPath != null) txtFfmpegPath.Text = ofd.FileName;
-                    settings.FfmpegPath = ofd.FileName;
+                    _ffmpegPath = ofd.FileName;
+                    if (txtFfmpegPath != null) txtFfmpegPath.Text = _ffmpegPath;
+                    settings.FfmpegPath = _ffmpegPath;
                     SaveSettings();
                 }
             }
@@ -217,25 +229,23 @@ namespace TimelapseCapture
         {
             try
             {
-                // Download or verify ffmpeg binaries in the default location (FFmpeg.ExecutablesPath)
-                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
-
-                // Optionally use a custom path from settings, if defined
-                if (!string.IsNullOrEmpty(settings.FfmpegPath))
+                // Re-check FFmpeg path
+                _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
+                
+                if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
                 {
-                    FFmpeg.SetExecutablesPath(settings.FfmpegPath);
-                }
-
-                string ffmpegPath = FFmpeg.ExecutablesPath;
-                if (string.IsNullOrEmpty(ffmpegPath) || !Directory.Exists(ffmpegPath))
-                {
-                    MessageBox.Show("ffmpeg not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("FFmpeg not found. Please use 'Browse FFmpeg' to locate ffmpeg.exe", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 var capturesFolder = Path.Combine(settings.SaveFolder ?? AppContext.BaseDirectory, "captures");
+                if (!Directory.Exists(capturesFolder) || Directory.GetFiles(capturesFolder, "*.jpg").Length == 0)
+                {
+                    MessageBox.Show("No captures found. Please capture some frames first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 var timelapsesFolder = Path.Combine(settings.SaveFolder ?? AppContext.BaseDirectory, "timelapses");
-                Directory.CreateDirectory(capturesFolder);
                 Directory.CreateDirectory(timelapsesFolder);
 
                 var pattern = Path.Combine(capturesFolder, "*.jpg");
@@ -244,24 +254,36 @@ namespace TimelapseCapture
                 string args = $"-y -framerate {framerate} -pattern_type glob -i \"{pattern}\" -c:v libx264 -pix_fmt yuv420p \"{output}\"";
 
                 if (lblStatus != null) lblStatus.Text = "Encoding...";
-                var result = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args);
+                if (btnEncode != null) btnEncode.Enabled = false;
+
+                var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, args);
+                
+                if (btnEncode != null) btnEncode.Enabled = true;
+
                 if (result.exitCode == 0)
                 {
-                    if (lblStatus != null) lblStatus.Text = "Encoding complete: " + Path.GetFileName(output);
-                    Process.Start(new ProcessStartInfo() { FileName = output, UseShellExecute = true });
+                    if (lblStatus != null) lblStatus.Text = "Encoding complete!";
+                    var dialogResult = MessageBox.Show($"Timelapse created successfully!\n\n{Path.GetFileName(output)}\n\nOpen the video now?", 
+                        "Success", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    
+                    if (dialogResult == DialogResult.Yes)
+                    {
+                        Process.Start(new ProcessStartInfo() { FileName = output, UseShellExecute = true });
+                    }
                 }
                 else
                 {
-                    if (lblStatus != null) lblStatus.Text = "ffmpeg error: see log";
-                    MessageBox.Show("ffmpeg failed:\n" + result.error, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (lblStatus != null) lblStatus.Text = "Encoding failed";
+                    MessageBox.Show("FFmpeg encoding failed:\n" + result.error, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
             {
+                if (btnEncode != null) btnEncode.Enabled = true;
+                if (lblStatus != null) lblStatus.Text = "Error";
                 MessageBox.Show("Error while encoding:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
 
         private void CaptureFrame(object? state)
         {
@@ -362,55 +384,22 @@ namespace TimelapseCapture
 
         private void numInterval_ValueChanged(object? sender, EventArgs e) => UpdateEstimate();
 
-        private void numDesiredSec_ValueChanged(object? sender, EventArgs e) => UpdateEstimate();
-
         private void UpdateEstimate()
         {
             int interval = (int)(numInterval?.Value ?? 5);
             int videoFps = 30;
-            double videoSecondsPerHour = 3600.0 / (interval * videoFps);
-            int desired = (int)(numDesiredSec?.Value ?? 30);
-            double framesNeeded = desired * videoFps;
-            double captureSecondsNeeded = framesNeeded * interval;
-            TimeSpan ts = TimeSpan.FromSeconds(captureSecondsNeeded);
-            string captureNeededStr = string.Format("{0:D2}:{1:D2}:{2:D2}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
-            if (lblEstimate != null) lblEstimate.Text = $"At {interval}s capture interval → {Math.Round(videoSecondsPerHour, 2)}s of video per hour captured (at {videoFps} fps). To get {desired}s of output you must capture for: {captureNeededStr}";
-        }
-
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WM_HOTKEY)
-            {
-                int id = m.WParam.ToInt32();
-                if (id == hotkeyId)
-                {
-                    if (IsCapturing) StopCapture(); else btnStart?.PerformClick();
-                }
-            }
-            base.WndProc(ref m);
+            double capturesPerSecondOfVideo = videoFps;
+            double secondsOfVideoPerHour = 3600.0 / (interval * capturesPerSecondOfVideo);
+            
+            if (lblEstimate != null) 
+                lblEstimate.Text = $"At {interval}s interval → {Math.Round(secondsOfVideoPerHour, 1)}s of video per hour captured (at {videoFps} fps)";
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             StopCapture();
-            try { UnregisterHotKey(this.Handle, hotkeyId); } catch { }
             SaveSettings();
             base.OnFormClosing(e);
-        }
-
-        private void txtFfmpegPath_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void MainForm_Load(object sender, EventArgs e)
-        {
-
-        }
-
-        private void grpActions_Enter(object sender, EventArgs e)
-        {
-
         }
     }
 }
