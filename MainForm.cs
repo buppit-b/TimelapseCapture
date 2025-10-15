@@ -1,12 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace TimelapseCapture
 {
@@ -78,12 +77,10 @@ namespace TimelapseCapture
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
                 if (_activeSession != null)
                 {
-                    // Restore region from session
                     captureRegion = _activeSession.CaptureRegion;
                     if (lblRegion != null)
                         lblRegion.Text = $"Region: {captureRegion.Width}x{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
 
-                    // Restore settings from session
                     if (numInterval != null) numInterval.Value = _activeSession.IntervalSeconds;
                     if (cmbFormat != null) cmbFormat.SelectedItem = _activeSession.ImageFormat ?? "JPEG";
                     if (numQuality != null && _activeSession.ImageFormat == "JPEG")
@@ -131,7 +128,6 @@ namespace TimelapseCapture
 
         private void btnSelectRegion_Click(object? sender, EventArgs e)
         {
-            // Prevent region change during active capture
             if (IsCapturing)
             {
                 MessageBox.Show("Cannot change region while capturing. Stop capture first.",
@@ -139,7 +135,6 @@ namespace TimelapseCapture
                 return;
             }
 
-            // Warn if active session exists with different region
             if (_activeSession != null && captureRegion != Rectangle.Empty)
             {
                 var result = MessageBox.Show(
@@ -155,7 +150,6 @@ namespace TimelapseCapture
                 if (result == DialogResult.No)
                     return;
 
-                // Close current session
                 if (_activeSessionFolder != null)
                     SessionManager.MarkSessionInactive(_activeSessionFolder);
                 _activeSession = null;
@@ -199,7 +193,6 @@ namespace TimelapseCapture
 
         private void cmbFormat_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            // Warn if changing format with active session
             if (_activeSession != null && !IsCapturing)
             {
                 var newFormat = cmbFormat?.SelectedItem?.ToString();
@@ -210,7 +203,6 @@ namespace TimelapseCapture
                         $"Format change requires starting a new session.",
                         "Format Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-                    // Revert to session format
                     if (cmbFormat != null) cmbFormat.SelectedItem = _activeSession.ImageFormat;
                     return;
                 }
@@ -241,19 +233,16 @@ namespace TimelapseCapture
             var format = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
             var quality = (int)(numQuality?.Value ?? 90);
 
-            // Check if we need to create or validate session
             var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
 
             if (_activeSession == null)
             {
-                // Create new session
                 _activeSessionFolder = SessionManager.CreateNewSession(
                     capturesRoot, intervalSec, captureRegion, format, quality);
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
             }
             else
             {
-                // Validate existing session settings
                 if (!SessionManager.ValidateSessionSettings(_activeSession, captureRegion, format, quality))
                 {
                     var result = MessageBox.Show(
@@ -277,7 +266,6 @@ namespace TimelapseCapture
                 }
             }
 
-            // Lock UI during capture
             LockCaptureUI(true);
 
             settings.IntervalSeconds = intervalSec;
@@ -394,7 +382,6 @@ namespace TimelapseCapture
                     return;
                 }
 
-                // Get all available sessions
                 var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
                 var sessions = SessionManager.GetAllSessions(capturesRoot);
 
@@ -405,7 +392,6 @@ namespace TimelapseCapture
                     return;
                 }
 
-                // If active session exists and has frames, use it; otherwise show picker
                 string sessionToEncode;
 
                 if (_activeSession != null && _activeSession.FramesCaptured > 0)
@@ -418,7 +404,6 @@ namespace TimelapseCapture
                 }
                 else
                 {
-                    // Show session picker dialog
                     sessionToEncode = ShowSessionPicker(sessions);
                     if (string.IsNullOrEmpty(sessionToEncode))
                         return;
@@ -434,7 +419,7 @@ namespace TimelapseCapture
             }
         }
 
-        private string? ShowSessionPicker(List<string> sessions)
+        private string? ShowSessionPicker(System.Collections.Generic.List<string> sessions)
         {
             using (var picker = new Form())
             {
@@ -585,7 +570,6 @@ namespace TimelapseCapture
                     }
                 }
 
-                // Increment frame count in session
                 SessionManager.IncrementFrameCount(_activeSessionFolder);
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
@@ -656,11 +640,9 @@ namespace TimelapseCapture
             int desiredSeconds = (int)(numDesiredSec?.Value ?? 30);
             int videoFps = 30;
 
-            // Calculate how much video is produced per hour of capture
             double capturesPerHour = 3600.0 / interval;
             double videoSecondsPerHour = capturesPerHour / videoFps;
 
-            // Calculate how long to capture for desired video length
             double framesNeeded = desiredSeconds * videoFps;
             double captureSecondsNeeded = framesNeeded * interval;
             TimeSpan captureTime = TimeSpan.FromSeconds(captureSecondsNeeded);
@@ -677,26 +659,14 @@ namespace TimelapseCapture
             }
         }
 
-        private void txtFfmpegPath_TextChanged(object sender, EventArgs e)
-        {
-            // Event handler required by Designer
-        }
-
-        private void MainForm_Load(object sender, EventArgs e)
-        {
-            // Event handler required by Designer
-        }
-
-        private void grpActions_Enter(object sender, EventArgs e)
-        {
-            // Event handler required by Designer
-        }
+        private void txtFfmpegPath_TextChanged(object sender, EventArgs e) { }
+        private void MainForm_Load(object sender, EventArgs e) { }
+        private void grpActions_Enter(object sender, EventArgs e) { }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             StopCapture();
 
-            // Mark active session as inactive when closing
             if (_activeSessionFolder != null)
             {
                 SessionManager.MarkSessionInactive(_activeSessionFolder);
