@@ -378,19 +378,41 @@ namespace TimelapseCapture
 
         private void UpdateEstimate()
         {
-            if (lblEstimate != null)
+            if (lblEstimate == null) return;
+
+            if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
-                if (_activeSession != null && _activeSession.VideoFps > 0)
-                {
-                    lblEstimate.Text = $"Session frames: {_activeSession.FramesCaptured}";
-                }
-                else
-                {
-                    lblEstimate.Text = "No active session";
-                }
+                int desiredSec = (int)(numDesiredSec?.Value ?? 30);
+                int interval = _activeSession.IntervalSeconds;
+                int frames = (int)_activeSession.FramesCaptured;
+
+                // Calculate current video length at different FPS options
+                double videoAt25fps = frames / 25.0;
+                double videoAt30fps = frames / 30.0;
+                double videoAt60fps = frames / 60.0;
+
+                // Calculate capture time
+                double captureTimeMinutes = (frames * interval) / 60.0;
+
+                lblEstimate.Text = $"{frames} frames • {captureTimeMinutes:F1}min capture\n" +
+                                  $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+            }
+            else if (_activeSession != null)
+            {
+                lblEstimate.Text = "Session active • 0 frames captured";
+            }
+            else
+            {
+                int desiredSec = (int)(numDesiredSec?.Value ?? 30);
+                int interval = (int)(numInterval?.Value ?? 5);
+                int neededFrames = desiredSec * 25; // Assuming 25 FPS output
+                double captureTimeMinutes = (neededFrames * interval) / 60.0;
+
+                lblEstimate.Text = $"Need {neededFrames} frames for {desiredSec}s video @25fps\n" +
+                                  $"≈ {captureTimeMinutes:F0} minutes of capture";
             }
         }
-        // --- MainForm.cs (Chunk 3/3) ---
+
         private void btnOpenFolder_Click(object? sender, EventArgs e)
         {
             string folderToOpen;
