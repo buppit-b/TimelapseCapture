@@ -1,4 +1,3 @@
-// --- MainForm.cs (Chunk 1/3) ---
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -36,14 +35,12 @@ namespace TimelapseCapture
                 c.Font = new Font("Segoe UI", 9f);
         }
 
-        // Initialize or locate ffmpeg binary. Uses your existing downloader helper if needed.
         private async void InitializeFfmpeg()
         {
             _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
             if (string.IsNullOrEmpty(_ffmpegPath))
             {
                 if (lblStatus != null) lblStatus.Text = "Downloading/locating FFmpeg...";
-                // Use EnsureFfmpegPresentAsync which exists in your repo and returns path or null.
                 var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
                 _ffmpegPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(dirTarget);
                 if (!string.IsNullOrEmpty(_ffmpegPath))
@@ -96,7 +93,6 @@ namespace TimelapseCapture
             if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
             if (numDesiredSec != null) numDesiredSec.Value = 30;
 
-            // ==== Claude's change: load and defensively validate region from settings ====
             if (settings.Region.HasValue && _activeSession == null)
             {
                 var r = settings.Region.Value;
@@ -123,6 +119,7 @@ namespace TimelapseCapture
 
             if (trkQuality != null) trkQuality.Value = settings.JpegQuality;
             if (numQuality != null) numQuality.Value = settings.JpegQuality;
+            if (lblQuality != null) lblQuality.Text = $"JPEG Quality: {settings.JpegQuality}";
             UpdateQualityControls();
         }
 
@@ -138,13 +135,11 @@ namespace TimelapseCapture
             SettingsManager.Save(settings);
         }
 
-        // Helper: validate region dimensions (even width/height and positive)
         private bool IsValidRegion(Rectangle r)
         {
             return r.Width > 0 && r.Height > 0 && (r.Width & 1) == 0 && (r.Height & 1) == 0;
         }
-        // --- MainForm.cs (Chunk 2/3) ---
-        // Existing Select Region handler (keeps your original name and flow) with Claude's selection semantics
+
         private void btnSelectRegion_Click(object? sender, EventArgs e)
         {
             if (IsCapturing)
@@ -179,7 +174,6 @@ namespace TimelapseCapture
                 if (selector.ShowDialog() == DialogResult.OK)
                 {
                     captureRegion = selector.SelectedRegion;
-                    // RegionSelector guarantees even dimensions so no further validation required here.
                     if (lblRegion != null)
                         lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
 
@@ -228,6 +222,26 @@ namespace TimelapseCapture
             UpdateQualityControls();
         }
 
+        private void trkQuality_Scroll(object? sender, EventArgs e)
+        {
+            if (numQuality != null && trkQuality != null)
+            {
+                numQuality.Value = trkQuality.Value;
+                if (lblQuality != null)
+                    lblQuality.Text = $"JPEG Quality: {trkQuality.Value}";
+            }
+        }
+
+        private void numQuality_ValueChanged(object? sender, EventArgs e)
+        {
+            if (numQuality != null && trkQuality != null)
+            {
+                trkQuality.Value = (int)numQuality.Value;
+                if (lblQuality != null)
+                    lblQuality.Text = $"JPEG Quality: {(int)numQuality.Value}";
+            }
+        }
+
         private void UpdateQualityControls()
         {
             bool jpeg = (cmbFormat?.SelectedItem?.ToString() ?? "JPEG") == "JPEG";
@@ -238,7 +252,6 @@ namespace TimelapseCapture
 
         private bool IsCapturing => _captureTimer != null;
 
-        // Start (existing name preserved)
         private void btnStart_Click(object? sender, EventArgs e)
         {
             if (captureRegion.Width == 0 || string.IsNullOrEmpty(settings.SaveFolder))
@@ -337,20 +350,18 @@ namespace TimelapseCapture
                     bmp.Save(fileName, ImageFormat.Jpeg);
                 }
 
-                // Increment frame count via SessionManager helper so session file is updated
                 SessionManager.IncrementFrameCount(_activeSessionFolder!);
-                // reload session info in memory
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
-                // Update UI on the UI thread using BeginInvoke
+                // Update UI on the UI thread
                 BeginInvoke(new Action(() =>
                 {
                     UpdateStatusDisplay();
+                    UpdateEstimate();
                 }));
             }
             catch (Exception ex)
             {
-                // Log or handle errors during capture
                 System.Diagnostics.Debug.WriteLine($"Capture error: {ex.Message}");
             }
         }
@@ -452,11 +463,9 @@ namespace TimelapseCapture
         {
             try
             {
-                // Ensure ffmpeg path is available (use configured path, then try downloader if not found)
                 _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
                 if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
                 {
-                    // attempt to download/extract into app ffmpeg folder
                     var ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
                     var found = await FfmpegDownloader.EnsureFfmpegPresentAsync(ffmpegDir);
                     if (!string.IsNullOrEmpty(found))
@@ -487,32 +496,25 @@ namespace TimelapseCapture
                     return;
                 }
 
-                // Final defensive validation of region before encoding
                 if (!IsValidRegion(captureRegion))
                 {
                     MessageBox.Show("Invalid capture region. Please select a new region.", "Invalid Region", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                // Build filelist.txt (FFmpeg concat demuxer expects lines like: file '/path/to/file.jpg')
                 string fileListPath = Path.Combine(sessionFolder, "filelist.txt");
                 using (var writer = new StreamWriter(fileListPath, false))
                 {
-                    // sort filenames to ensure chronological order
                     Array.Sort(jpgFiles, StringComparer.Ordinal);
                     foreach (var f in jpgFiles)
                     {
-                        // escape single quotes by closing and re-opening; simpler is to wrap with double quotes if path has no quotes
                         writer.WriteLine($"file '{f.Replace("'", "'\\''")}'");
                     }
                 }
 
                 string outputPath = Path.Combine(sessionFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
-
-                // Build ffmpeg args: use your preferred defaults (25 fps, crf 23, preset medium)
                 string ffmpegArgs = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r 25 -c:v libx264 -crf 23 -preset medium \"{outputPath}\"";
 
-                // Run ffmpeg
                 var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
 
                 if (result.exitCode == 0)
@@ -528,26 +530,6 @@ namespace TimelapseCapture
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during encoding: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void trkQuality_Scroll(object? sender, EventArgs e)
-        {
-            if (numQuality != null && trkQuality != null)
-            {
-                numQuality.Value = trkQuality.Value;
-                if (lblQuality != null)
-                    lblQuality.Text = $"JPEG Quality: {trkQuality.Value}";
-            }
-        }
-
-        private void numQuality_ValueChanged(object? sender, EventArgs e)
-        {
-            if (numQuality != null && trkQuality != null)
-            {
-                trkQuality.Value = (int)numQuality.Value;
-                if (lblQuality != null)
-                    lblQuality.Text = $"JPEG Quality: {(int)numQuality.Value}";
             }
         }
 

@@ -180,10 +180,9 @@ namespace TimelapseCapture
             // 
             // lblEstimate
             // 
-            this.lblEstimate.AutoSize = true;
-            this.lblEstimate.Location = new System.Drawing.Point(15, 320);
+            this.lblEstimate.Location = new System.Drawing.Point(15, 330);
             this.lblEstimate.Name = "lblEstimate";
-            this.lblEstimate.Size = new System.Drawing.Size(100, 15);
+            this.lblEstimate.Size = new System.Drawing.Size(410, 40);
             this.lblEstimate.TabIndex = 15;
             this.lblEstimate.Text = "No active session";
 
