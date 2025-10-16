@@ -320,25 +320,39 @@ namespace TimelapseCapture
             if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = !locked;
             if (btnStart != null) btnStart.Enabled = !locked;
             if (btnStop != null) btnStop.Enabled = locked;
+            if (btnEncode != null) btnEncode.Enabled = !locked;
         }
 
         private void CaptureFrame(object? state)
         {
             if (_activeSession == null || _captureTimer == null) return;
 
-            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string fileName = Path.Combine(_activeSessionFolder!, $"{timestamp}.jpg");
-
-            using (var bmp = CaptureScreen())
+            try
             {
-                bmp.Save(fileName, ImageFormat.Jpeg);
-            }
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = Path.Combine(_activeSessionFolder!, $"{timestamp}.jpg");
 
-            // Increment frame count via SessionManager helper so session file is updated
-            SessionManager.IncrementFrameCount(_activeSessionFolder!);
-            // reload session info in memory (optional)
-            _activeSession = SessionManager.LoadSession(_activeSessionFolder);
-            UpdateStatusDisplay();
+                using (var bmp = CaptureScreen())
+                {
+                    bmp.Save(fileName, ImageFormat.Jpeg);
+                }
+
+                // Increment frame count via SessionManager helper so session file is updated
+                SessionManager.IncrementFrameCount(_activeSessionFolder!);
+                // reload session info in memory
+                _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+
+                // Update UI on the UI thread using BeginInvoke
+                BeginInvoke(new Action(() =>
+                {
+                    UpdateStatusDisplay();
+                }));
+            }
+            catch (Exception ex)
+            {
+                // Log or handle errors during capture
+                System.Diagnostics.Debug.WriteLine($"Capture error: {ex.Message}");
+            }
         }
 
         private Bitmap CaptureScreen()
@@ -492,6 +506,26 @@ namespace TimelapseCapture
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during encoding: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void trkQuality_Scroll(object? sender, EventArgs e)
+        {
+            if (numQuality != null && trkQuality != null)
+            {
+                numQuality.Value = trkQuality.Value;
+                if (lblQuality != null)
+                    lblQuality.Text = $"JPEG Quality: {trkQuality.Value}";
+            }
+        }
+
+        private void numQuality_ValueChanged(object? sender, EventArgs e)
+        {
+            if (numQuality != null && trkQuality != null)
+            {
+                trkQuality.Value = (int)numQuality.Value;
+                if (lblQuality != null)
+                    lblQuality.Text = $"JPEG Quality: {(int)numQuality.Value}";
             }
         }
 
