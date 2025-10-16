@@ -9,14 +9,24 @@ using System.Threading.Tasks;
 
 namespace TimelapseCapture
 {
+    /// <summary>
+    /// Main application form for timelapse capture functionality.
+    /// Handles region selection, capture scheduling, and video encoding.
+    /// </summary>
     public partial class MainForm : Form
     {
+        #region Fields
+
         private Rectangle captureRegion = Rectangle.Empty;
         private System.Threading.Timer? _captureTimer;
         private CaptureSettings settings = new CaptureSettings();
         private string? _ffmpegPath;
         private string? _activeSessionFolder;
         private SessionInfo? _activeSession;
+
+        #endregion
+
+        #region Initialization
 
         public MainForm()
         {
@@ -29,12 +39,18 @@ namespace TimelapseCapture
             InitializeFfmpeg();
         }
 
+        /// <summary>
+        /// Apply modern font styling to all controls.
+        /// </summary>
         private void ApplyModernStyling()
         {
             foreach (Control c in this.Controls)
                 c.Font = new Font("Segoe UI", 9f);
         }
 
+        /// <summary>
+        /// Initialize FFmpeg - find existing installation or download if needed.
+        /// </summary>
         private async void InitializeFfmpeg()
         {
             _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
@@ -43,6 +59,7 @@ namespace TimelapseCapture
                 if (lblStatus != null) lblStatus.Text = "Downloading/locating FFmpeg...";
                 var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
                 _ffmpegPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(dirTarget);
+
                 if (!string.IsNullOrEmpty(_ffmpegPath))
                 {
                     settings.FfmpegPath = _ffmpegPath;
@@ -63,11 +80,16 @@ namespace TimelapseCapture
                 txtFfmpegPath.Text = _ffmpegPath ?? "";
         }
 
+        /// <summary>
+        /// Check for any active session in the save folder and resume if found.
+        /// </summary>
         private void CheckForActiveSession()
         {
             if (string.IsNullOrEmpty(settings.SaveFolder)) return;
+
             var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
             _activeSessionFolder = SessionManager.FindActiveSession(capturesRoot);
+
             if (_activeSessionFolder != null)
             {
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
@@ -87,22 +109,26 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// Load saved settings and apply to UI controls.
+        /// Auto-fixes any invalid region dimensions (e.g., odd widths/heights).
+        /// </summary>
         private void WireInitialValues()
         {
             if (cmbFormat != null) cmbFormat.SelectedItem = settings.Format ?? "JPEG";
             if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
             if (numDesiredSec != null) numDesiredSec.Value = 30;
 
+            // Load and validate saved region
             if (settings.Region.HasValue && _activeSession == null)
             {
                 var r = settings.Region.Value;
 
-                // Validate and fix region dimensions if needed
                 if (r.Width > 0 && r.Height > 0)
                 {
                     bool wasFixed = false;
 
-                    // Ensure even dimensions
+                    // Ensure even dimensions for video encoding compatibility
                     if ((r.Width & 1) == 1)
                     {
                         r.Width = Math.Max(2, r.Width - 1);
@@ -139,8 +165,18 @@ namespace TimelapseCapture
             UpdateQualityControls();
         }
 
+        #endregion
+
+        #region Settings Management
+
+        /// <summary>
+        /// Load settings from persistent storage.
+        /// </summary>
         private void LoadSettings() => settings = SettingsManager.Load();
 
+        /// <summary>
+        /// Save current settings to persistent storage.
+        /// </summary>
         private void SaveSettings()
         {
             settings.Region = captureRegion;
@@ -151,16 +187,31 @@ namespace TimelapseCapture
             SettingsManager.Save(settings);
         }
 
+        /// <summary>
+        /// Validate that a region has even dimensions (required for video encoding).
+        /// </summary>
         private bool IsValidRegion(Rectangle r)
         {
             return r.Width > 0 && r.Height > 0 && (r.Width & 1) == 0 && (r.Height & 1) == 0;
         }
 
+        #endregion
+
+        #region UI Event Handlers - Region & Folder Selection
+
+        /// <summary>
+        /// Handle region selection button click.
+        /// Shows full-screen overlay for region selection.
+        /// </summary>
         private void btnSelectRegion_Click(object? sender, EventArgs e)
         {
             if (IsCapturing)
             {
-                MessageBox.Show("Cannot change region while capturing. Stop capture first.", "Cannot Change Region", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "Cannot change region while capturing. Stop capture first.",
+                    "Cannot Change Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
@@ -183,6 +234,7 @@ namespace TimelapseCapture
                 _activeSessionFolder = null;
             }
 
+            // Hide main form temporarily for clean region selection
             Hide();
             Task.Delay(200).Wait();
 
@@ -219,11 +271,16 @@ namespace TimelapseCapture
             UpdateEstimate();
         }
 
+        /// <summary>
+        /// Handle folder selection button click.
+        /// </summary>
         private void btnChooseFolder_Click(object? sender, EventArgs e)
         {
             using (var fbd = new FolderBrowserDialog())
             {
-                if (!string.IsNullOrEmpty(settings.SaveFolder)) fbd.SelectedPath = settings.SaveFolder;
+                if (!string.IsNullOrEmpty(settings.SaveFolder))
+                    fbd.SelectedPath = settings.SaveFolder;
+
                 if (fbd.ShowDialog() == DialogResult.OK)
                 {
                     settings.SaveFolder = fbd.SelectedPath;
@@ -234,6 +291,14 @@ namespace TimelapseCapture
             }
         }
 
+        #endregion
+
+        #region UI Event Handlers - Format & Quality
+
+        /// <summary>
+        /// Handle format dropdown change.
+        /// Validates against active session and updates quality control visibility.
+        /// </summary>
         private void cmbFormat_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (_activeSession != null && !IsCapturing)
@@ -255,6 +320,9 @@ namespace TimelapseCapture
             UpdateQualityControls();
         }
 
+        /// <summary>
+        /// Handle quality trackbar scroll - sync with numeric control.
+        /// </summary>
         private void trkQuality_Scroll(object? sender, EventArgs e)
         {
             if (numQuality != null && trkQuality != null)
@@ -265,6 +333,9 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// Handle quality numeric control change - sync with trackbar.
+        /// </summary>
         private void numQuality_ValueChanged(object? sender, EventArgs e)
         {
             if (numQuality != null && trkQuality != null)
@@ -275,6 +346,9 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// Enable/disable quality controls based on selected format (JPEG only).
+        /// </summary>
         private void UpdateQualityControls()
         {
             bool jpeg = (cmbFormat?.SelectedItem?.ToString() ?? "JPEG") == "JPEG";
@@ -283,14 +357,29 @@ namespace TimelapseCapture
             if (lblQuality != null) lblQuality.Enabled = jpeg;
         }
 
+        #endregion
+
+        #region Capture Control
+
+        /// <summary>
+        /// Gets whether capture is currently active.
+        /// </summary>
         private bool IsCapturing => _captureTimer != null;
 
+        /// <summary>
+        /// Start capture session.
+        /// Validates settings and creates/resumes session.
+        /// </summary>
         private void btnStart_Click(object? sender, EventArgs e)
         {
             // Validate region
             if (captureRegion.Width == 0 || captureRegion.Height == 0)
             {
-                MessageBox.Show("Please select a capture region first.", "Missing Region", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "Please select a capture region first.",
+                    "Missing Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
@@ -308,7 +397,11 @@ namespace TimelapseCapture
 
             if (string.IsNullOrEmpty(settings.SaveFolder))
             {
-                MessageBox.Show("Please select a save folder.", "Missing Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "Please select a save folder.",
+                    "Missing Folder",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
@@ -317,6 +410,7 @@ namespace TimelapseCapture
             var quality = (int)(numQuality?.Value ?? 90);
             var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
 
+            // Create new session or validate existing
             if (_activeSession == null)
             {
                 _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
@@ -346,6 +440,7 @@ namespace TimelapseCapture
                 }
             }
 
+            // Lock UI and start capture timer
             LockCaptureUI(true);
             settings.IntervalSeconds = intervalSec;
             settings.Format = format;
@@ -358,8 +453,14 @@ namespace TimelapseCapture
             UpdateEstimate();
         }
 
+        /// <summary>
+        /// Stop capture session.
+        /// </summary>
         private void btnStop_Click(object? sender, EventArgs e) => StopCapture();
 
+        /// <summary>
+        /// Stop capture and unlock UI.
+        /// </summary>
         private void StopCapture()
         {
             if (_captureTimer != null)
@@ -374,6 +475,10 @@ namespace TimelapseCapture
             UpdateEstimate();
         }
 
+        /// <summary>
+        /// Lock/unlock UI controls during capture.
+        /// Prevents changing settings that would invalidate the session.
+        /// </summary>
         private void LockCaptureUI(bool locked)
         {
             if (numInterval != null) numInterval.Enabled = !locked;
@@ -388,6 +493,9 @@ namespace TimelapseCapture
             if (btnEncode != null) btnEncode.Enabled = !locked;
         }
 
+        /// <summary>
+        /// Capture a single frame (called by timer).
+        /// </summary>
         private void CaptureFrame(object? state)
         {
             if (_activeSession == null || _captureTimer == null) return;
@@ -418,6 +526,9 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// Capture the screen region as a bitmap.
+        /// </summary>
         private Bitmap CaptureScreen()
         {
             var bmp = new Bitmap(captureRegion.Width, captureRegion.Height);
@@ -428,26 +539,36 @@ namespace TimelapseCapture
             return bmp;
         }
 
+        #endregion
+
+        #region Display Updates
+
+        /// <summary>
+        /// Update status label with current capture state.
+        /// </summary>
         private void UpdateStatusDisplay()
         {
             if (lblStatus == null) return;
+
             if (IsCapturing)
-                lblStatus.Text = $"Capturing ({_activeSession?.FramesCaptured ?? 0} frames)";
+                lblStatus.Text = $"🔴 Capturing ({_activeSession?.FramesCaptured ?? 0} frames)";
             else if (_activeSession != null)
                 lblStatus.Text = $"Session: {_activeSession.Name} ({_activeSession.FramesCaptured} frames)";
             else
                 lblStatus.Text = "Ready - No active session";
         }
 
+        /// <summary>
+        /// Update video length estimates based on current frame count.
+        /// </summary>
         private void UpdateEstimate()
         {
             if (lblEstimate == null) return;
 
             if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
-                int desiredSec = (int)(numDesiredSec?.Value ?? 30);
-                int interval = _activeSession.IntervalSeconds;
                 int frames = (int)_activeSession.FramesCaptured;
+                int interval = _activeSession.IntervalSeconds;
 
                 // Calculate current video length at different FPS options
                 double videoAt25fps = frames / 25.0;
@@ -476,6 +597,13 @@ namespace TimelapseCapture
             }
         }
 
+        #endregion
+
+        #region FFmpeg & Encoding
+
+        /// <summary>
+        /// Open the folder containing captured frames.
+        /// </summary>
         private void btnOpenFolder_Click(object? sender, EventArgs e)
         {
             string folderToOpen;
@@ -496,6 +624,9 @@ namespace TimelapseCapture
             Process.Start(new ProcessStartInfo() { FileName = folderToOpen, UseShellExecute = true });
         }
 
+        /// <summary>
+        /// Browse for ffmpeg.exe manually.
+        /// </summary>
         private void btnBrowseFfmpeg_Click(object? sender, EventArgs e)
         {
             using (var ofd = new OpenFileDialog())
@@ -511,10 +642,14 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// Encode captured frames into a video file using FFmpeg.
+        /// </summary>
         private async void btnEncode_Click(object? sender, EventArgs e)
         {
             try
             {
+                // Ensure FFmpeg is available
                 _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
                 if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
                 {
@@ -530,13 +665,21 @@ namespace TimelapseCapture
 
                 if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
                 {
-                    MessageBox.Show("FFmpeg not found. Please use 'Browse FFmpeg' to locate ffmpeg.exe", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(
+                        "FFmpeg not found. Please use 'Browse FFmpeg' to locate ffmpeg.exe",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                     return;
                 }
 
                 if (string.IsNullOrEmpty(settings.SaveFolder))
                 {
-                    MessageBox.Show("Please select a save folder first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(
+                        "Please select a save folder first.",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -544,16 +687,25 @@ namespace TimelapseCapture
                 var jpgFiles = Directory.GetFiles(sessionFolder, "*.jpg");
                 if (jpgFiles.Length == 0)
                 {
-                    MessageBox.Show("No images found to encode. Capture some frames first!", "No Images", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(
+                        "No images found to encode. Capture some frames first!",
+                        "No Images",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (!IsValidRegion(captureRegion))
                 {
-                    MessageBox.Show("Invalid capture region. Please select a new region.", "Invalid Region", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(
+                        "Invalid capture region. Please select a new region.",
+                        "Invalid Region",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                     return;
                 }
 
+                // Create file list for FFmpeg concat
                 string fileListPath = Path.Combine(sessionFolder, "filelist.txt");
                 using (var writer = new StreamWriter(fileListPath, false))
                 {
@@ -571,26 +723,57 @@ namespace TimelapseCapture
 
                 if (result.exitCode == 0)
                 {
-                    MessageBox.Show($"Video encoded successfully!\n\nSaved to:\n{outputPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(
+                        $"Video encoded successfully!\n\nSaved to:\n{outputPath}",
+                        "Success",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
                     Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
                 }
                 else
                 {
-                    MessageBox.Show($"FFmpeg encoding failed.\n\nStdout:\n{result.output}\n\nStderr:\n{result.error}", "Encoding Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(
+                        $"FFmpeg encoding failed.\n\nStdout:\n{result.output}\n\nStderr:\n{result.error}",
+                        "Encoding Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error during encoding: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(
+                    $"Error during encoding: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
 
+        #endregion
+
+        #region Form Lifecycle
+
+        /// <summary>
+        /// Handle form closing - cleanup resources and mark session inactive.
+        /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             _captureTimer?.Dispose();
 
             if (_activeSessionFolder != null)
                 SessionManager.MarkSessionInactive(_activeSessionFolder);
+        }
+
+        #endregion
+
+        private void grpSession_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void grpOutput_Enter(object sender, EventArgs e)
+        {
+
         }
     }
 }
