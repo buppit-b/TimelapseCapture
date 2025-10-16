@@ -97,18 +97,34 @@ namespace TimelapseCapture
             {
                 var r = settings.Region.Value;
 
-                // Defensive validation: width/height should be even and > 0
-                if (!IsValidRegion(r))
+                // Validate and fix region dimensions if needed
+                if (r.Width > 0 && r.Height > 0)
                 {
-                    if ((r.Width & 1) == 1) r.Width = Math.Max(2, r.Width - 1);
-                    if ((r.Height & 1) == 1) r.Height = Math.Max(2, r.Height - 1);
-                    settings.Region = r;
-                    SaveSettings();
-                }
+                    bool wasFixed = false;
 
-                captureRegion = r;
-                if (lblRegion != null)
-                    lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                    // Ensure even dimensions
+                    if ((r.Width & 1) == 1)
+                    {
+                        r.Width = Math.Max(2, r.Width - 1);
+                        wasFixed = true;
+                    }
+                    if ((r.Height & 1) == 1)
+                    {
+                        r.Height = Math.Max(2, r.Height - 1);
+                        wasFixed = true;
+                    }
+
+                    captureRegion = r;
+
+                    if (wasFixed)
+                    {
+                        settings.Region = r;
+                        SaveSettings();
+                    }
+
+                    if (lblRegion != null)
+                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                }
             }
 
             if (!string.IsNullOrEmpty(settings.SaveFolder))
@@ -169,18 +185,35 @@ namespace TimelapseCapture
 
             Hide();
             Task.Delay(200).Wait();
+
             using (var selector = new RegionSelector())
             {
                 if (selector.ShowDialog() == DialogResult.OK)
                 {
                     captureRegion = selector.SelectedRegion;
-                    if (lblRegion != null)
-                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
 
-                    settings.Region = captureRegion;
-                    SaveSettings();
+                    // Validate the selected region
+                    if (!IsValidRegion(captureRegion))
+                    {
+                        MessageBox.Show(
+                            $"Selected region has invalid dimensions: {captureRegion.Width}×{captureRegion.Height}\n\n" +
+                            "This should not happen - please report this bug.",
+                            "Invalid Region",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        captureRegion = Rectangle.Empty;
+                    }
+                    else
+                    {
+                        if (lblRegion != null)
+                            lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+
+                        settings.Region = captureRegion;
+                        SaveSettings();
+                    }
                 }
             }
+
             Show();
             UpdateStatusDisplay();
             UpdateEstimate();
@@ -254,9 +287,28 @@ namespace TimelapseCapture
 
         private void btnStart_Click(object? sender, EventArgs e)
         {
-            if (captureRegion.Width == 0 || string.IsNullOrEmpty(settings.SaveFolder))
+            // Validate region
+            if (captureRegion.Width == 0 || captureRegion.Height == 0)
             {
-                MessageBox.Show("Please select both a region and a save folder.", "Missing settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select a capture region first.", "Missing Region", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!IsValidRegion(captureRegion))
+            {
+                MessageBox.Show(
+                    $"Invalid capture region dimensions: {captureRegion.Width}×{captureRegion.Height}\n\n" +
+                    "Dimensions must be even numbers for video encoding.\n" +
+                    "Please select a new region.",
+                    "Invalid Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(settings.SaveFolder))
+            {
+                MessageBox.Show("Please select a save folder.", "Missing Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
