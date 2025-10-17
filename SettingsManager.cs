@@ -13,7 +13,11 @@ namespace TimelapseCapture
         public int JpegQuality { get; set; } = 90;
         public Rectangle? Region { get; set; }
         public string? FfmpegPath { get; set; }
+        public int AspectRatioIndex { get; set; } = 0; // Default to "Free" aspect ratio
     }
+
+
+
 
     public static class SettingsManager
     {

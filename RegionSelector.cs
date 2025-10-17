@@ -4,17 +4,29 @@ using System.Windows.Forms;
 
 namespace TimelapseCapture
 {
+    /// <summary>
+    /// Full-screen overlay for selecting a screen region with optional aspect ratio locking.
+    /// </summary>
     public class RegionSelector : Form
     {
         private Point start;
         private Point end;
         private bool drawing = false;
+        private AspectRatio? _lockedRatio;
 
-        // Returned in ABSOLUTE screen coordinates (so CaptureScreen() in MainForm can use it directly)
+        /// <summary>
+        /// Selected region in absolute screen coordinates.
+        /// </summary>
         public Rectangle SelectedRegion { get; private set; }
 
-        public RegionSelector()
+        /// <summary>
+        /// Create a new region selector.
+        /// </summary>
+        /// <param name="aspectRatio">Optional aspect ratio to lock selection to</param>
+        public RegionSelector(AspectRatio? aspectRatio = null)
         {
+            _lockedRatio = aspectRatio;
+
             // Make the form cover the entire virtual desktop (all monitors)
             StartPosition = FormStartPosition.Manual;
             Bounds = SystemInformation.VirtualScreen;
@@ -59,6 +71,49 @@ namespace TimelapseCapture
             if (drawing)
             {
                 end = e.Location;
+
+                // Apply aspect ratio constraint if locked
+                if (_lockedRatio != null && _lockedRatio.Width > 0)
+                {
+                    // Calculate raw rectangle from drag
+                    var rawRect = new Rectangle(
+                        Math.Min(start.X, end.X),
+                        Math.Min(start.Y, end.Y),
+                        Math.Abs(start.X - end.X),
+                        Math.Abs(start.Y - end.Y)
+                    );
+
+                    // Constrain to aspect ratio
+                    var constrained = AspectRatio.ConstrainToRatio(
+                        rawRect,
+                        _lockedRatio.Width,
+                        _lockedRatio.Height
+                    );
+
+                    // Update end point to match constrained rectangle
+                    // Adjust based on drag direction
+                    if (end.X >= start.X && end.Y >= start.Y)
+                    {
+                        // Bottom-right drag
+                        end = new Point(start.X + constrained.Width, start.Y + constrained.Height);
+                    }
+                    else if (end.X < start.X && end.Y >= start.Y)
+                    {
+                        // Bottom-left drag
+                        end = new Point(start.X - constrained.Width, start.Y + constrained.Height);
+                    }
+                    else if (end.X >= start.X && end.Y < start.Y)
+                    {
+                        // Top-right drag
+                        end = new Point(start.X + constrained.Width, start.Y - constrained.Height);
+                    }
+                    else
+                    {
+                        // Top-left drag
+                        end = new Point(start.X - constrained.Width, start.Y - constrained.Height);
+                    }
+                }
+
                 Invalidate();
             }
         }
@@ -80,17 +135,28 @@ namespace TimelapseCapture
                 int width = Math.Abs(absStart.X - absEnd.X);
                 int height = Math.Abs(absStart.Y - absEnd.Y);
 
-                // CRITICAL FIX: Ensure dimensions are even for video encoding compatibility
-                // If width is odd, round down to make it even
-                if ((width & 1) == 1) width = Math.Max(2, width - 1);
-                // If height is odd, round down to make it even
-                if ((height & 1) == 1) height = Math.Max(2, height - 1);
+                var region = new Rectangle(x, y, width, height);
+
+                // Apply aspect ratio constraint one final time
+                if (_lockedRatio != null && _lockedRatio.Width > 0)
+                {
+                    region = AspectRatio.ConstrainToRatio(
+                        region,
+                        _lockedRatio.Width,
+                        _lockedRatio.Height
+                    );
+                }
+                else
+                {
+                    // No aspect ratio lock - just ensure even dimensions
+                    region = AspectRatio.EnsureEvenDimensions(region);
+                }
 
                 // Ensure minimum size
-                if (width < 2) width = 2;
-                if (height < 2) height = 2;
+                if (region.Width < 2) region.Width = 2;
+                if (region.Height < 2) region.Height = 2;
 
-                SelectedRegion = new Rectangle(x, y, width, height);
+                SelectedRegion = region;
 
                 DialogResult = DialogResult.OK;
                 Close();
@@ -109,15 +175,30 @@ namespace TimelapseCapture
                     Math.Abs(start.Y - end.Y)
                 );
 
+                // Draw selection rectangle
                 using (var pen = new Pen(Color.FromArgb(220, 0, 122, 204), 2))
                 {
                     e.Graphics.DrawRectangle(pen, rect);
                 }
 
-                // Draw dimension text
+                // Draw corner brackets (inspired by targeting systems)
+                DrawCornerBrackets(e.Graphics, rect);
+
+                // Draw dimension text with aspect ratio info
                 string dimensions = $"{rect.Width} × {rect.Height}";
+                if (_lockedRatio != null && _lockedRatio.Width > 0)
+                {
+                    dimensions += $" ({_lockedRatio.Width}:{_lockedRatio.Height})";
+                }
+                else
+                {
+                    // Show calculated ratio for free mode
+                    string ratio = AspectRatio.CalculateRatioString(rect.Width, rect.Height);
+                    dimensions += $" ({ratio})";
+                }
+
                 using (var brush = new SolidBrush(Color.White))
-                using (var font = new Font("Segoe UI", 12, FontStyle.Bold))
+                using (var font = new Font("Consolas", 11, FontStyle.Bold))
                 {
                     var textSize = e.Graphics.MeasureString(dimensions, font);
                     var textPos = new PointF(
@@ -126,14 +207,52 @@ namespace TimelapseCapture
                     );
 
                     // Draw background for text
-                    var textRect = new RectangleF(textPos.X - 5, textPos.Y - 2, textSize.Width + 10, textSize.Height + 4);
-                    using (var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0)))
+                    var textRect = new RectangleF(
+                        textPos.X - 8,
+                        textPos.Y - 4,
+                        textSize.Width + 16,
+                        textSize.Height + 8
+                    );
+                    using (var bgBrush = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
                     {
                         e.Graphics.FillRectangle(bgBrush, textRect);
                     }
 
+                    // Draw border around text
+                    using (var borderPen = new Pen(Color.FromArgb(150, 0, 122, 204), 1))
+                    {
+                        e.Graphics.DrawRectangle(borderPen,
+                            textRect.X, textRect.Y, textRect.Width, textRect.Height);
+                    }
+
                     e.Graphics.DrawString(dimensions, font, brush, textPos);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Draw corner brackets around the selection (aerospace HUD style).
+        /// </summary>
+        private void DrawCornerBrackets(Graphics g, Rectangle rect)
+        {
+            int bracketSize = 20;
+            using (var pen = new Pen(Color.FromArgb(200, 0, 200, 255), 2))
+            {
+                // Top-left
+                g.DrawLine(pen, rect.Left, rect.Top, rect.Left + bracketSize, rect.Top);
+                g.DrawLine(pen, rect.Left, rect.Top, rect.Left, rect.Top + bracketSize);
+
+                // Top-right
+                g.DrawLine(pen, rect.Right, rect.Top, rect.Right - bracketSize, rect.Top);
+                g.DrawLine(pen, rect.Right, rect.Top, rect.Right, rect.Top + bracketSize);
+
+                // Bottom-left
+                g.DrawLine(pen, rect.Left, rect.Bottom, rect.Left + bracketSize, rect.Bottom);
+                g.DrawLine(pen, rect.Left, rect.Bottom, rect.Left, rect.Bottom - bracketSize);
+
+                // Bottom-right
+                g.DrawLine(pen, rect.Right, rect.Bottom, rect.Right - bracketSize, rect.Bottom);
+                g.DrawLine(pen, rect.Right, rect.Bottom, rect.Right, rect.Bottom - bracketSize);
             }
         }
     }

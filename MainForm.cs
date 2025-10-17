@@ -17,6 +17,7 @@ namespace TimelapseCapture
     {
         #region Fields
 
+        private AspectRatio? _selectedAspectRatio;
         private Rectangle captureRegion = Rectangle.Empty;
         private System.Threading.Timer? _captureTimer;
         private CaptureSettings settings = new CaptureSettings();
@@ -162,6 +163,23 @@ namespace TimelapseCapture
             if (trkQuality != null) trkQuality.Value = settings.JpegQuality;
             if (numQuality != null) numQuality.Value = settings.JpegQuality;
             if (lblQuality != null) lblQuality.Text = $"JPEG Quality: {settings.JpegQuality}";
+
+            // Load saved aspect ratio preference
+            if (cmbAspectRatio != null)
+            {
+                cmbAspectRatio.Items.Clear();
+                cmbAspectRatio.Items.AddRange(AspectRatio.CommonRatios); // AspectRatio.ToString() returns Name
+
+                int savedIndex = settings.AspectRatioIndex;
+                if (savedIndex >= 0 && savedIndex < cmbAspectRatio.Items.Count)
+                {
+                    cmbAspectRatio.SelectedIndex = savedIndex;
+                    _selectedAspectRatio = AspectRatio.CommonRatios[savedIndex];
+                    if (_selectedAspectRatio.Width == 0)
+                        _selectedAspectRatio = null;
+                }
+            }
+
             UpdateQualityControls();
         }
 
@@ -184,6 +202,7 @@ namespace TimelapseCapture
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
             settings.FfmpegPath = _ffmpegPath;
+            settings.AspectRatioIndex = cmbAspectRatio?.SelectedIndex ?? 0; // NEW
             SettingsManager.Save(settings);
         }
 
@@ -238,13 +257,14 @@ namespace TimelapseCapture
             Hide();
             Task.Delay(200).Wait();
 
-            using (var selector = new RegionSelector())
+            using (var selector = new RegionSelector(_selectedAspectRatio))
             {
                 if (selector.ShowDialog() == DialogResult.OK)
                 {
                     captureRegion = selector.SelectedRegion;
 
-                    // Validate the selected region
+                    // Region is already validated and constrained by RegionSelector
+                    // Just verify it's valid
                     if (!IsValidRegion(captureRegion))
                     {
                         MessageBox.Show(
@@ -257,8 +277,11 @@ namespace TimelapseCapture
                     }
                     else
                     {
+                        // Calculate and display aspect ratio
+                        string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+
                         if (lblRegion != null)
-                            lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                            lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
 
                         settings.Region = captureRegion;
                         SaveSettings();
@@ -269,6 +292,26 @@ namespace TimelapseCapture
             Show();
             UpdateStatusDisplay();
             UpdateEstimate();
+        }
+
+        /// <summary>
+        /// Handle aspect ratio dropdown change.
+        /// </summary>
+        private void CmbAspectRatio_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbAspectRatio == null) return;
+
+            int index = cmbAspectRatio.SelectedIndex;
+            if (index >= 0 && index < AspectRatio.CommonRatios.Length)
+            {
+                _selectedAspectRatio = AspectRatio.CommonRatios[index];
+
+                // If "Free" mode (width=0), clear the lock
+                if (_selectedAspectRatio.Width == 0)
+                    _selectedAspectRatio = null;
+
+                SaveSettings();
+            }
         }
 
         /// <summary>
@@ -765,15 +808,5 @@ namespace TimelapseCapture
         }
 
         #endregion
-
-        private void grpSession_Enter(object sender, EventArgs e)
-        {
-
-        }
-
-        private void grpOutput_Enter(object sender, EventArgs e)
-        {
-
-        }
     }
 }

@@ -30,15 +30,18 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpSession;
         private System.Windows.Forms.GroupBox grpOutput;
 
+        // Aspect ratio controls
+        private System.Windows.Forms.Label lblAspectRatioText;
+        private System.Windows.Forms.ComboBox cmbAspectRatio;
+
         //
-        // Pallete (needs revision, not a guide just a placeholder)
+        // Palette (needs revision, not a guide just a placeholder)
         //  
         // Background: #141414 (20, 20, 20)
         // Foreground: #C8C8C8 (200, 200, 200)
         // Primary Button: #007ACC (0, 122, 204)
         // Stop Button: #C00000 (192, 0, 0)
         // Encode Button: #107C10 (16, 124, 16)
-
 
         protected override void Dispose(bool disposing)
         {
@@ -66,10 +69,12 @@ namespace TimelapseCapture
             lblIntervalText = new System.Windows.Forms.Label();
             lblFormatText = new System.Windows.Forms.Label();
             lblFfmpegText = new System.Windows.Forms.Label();
+            lblAspectRatioText = new System.Windows.Forms.Label();
             numInterval = new System.Windows.Forms.NumericUpDown();
             numQuality = new System.Windows.Forms.NumericUpDown();
             numDesiredSec = new System.Windows.Forms.NumericUpDown();
             cmbFormat = new System.Windows.Forms.ComboBox();
+            cmbAspectRatio = new System.Windows.Forms.ComboBox();
             trkQuality = new System.Windows.Forms.TrackBar();
             txtFfmpegPath = new System.Windows.Forms.TextBox();
             grpCaptureSettings = new System.Windows.Forms.GroupBox();
@@ -204,7 +209,7 @@ namespace TimelapseCapture
             // lblQuality
             // 
             lblQuality.AutoSize = true;
-            lblQuality.Location = new Point(15, 120);
+            lblQuality.Location = new Point(15, 185);
             lblQuality.Name = "lblQuality";
             lblQuality.Size = new Size(91, 15);
             lblQuality.TabIndex = 6;
@@ -221,7 +226,7 @@ namespace TimelapseCapture
             // lblIntervalText
             // 
             lblIntervalText.AutoSize = true;
-            lblIntervalText.Location = new Point(15, 75);
+            lblIntervalText.Location = new Point(15, 145);
             lblIntervalText.Name = "lblIntervalText";
             lblIntervalText.Size = new Size(103, 15);
             lblIntervalText.TabIndex = 2;
@@ -230,7 +235,7 @@ namespace TimelapseCapture
             // lblFormatText
             // 
             lblFormatText.AutoSize = true;
-            lblFormatText.Location = new Point(240, 75);
+            lblFormatText.Location = new Point(240, 145);
             lblFormatText.Name = "lblFormatText";
             lblFormatText.Size = new Size(48, 15);
             lblFormatText.TabIndex = 4;
@@ -245,12 +250,21 @@ namespace TimelapseCapture
             lblFfmpegText.TabIndex = 2;
             lblFfmpegText.Text = "FFmpeg Path:";
             // 
+            // lblAspectRatioText
+            // 
+            lblAspectRatioText.AutoSize = true;
+            lblAspectRatioText.Location = new Point(15, 75);
+            lblAspectRatioText.Name = "lblAspectRatioText";
+            lblAspectRatioText.Size = new Size(78, 15);
+            lblAspectRatioText.TabIndex = 9;
+            lblAspectRatioText.Text = "Aspect Ratio:";
+            // 
             // numInterval
             // 
             numInterval.BackColor = SystemColors.InactiveCaptionText;
             numInterval.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             numInterval.ForeColor = SystemColors.ScrollBar;
-            numInterval.Location = new Point(130, 73);
+            numInterval.Location = new Point(130, 143);
             numInterval.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
             numInterval.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numInterval.Name = "numInterval";
@@ -262,7 +276,7 @@ namespace TimelapseCapture
             // 
             numQuality.BackColor = SystemColors.InactiveCaptionText;
             numQuality.ForeColor = SystemColors.ScrollBar;
-            numQuality.Location = new Point(375, 145);
+            numQuality.Location = new Point(370, 220);
             numQuality.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numQuality.Name = "numQuality";
             numQuality.Size = new Size(70, 23);
@@ -285,15 +299,28 @@ namespace TimelapseCapture
             cmbFormat.ForeColor = SystemColors.ScrollBar;
             cmbFormat.FormattingEnabled = true;
             cmbFormat.Items.AddRange(new object[] { "JPEG", "PNG", "BMP" });
-            cmbFormat.Location = new Point(300, 72);
+            cmbFormat.Location = new Point(300, 142);
             cmbFormat.Name = "cmbFormat";
             cmbFormat.Size = new Size(100, 23);
             cmbFormat.TabIndex = 5;
             cmbFormat.SelectedIndexChanged += cmbFormat_SelectedIndexChanged;
             // 
+            // cmbAspectRatio
+            // 
+            cmbAspectRatio.BackColor = SystemColors.InactiveCaptionText;
+            cmbAspectRatio.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            cmbAspectRatio.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+            cmbAspectRatio.ForeColor = SystemColors.ScrollBar;
+            cmbAspectRatio.FormattingEnabled = true;
+            cmbAspectRatio.Location = new Point(110, 72);
+            cmbAspectRatio.Name = "cmbAspectRatio";
+            cmbAspectRatio.Size = new Size(200, 23);
+            cmbAspectRatio.TabIndex = 10;
+            cmbAspectRatio.SelectedIndexChanged += new System.EventHandler(cmbAspectRatio_SelectedIndexChanged);
+            // 
             // trkQuality
             // 
-            trkQuality.Location = new Point(15, 145);
+            trkQuality.Location = new Point(15, 210);
             trkQuality.Maximum = 100;
             trkQuality.Minimum = 1;
             trkQuality.Name = "trkQuality";
@@ -318,6 +345,8 @@ namespace TimelapseCapture
             // 
             grpCaptureSettings.Controls.Add(btnSelectRegion);
             grpCaptureSettings.Controls.Add(lblRegion);
+            grpCaptureSettings.Controls.Add(lblAspectRatioText);
+            grpCaptureSettings.Controls.Add(cmbAspectRatio);
             grpCaptureSettings.Controls.Add(lblIntervalText);
             grpCaptureSettings.Controls.Add(numInterval);
             grpCaptureSettings.Controls.Add(lblFormatText);
@@ -328,7 +357,7 @@ namespace TimelapseCapture
             grpCaptureSettings.ForeColor = Color.LightGray;
             grpCaptureSettings.Location = new Point(15, 15);
             grpCaptureSettings.Name = "grpCaptureSettings";
-            grpCaptureSettings.Size = new Size(460, 210);
+            grpCaptureSettings.Size = new Size(460, 270);
             grpCaptureSettings.TabIndex = 0;
             grpCaptureSettings.TabStop = false;
             grpCaptureSettings.Text = "Capture Settings";
@@ -340,13 +369,12 @@ namespace TimelapseCapture
             grpSession.Controls.Add(btnStart);
             grpSession.Controls.Add(btnStop);
             grpSession.ForeColor = Color.LightGray;
-            grpSession.Location = new Point(15, 235);
+            grpSession.Location = new Point(15, 295);
             grpSession.Name = "grpSession";
-            grpSession.Size = new Size(460, 150);
+            grpSession.Size = new Size(460, 135);
             grpSession.TabIndex = 1;
             grpSession.TabStop = false;
             grpSession.Text = "Session";
-            grpSession.Enter += grpSession_Enter;
             // 
             // grpOutput
             // 
@@ -358,20 +386,19 @@ namespace TimelapseCapture
             grpOutput.Controls.Add(btnEncode);
             grpOutput.Controls.Add(btnOpenFolder);
             grpOutput.ForeColor = Color.LightGray;
-            grpOutput.Location = new Point(15, 391);
+            grpOutput.Location = new Point(15, 440);
             grpOutput.Name = "grpOutput";
-            grpOutput.Size = new Size(460, 181);
+            grpOutput.Size = new Size(460, 175);
             grpOutput.TabIndex = 2;
             grpOutput.TabStop = false;
             grpOutput.Text = "Output";
-            grpOutput.Enter += grpOutput_Enter;
             // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(490, 584);
+            ClientSize = new Size(490, 630);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
             Controls.Add(grpCaptureSettings);
@@ -394,6 +421,21 @@ namespace TimelapseCapture
             grpOutput.ResumeLayout(false);
             grpOutput.PerformLayout();
             ResumeLayout(false);
+        }
+
+        private void grpSession_Enter(object sender, System.EventArgs e)
+        {
+            // Event handler stub
+        }
+
+        private void grpOutput_Enter(object sender, System.EventArgs e)
+        {
+            // Event handler stub
+        }
+
+        private void cmbAspectRatio_SelectedIndexChanged(object sender, System.EventArgs e)
+        {
+            // Implemented in MainForm.cs
         }
     }
 }
