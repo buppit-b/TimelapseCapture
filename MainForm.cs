@@ -297,7 +297,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Handle aspect ratio dropdown change.
         /// </summary>
-        private void CmbAspectRatio_SelectedIndexChanged(object? sender, EventArgs e)
+        private void cmbAspectRatio_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (cmbAspectRatio == null) return;
 

@@ -432,10 +432,5 @@ namespace TimelapseCapture
         {
             // Event handler stub
         }
-
-        private void cmbAspectRatio_SelectedIndexChanged(object sender, System.EventArgs e)
-        {
-            // Implemented in MainForm.cs
-        }
     }
 }
