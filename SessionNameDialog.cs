@@ -1,9 +1,13 @@
-﻿using System;
+﻿
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
 namespace TimelapseCapture
 {
+    /// <summary>
+    /// Dialog for naming a new capture session.
+    /// </summary>
     public class SessionNameDialog : Form
     {
         private TextBox txtName;
@@ -30,7 +34,8 @@ namespace TimelapseCapture
                 Text = "Enter a name for this capture session:",
                 Location = new Point(20, 20),
                 AutoSize = true,
-                ForeColor = Color.FromArgb(200, 200, 200)
+                ForeColor = Color.FromArgb(200, 200, 200),
+                Font = new Font("Segoe UI", 9F)
             };
 
             txtName = new TextBox
@@ -42,7 +47,8 @@ namespace TimelapseCapture
                     : suggestedName,
                 Font = new Font("Segoe UI", 10F),
                 BackColor = SystemColors.InactiveCaptionText,
-                ForeColor = SystemColors.ScrollBar
+                ForeColor = SystemColors.ScrollBar,
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             lblHint = new Label
@@ -59,7 +65,7 @@ namespace TimelapseCapture
                 Text = "Create Session",
                 DialogResult = DialogResult.OK,
                 Location = new Point(240, 105),
-                Size = new Size(100, 32),
+                Size = new Size(110, 32),
                 BackColor = Color.FromArgb(0, 122, 204),
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = Color.White,
@@ -70,9 +76,10 @@ namespace TimelapseCapture
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(350, 105),
-                Size = new Size(70, 32),
-                FlatStyle = FlatStyle.Flat
+                Location = new Point(360, 105),
+                Size = new Size(60, 32),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.FromArgb(200, 200, 200)
             };
 
             Controls.AddRange(new Control[] { lblPrompt, txtName, lblHint, btnOK, btnCancel });
@@ -90,12 +97,16 @@ namespace TimelapseCapture
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     DialogResult = DialogResult.None;
+                    txtName.Focus();
                 }
             };
 
             // Select all text for easy typing
-            txtName.SelectAll();
-            txtName.Focus();
+            this.Shown += (s, e) =>
+            {
+                txtName.SelectAll();
+                txtName.Focus();
+            };
         }
     }
-}   
+}

@@ -123,9 +123,22 @@ namespace TimelapseCapture
         /// </summary>
         private void WireInitialValues()
         {
+            // Load session name display    
+            if (txtSessionName != null)
+            {
+                if (_activeSession != null && !string.IsNullOrEmpty(_activeSession.Name))
+                {
+                    txtSessionName.Text = _activeSession.Name;
+                }
+                else
+                {
+                    txtSessionName.Text = "No active session";
+                }
+            }
+
             if (cmbFormat != null) cmbFormat.SelectedItem = settings.Format ?? "JPEG";
             if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
-            if (numDesiredSec != null) numDesiredSec.Value = 30;
+            if (numDesiredSec != null) numDesiredSec.Value = 30; 
 
             // Load and validate saved region
             if (settings.Region.HasValue && _activeSession == null)
@@ -193,6 +206,109 @@ namespace TimelapseCapture
         #endregion
 
         #region Settings Management
+
+        /// <summary>
+        /// Handle New Session button click.
+        /// Prompts for session name and creates new session.
+        /// </summary>
+        private void btnNewSession_Click(object? sender, EventArgs e)
+        {
+            // Warn if active session exists with frames
+            if (_activeSession != null && _activeSession.FramesCaptured > 0)
+            {
+                var result = MessageBox.Show(
+                    $"Current session '{_activeSession.Name}' has {_activeSession.FramesCaptured} frames.\n\n" +
+                    "Starting a new session will:\n" +
+                    "• Save and close the current session\n" +
+                    "• Start fresh with new settings\n\n" +
+                    "Continue?",
+                    "Start New Session?",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.No)
+                    return;
+
+                // Mark current session inactive
+                if (_activeSessionFolder != null)
+                    SessionManager.MarkSessionInactive(_activeSessionFolder);
+            }
+
+            // Validate required settings first
+            if (string.IsNullOrEmpty(settings.SaveFolder))
+            {
+                MessageBox.Show(
+                    "Please choose an output folder first.\n\n" +
+                    "Click 'Choose Folder' to select where sessions will be saved.",
+                    "Output Folder Required",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (captureRegion.IsEmpty || !IsValidRegion(captureRegion))
+            {
+                MessageBox.Show(
+                    "Please select a valid capture region first.\n\n" +
+                    "Click 'Select Region' to choose the area to capture.",
+                    "Capture Region Required",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Show session name dialog
+            using (var dialog = new SessionNameDialog())
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    string sessionName = dialog.SessionName;
+
+                    // Create new session with custom name
+                    var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                    int interval = (int)(numInterval?.Value ?? 5);
+                    var format = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
+                    var quality = (int)(numQuality?.Value ?? 90);
+
+                    try
+                    {
+                        _activeSessionFolder = SessionManager.CreateNamedSession(
+                            capturesRoot,
+                            sessionName,
+                            interval,
+                            captureRegion,
+                            format,
+                            quality);
+
+                        _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+
+                        // Update UI
+                        if (txtSessionName != null)
+                            txtSessionName.Text = sessionName;
+
+                        UpdateStatusDisplay();
+                        UpdateEstimate();
+
+                        MessageBox.Show(
+                            $"✅ New session '{sessionName}' created!\n\n" +
+                            "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n" +
+                            "Ready to start capturing.",
+                            "Session Created",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            $"Failed to create session:\n\n{ex.Message}",
+                            "Error Creating Session",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
 
         /// <summary>
         /// Load settings from persistent storage.
@@ -502,11 +618,41 @@ namespace TimelapseCapture
             // Create new session or validate existing
             if (_activeSession == null)
             {
-                _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
-                _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                // No active session - prompt for name
+                var result = MessageBox.Show(
+                    "No active session exists.\n\n" +
+                    "Would you like to:\n" +
+                    "• YES: Create a new named session\n" +
+                    "• NO: Create default timestamped session",
+                    "Create Session?",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Cancel)
+                    return;
+
+                if (result == DialogResult.Yes)
+                {
+                    // Create named session via dialog
+                    btnNewSession_Click(sender, e);
+
+                    // Check if session was created
+                    if (_activeSession == null)
+                        return; // User cancelled
+                }
+                else
+                {
+                    // Create default session
+                    _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
+                    _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+
+                    if (txtSessionName != null)
+                        txtSessionName.Text = _activeSession?.Name ?? "Session";
+                }
             }
             else
             {
+                // Existing session - validate settings
                 if (!SessionManager.ValidateSessionSettings(_activeSession, captureRegion, format, quality))
                 {
                     var result = MessageBox.Show(
@@ -519,8 +665,10 @@ namespace TimelapseCapture
                     if (result == DialogResult.Yes)
                     {
                         SessionManager.MarkSessionInactive(_activeSessionFolder!);
-                        _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
-                        _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                        btnNewSession_Click(sender, e);
+
+                        if (_activeSession == null)
+                            return;
                     }
                     else
                     {
