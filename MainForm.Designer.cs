@@ -271,6 +271,7 @@ namespace TimelapseCapture
             numInterval.Size = new Size(80, 23);
             numInterval.TabIndex = 3;
             numInterval.Value = new decimal(new int[] { 5, 0, 0, 0 });
+            numInterval.ValueChanged += new System.EventHandler(this.numInterval_ValueChanged);
             // 
             // numQuality
             // 

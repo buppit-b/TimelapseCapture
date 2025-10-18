@@ -24,6 +24,7 @@ namespace TimelapseCapture
         private string? _ffmpegPath;
         private string? _activeSessionFolder;
         private SessionInfo? _activeSession;
+        private bool _isEncoding = false;
 
         #endregion
 
@@ -216,7 +217,7 @@ namespace TimelapseCapture
 
         #endregion
 
-        #region UI Event Handlers - Region & Folder Selection
+        #region UI Event Handlers
 
         /// <summary>
         /// Handle region selection button click.
@@ -334,9 +335,48 @@ namespace TimelapseCapture
             }
         }
 
-        #endregion
+        /// <summary>
+        /// Handle interval value change - update estimates and validate if session active.
+        /// </summary>
+        private void numInterval_ValueChanged(object? sender, EventArgs e)
+        {
+            // Always update estimates when interval changes
+            UpdateEstimate();
 
-        #region UI Event Handlers - Format & Quality
+            // If there's an active session with frames, warn about changing interval
+            if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
+            {
+                int currentInterval = _activeSession.IntervalSeconds;
+                int newInterval = (int)(numInterval?.Value ?? 5);
+
+                if (currentInterval != newInterval)
+                {
+                    var result = MessageBox.Show(
+                        $"This session was captured at {currentInterval} second intervals.\n\n" +
+                        $"Changing to {newInterval} seconds will affect:\n" +
+                        $"• Time calculations (will be inaccurate)\n" +
+                        $"• Video playback speed consistency\n\n" +
+                        $"Recommended: Start a new session for different intervals.\n\n" +
+                        $"Continue with interval change?",
+                        "Interval Change Warning",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning);
+
+                    if (result == DialogResult.No)
+                    {
+                        // Revert to original interval
+                        if (numInterval != null)
+                            numInterval.Value = currentInterval;
+                        return;
+                    }
+                    else
+                    {
+                        // User accepted - mark that interval has changed
+                        // (We'll track this in the session)
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// Handle format dropdown change.
@@ -536,8 +576,10 @@ namespace TimelapseCapture
             if (btnEncode != null) btnEncode.Enabled = !locked;
         }
 
+
         /// <summary>
         /// Capture a single frame (called by timer).
+        /// Tracks actual elapsed time for accurate statistics.
         /// </summary>
         private void CaptureFrame(object? state)
         {
@@ -545,8 +587,23 @@ namespace TimelapseCapture
 
             try
             {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = Path.Combine(_activeSessionFolder!, $"{timestamp}.jpg");
+                DateTime now = DateTime.UtcNow;
+
+                // Calculate actual elapsed time since last capture
+                if (_activeSession.LastCaptureTime.HasValue)
+                {
+                    double elapsedSeconds = (now - _activeSession.LastCaptureTime.Value).TotalSeconds;
+                    _activeSession.TotalCaptureSeconds += elapsedSeconds;
+                }
+
+                _activeSession.LastCaptureTime = now;
+
+                // Use sequential frame numbering
+                long nextFrameNumber = _activeSession.FramesCaptured + 1;
+                string frameNumber = $"{nextFrameNumber:D5}";
+
+                string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder!);
+                string fileName = Path.Combine(framesFolder, $"{frameNumber}.jpg");
 
                 using (var bmp = CaptureScreen())
                 {
@@ -556,7 +613,6 @@ namespace TimelapseCapture
                 SessionManager.IncrementFrameCount(_activeSessionFolder!);
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
-                // Update UI on the UI thread
                 BeginInvoke(new Action(() =>
                 {
                     UpdateStatusDisplay();
@@ -566,6 +622,12 @@ namespace TimelapseCapture
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Capture error: {ex.Message}");
+
+                BeginInvoke(new Action(() =>
+                {
+                    if (lblStatus != null)
+                        lblStatus.Text = $"⚠️ Capture error - check logs";
+                }));
             }
         }
 
@@ -603,6 +665,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Update video length estimates based on current frame count.
+        /// Uses actual tracked capture time for accuracy.
         /// </summary>
         private void UpdateEstimate()
         {
@@ -611,48 +674,99 @@ namespace TimelapseCapture
             if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
                 int frames = (int)_activeSession.FramesCaptured;
-                int interval = _activeSession.IntervalSeconds;
 
-                // Calculate current video length at different FPS options
+                // Use ACTUAL tracked time, not calculated from interval
+                double captureTimeSeconds = _activeSession.TotalCaptureSeconds;
+
+                string captureTimeDisplay;
+                if (captureTimeSeconds < 60)
+                {
+                    captureTimeDisplay = $"{captureTimeSeconds:F0}sec";
+                }
+                else if (captureTimeSeconds < 3600)
+                {
+                    double captureTimeMinutes = captureTimeSeconds / 60.0;
+                    captureTimeDisplay = $"{captureTimeMinutes:F1}min";
+                }
+                else
+                {
+                    double captureTimeHours = captureTimeSeconds / 3600.0;
+                    captureTimeDisplay = $"{captureTimeHours:F1}hr";
+                }
+
+                // Calculate resulting video length at different frame rates
                 double videoAt25fps = frames / 25.0;
                 double videoAt30fps = frames / 30.0;
                 double videoAt60fps = frames / 60.0;
 
-                // Calculate capture time
-                double captureTimeMinutes = (frames * interval) / 60.0;
+                // Show warning if interval was changed
+                string warningText = _activeSession.IntervalChanged ? " ⚠️" : "";
 
-                lblEstimate.Text = $"{frames} frames • {captureTimeMinutes:F1}min capture\n" +
-                                  $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+                lblEstimate.Text =
+                    $"{frames} frames • {captureTimeDisplay} real time{warningText}\n" +
+                    $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
             }
             else if (_activeSession != null)
             {
-                lblEstimate.Text = "Session active • 0 frames captured";
+                lblEstimate.Text = "Session active • 0 frames captured yet";
             }
             else
             {
+                // Planning mode - uses current interval setting
                 int desiredSec = (int)(numDesiredSec?.Value ?? 30);
                 int interval = (int)(numInterval?.Value ?? 5);
-                int neededFrames = desiredSec * 25; // Assuming 25 FPS output
-                double captureTimeMinutes = (neededFrames * interval) / 60.0;
+                int neededFrames = desiredSec * 25;
+                double captureTimeSeconds = neededFrames * interval;
 
-                lblEstimate.Text = $"Need {neededFrames} frames for {desiredSec}s video @25fps\n" +
-                                  $"≈ {captureTimeMinutes:F0} minutes of capture";
+                string captureTimeDisplay;
+                if (captureTimeSeconds < 60)
+                {
+                    captureTimeDisplay = $"{captureTimeSeconds:F0} seconds";
+                }
+                else if (captureTimeSeconds < 3600)
+                {
+                    captureTimeDisplay = $"{(captureTimeSeconds / 60.0):F0} minutes";
+                }
+                else
+                {
+                    captureTimeDisplay = $"{(captureTimeSeconds / 3600.0):F1} hours";
+                }
+
+                lblEstimate.Text =
+                    $"For {desiredSec}s video @25fps:\n" +
+                    $"Need {neededFrames} frames • {captureTimeDisplay} capture time";
             }
         }
+
+
 
         #endregion
 
         #region FFmpeg & Encoding
 
         /// <summary>
-        /// Open the folder containing captured frames.
+        /// Open the session folder (or output folder if encoding complete).
+        /// Smart detection: if videos exist, open output/, otherwise open frames/.
         /// </summary>
         private void btnOpenFolder_Click(object? sender, EventArgs e)
         {
             string folderToOpen;
+
             if (_activeSessionFolder != null && Directory.Exists(_activeSessionFolder))
             {
-                folderToOpen = _activeSessionFolder;
+                // Check if output videos exist
+                string outputFolder = SessionManager.GetOutputFolder(_activeSessionFolder);
+                if (Directory.Exists(outputFolder) && Directory.GetFiles(outputFolder, "*.mp4").Length > 0)
+                {
+                    // Open output folder if videos exist
+                    folderToOpen = outputFolder;
+                }
+                else
+                {
+                    // Otherwise open frames folder
+                    string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder);
+                    folderToOpen = Directory.Exists(framesFolder) ? framesFolder : _activeSessionFolder;
+                }
             }
             else if (!string.IsNullOrEmpty(settings.SaveFolder) && Directory.Exists(settings.SaveFolder))
             {
@@ -687,110 +801,235 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Encode captured frames into a video file using FFmpeg.
+        /// Fast pre-validation prevents multiple clicks and slow errors.
         /// </summary>
         private async void btnEncode_Click(object? sender, EventArgs e)
         {
+            // FAST PRE-CHECK: Prevent multiple clicks
+            if (_isEncoding)
+            {
+                MessageBox.Show(
+                    "Encoding already in progress.\nPlease wait for current encode to complete.",
+                    "Encoding In Progress",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            // FAST PRE-CHECK: FFmpeg must be configured before we start
+            if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
+            {
+                var result = MessageBox.Show(
+                    "FFmpeg is not configured!\n\n" +
+                    "FFmpeg is required for video encoding but has not been set up.\n\n" +
+                    "Would you like to:\n" +
+                    "• YES: Browse for ffmpeg.exe on your system\n" +
+                    "• NO: Cancel encoding\n\n" +
+                    "To download FFmpeg:\n" +
+                    "Visit https://ffmpeg.org/download.html",
+                    "FFmpeg Not Found",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    // Trigger browse dialog
+                    btnBrowseFfmpeg_Click(sender, e);
+                    return;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            // FAST PRE-CHECK: Must have save folder
+            if (string.IsNullOrEmpty(settings.SaveFolder))
+            {
+                MessageBox.Show(
+                    "Please select a save folder first.",
+                    "No Save Folder",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // FAST PRE-CHECK: Must have frames
+            string sessionFolder = _activeSessionFolder ?? settings.SaveFolder;
+            var frameFiles = SessionManager.GetFrameFiles(sessionFolder);
+
+            if (frameFiles.Length == 0)
+            {
+                MessageBox.Show(
+                    "No frames to encode!\n\n" +
+                    "Please capture some frames before encoding.",
+                    "No Frames",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // FAST PRE-CHECK: Valid region
+            if (!IsValidRegion(captureRegion))
+            {
+                MessageBox.Show(
+                    "Invalid capture region dimensions.\n\n" +
+                    "Please select a new region before encoding.",
+                    "Invalid Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            // All pre-checks passed - start encoding
+            _isEncoding = true;
+
+            // Update UI to show encoding in progress
+            if (btnEncode != null)
+            {
+                btnEncode.Enabled = false;
+                btnEncode.Text = "🎬 Encoding...";
+            }
+            if (lblStatus != null)
+                lblStatus.Text = $"Encoding {frameFiles.Length} frames...";
+
             try
             {
-                // Ensure FFmpeg is available
-                _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
-                if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
+                // Verify FFmpeg still accessible (final check)
+                if (!File.Exists(_ffmpegPath))
                 {
-                    var ffmpegDir = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-                    var found = await FfmpegDownloader.EnsureFfmpegPresentAsync(ffmpegDir);
-                    if (!string.IsNullOrEmpty(found))
-                    {
-                        _ffmpegPath = found;
-                        settings.FfmpegPath = _ffmpegPath;
-                        SaveSettings();
-                    }
+                    throw new FileNotFoundException($"FFmpeg not found at: {_ffmpegPath}");
                 }
 
-                if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
-                {
-                    MessageBox.Show(
-                        "FFmpeg not found. Please use 'Browse FFmpeg' to locate ffmpeg.exe",
-                        "Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    return;
-                }
+                // Create filelist in .temp/ folder
+                string tempFolder = SessionManager.GetTempFolder(sessionFolder);
+                Directory.CreateDirectory(tempFolder);
+                string fileListPath = Path.Combine(tempFolder, "filelist.txt");
 
-                if (string.IsNullOrEmpty(settings.SaveFolder))
-                {
-                    MessageBox.Show(
-                        "Please select a save folder first.",
-                        "Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    return;
-                }
-
-                string sessionFolder = _activeSessionFolder ?? settings.SaveFolder;
-                var jpgFiles = Directory.GetFiles(sessionFolder, "*.jpg");
-                if (jpgFiles.Length == 0)
-                {
-                    MessageBox.Show(
-                        "No images found to encode. Capture some frames first!",
-                        "No Images",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    return;
-                }
-
-                if (!IsValidRegion(captureRegion))
-                {
-                    MessageBox.Show(
-                        "Invalid capture region. Please select a new region.",
-                        "Invalid Region",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                    return;
-                }
-
-                // Create file list for FFmpeg concat
-                string fileListPath = Path.Combine(sessionFolder, "filelist.txt");
                 using (var writer = new StreamWriter(fileListPath, false))
                 {
-                    Array.Sort(jpgFiles, StringComparer.Ordinal);
-                    foreach (var f in jpgFiles)
+                    foreach (var file in frameFiles)
                     {
-                        writer.WriteLine($"file '{f.Replace("'", "'\\''")}'");
+                        writer.WriteLine($"file '{file.Replace("'", "'\\''")}'");
                     }
                 }
 
-                string outputPath = Path.Combine(sessionFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+                // Output to organized output/ folder
+                string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
+                Directory.CreateDirectory(outputFolder);
+                string outputPath = Path.Combine(outputFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+
                 string ffmpegArgs = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r 25 -c:v libx264 -crf 23 -preset medium \"{outputPath}\"";
 
                 var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
 
+                // Clean up temp folder
+                SessionManager.CleanTempFolder(sessionFolder);
+
                 if (result.exitCode == 0)
                 {
+                    if (lblStatus != null)
+                        lblStatus.Text = "✅ Encoding complete!";
+
                     MessageBox.Show(
-                        $"Video encoded successfully!\n\nSaved to:\n{outputPath}",
-                        "Success",
+                        $"✅ Video encoded successfully!\n\n" +
+                        $"Frames: {frameFiles.Length}\n" +
+                        $"Output: {Path.GetFileName(outputPath)}\n" +
+                        $"Location: output/ folder\n\n" +
+                        $"Full path:\n{outputPath}",
+                        "Encoding Complete",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
-                    Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
+
+                    try
+                    {
+                        Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
+                    }
+                    catch
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = outputFolder, UseShellExecute = true });
+                    }
                 }
                 else
                 {
+                    if (lblStatus != null)
+                        lblStatus.Text = "❌ Encoding failed";
+
                     MessageBox.Show(
-                        $"FFmpeg encoding failed.\n\nStdout:\n{result.output}\n\nStderr:\n{result.error}",
+                        $"FFmpeg encoding failed with exit code {result.exitCode}\n\n" +
+                        $"Error output:\n{result.error}\n\n" +
+                        $"Standard output:\n{result.output}",
                         "Encoding Failed",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                 }
             }
-            catch (Exception ex)
+            catch (FileNotFoundException fnfEx)
             {
+                if (lblStatus != null)
+                    lblStatus.Text = "❌ FFmpeg not found";
+
                 MessageBox.Show(
-                    $"Error during encoding: {ex.Message}",
-                    "Error",
+                    $"FFmpeg executable not found:\n\n{fnfEx.Message}\n\n" +
+                    "Please use 'Browse...' button to locate ffmpeg.exe",
+                    "FFmpeg Not Found",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+            catch (IOException ioEx)
+            {
+                if (lblStatus != null)
+                    lblStatus.Text = "❌ File access error";
+
+                MessageBox.Show(
+                    $"File access error during encoding:\n\n{ioEx.Message}\n\n" +
+                    "This may be caused by:\n" +
+                    "• Another program using the files\n" +
+                    "• Insufficient permissions\n" +
+                    "• Disk full or read-only",
+                    "File Access Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                if (lblStatus != null)
+                    lblStatus.Text = "❌ Permission denied";
+
+                MessageBox.Show(
+                    $"Permission denied:\n\n{uaEx.Message}\n\n" +
+                    "Try running the application as administrator.",
+                    "Permission Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                if (lblStatus != null)
+                    lblStatus.Text = "❌ Encoding error";
+
+                MessageBox.Show(
+                    $"Unexpected error during encoding:\n\n{ex.Message}\n\n" +
+                    $"Type: {ex.GetType().Name}",
+                    "Encoding Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                // Always reset encoding state
+                _isEncoding = false;
+
+                if (btnEncode != null)
+                {
+                    btnEncode.Enabled = true;
+                    btnEncode.Text = "🎬 Encode Video";
+                }
+
+                UpdateStatusDisplay();
+            }
         }
+
 
         #endregion
 
