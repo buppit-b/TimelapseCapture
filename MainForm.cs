@@ -25,6 +25,7 @@ namespace TimelapseCapture
         private string? _activeSessionFolder;
         private SessionInfo? _activeSession;
         private bool _isEncoding = false;
+        private System.Windows.Forms.Timer? _uiUpdateTimer;
 
         #endregion
 
@@ -37,8 +38,13 @@ namespace TimelapseCapture
             LoadSettings();
             WireInitialValues();
             CheckForActiveSession();
-            UpdateEstimate();
+            UpdateCaptureTimer();
             InitializeFfmpeg();
+
+            _uiUpdateTimer = new System.Windows.Forms.Timer();
+            _uiUpdateTimer.Interval = 500; // Update twice per second
+            _uiUpdateTimer.Tick += (s, e) => UpdateCaptureTimer();
+            _uiUpdateTimer.Start();
         }
 
         /// <summary>
@@ -292,7 +298,7 @@ namespace TimelapseCapture
 
             Show();
             UpdateStatusDisplay();
-            UpdateEstimate();
+            UpdateCaptureTimer();
         }
 
         /// <summary>
@@ -341,7 +347,7 @@ namespace TimelapseCapture
         private void numInterval_ValueChanged(object? sender, EventArgs e)
         {
             // Always update estimates when interval changes
-            UpdateEstimate();
+            UpdateCaptureTimer();   
 
             // If there's an active session with frames, warn about changing interval
             if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
@@ -533,7 +539,7 @@ namespace TimelapseCapture
             var intervalMs = intervalSec * 1000;
             _captureTimer = new System.Threading.Timer(CaptureFrame, null, 0, intervalMs);
             UpdateStatusDisplay();
-            UpdateEstimate();
+            UpdateCaptureTimer();
         }
 
         /// <summary>
@@ -555,7 +561,7 @@ namespace TimelapseCapture
             LockCaptureUI(false);
             UpdateStatusDisplay();
             SaveSettings();
-            UpdateEstimate();
+            UpdateCaptureTimer();
         }
 
         /// <summary>
@@ -579,7 +585,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Capture a single frame (called by timer).
-        /// Tracks actual elapsed time for accurate statistics.
+        /// Tracks actual elapsed time and updates real-time counter.
         /// </summary>
         private void CaptureFrame(object? state)
         {
@@ -589,14 +595,19 @@ namespace TimelapseCapture
             {
                 DateTime now = DateTime.UtcNow;
 
-                // Calculate actual elapsed time since last capture
-                if (_activeSession.LastCaptureTime.HasValue)
+                // Initialize LastCaptureTime on first frame
+                if (!_activeSession.LastCaptureTime.HasValue)
                 {
+                    _activeSession.LastCaptureTime = now;
+                    // Don't add time for first frame
+                }
+                else
+                {
+                    // Calculate actual elapsed time since last capture
                     double elapsedSeconds = (now - _activeSession.LastCaptureTime.Value).TotalSeconds;
                     _activeSession.TotalCaptureSeconds += elapsedSeconds;
+                    _activeSession.LastCaptureTime = now;
                 }
-
-                _activeSession.LastCaptureTime = now;
 
                 // Use sequential frame numbering
                 long nextFrameNumber = _activeSession.FramesCaptured + 1;
@@ -610,13 +621,17 @@ namespace TimelapseCapture
                     bmp.Save(fileName, ImageFormat.Jpeg);
                 }
 
+                // Save session with updated time
+                SessionManager.SaveSession(_activeSessionFolder!, _activeSession);
                 SessionManager.IncrementFrameCount(_activeSessionFolder!);
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
+                // UI updates happen automatically via _uiUpdateTimer
+                // But we can force an immediate update:
                 BeginInvoke(new Action(() =>
                 {
                     UpdateStatusDisplay();
-                    UpdateEstimate();
+                    UpdateCaptureTimer(); // Force immediate update
                 }));
             }
             catch (Exception ex)
@@ -663,6 +678,8 @@ namespace TimelapseCapture
                 lblStatus.Text = "Ready - No active session";
         }
 
+        /*
+         * STUBBED OUT - Replaced by UpdateCaptureTimer for real-time updates
         /// <summary>
         /// Update video length estimates based on current frame count.
         /// Uses actual tracked capture time for accuracy.
@@ -737,8 +754,108 @@ namespace TimelapseCapture
                     $"Need {neededFrames} frames • {captureTimeDisplay} capture time";
             }
         }
+        */
 
+        /// <summary>
+        /// Format elapsed time with adaptive precision (MM:SS, HH:MM:SS, Dd HH:MM:SS).
+        /// </summary>
+        private string FormatElapsedTime(double totalSeconds)
+        {
+            if (totalSeconds < 1)
+                return "00:00";
 
+            TimeSpan elapsed = TimeSpan.FromSeconds(totalSeconds);
+
+            if (totalSeconds < 3600)
+            {
+                // Under 1 hour: MM:SS
+                return $"{(int)elapsed.TotalMinutes:D2}:{elapsed.Seconds:D2}";
+            }
+            else if (totalSeconds < 86400)
+            {
+                // Under 1 day: HH:MM:SS
+                return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+            }
+            else
+            {
+                // 1 day or more: Dd HH:MM:SS
+                int days = (int)elapsed.TotalDays;
+                int hours = elapsed.Hours;
+                int minutes = elapsed.Minutes;
+                int seconds = elapsed.Seconds;
+                return $"{days}d {hours:D2}:{minutes:D2}:{seconds:D2}";
+            }
+        }
+
+        /// <summary>
+        /// Update the real-time capture counter display.
+        /// Called by timer every 500ms.
+        /// </summary>
+        private void UpdateCaptureTimer()
+        {
+            if (lblEstimate == null) return;
+
+            if (_activeSession == null || _activeSession.FramesCaptured == 0)
+            {
+                // No active session or no frames yet
+                if (!IsCapturing)
+                {
+                    // Show planning mode
+                    int desiredSec = (int)(numDesiredSec?.Value ?? 30);
+                    int interval = (int)(numInterval?.Value ?? 5);
+                    int neededFrames = desiredSec * 25;
+                    double captureTimeSeconds = neededFrames * interval;
+
+                    string captureTimeDisplay = FormatElapsedTime(captureTimeSeconds);
+
+                    lblEstimate.Text =
+                        $"Planning: {neededFrames} frames needed for {desiredSec}s video\n" +
+                        $"Estimated capture time: {captureTimeDisplay} @ {interval}s intervals";
+                }
+                else
+                {
+                    // Just started capturing
+                    lblEstimate.Text = "⏱️  00:00  |  0 frames\nStarting capture...";
+                }
+                return;
+            }
+
+            // Calculate current elapsed time
+            double elapsedSeconds = _activeSession.TotalCaptureSeconds;
+
+            // If currently capturing, add time since last frame save
+            if (IsCapturing && _activeSession.LastCaptureTime.HasValue)
+            {
+                elapsedSeconds += (DateTime.UtcNow - _activeSession.LastCaptureTime.Value).TotalSeconds;
+            }
+
+            string timeDisplay = FormatElapsedTime(elapsedSeconds);
+            int frames = (int)_activeSession.FramesCaptured;
+
+            // Calculate resulting video lengths
+            double videoAt25fps = frames / 25.0;
+            double videoAt30fps = frames / 30.0;
+            double videoAt60fps = frames / 60.0;
+
+            // Show warning if interval was changed
+            string warningIcon = _activeSession.IntervalChanged ? " ⚠️" : "";
+
+            // Update display
+            if (IsCapturing)
+            {
+                // Active capture - emphasize timer
+                lblEstimate.Text =
+                    $"⏱️  {timeDisplay}  |  {frames} frames{warningIcon}\n" +
+                    $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+            }
+            else
+            {
+                // Capture stopped - show summary
+                lblEstimate.Text =
+                    $"⏹  {timeDisplay}  |  {frames} frames{warningIcon}\n" +
+                    $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+            }
+        }
 
         #endregion
 
@@ -1034,13 +1151,13 @@ namespace TimelapseCapture
         #endregion
 
         #region Form Lifecycle
-
         /// <summary>
-        /// Handle form closing - cleanup resources and mark session inactive.
+        /// Dispose UI update timer.
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             _captureTimer?.Dispose();
+            _uiUpdateTimer?.Dispose(); // NEW: Dispose update timer
 
             if (_activeSessionFolder != null)
                 SessionManager.MarkSessionInactive(_activeSessionFolder);
