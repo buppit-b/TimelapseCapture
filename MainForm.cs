@@ -32,6 +32,10 @@ namespace TimelapseCapture
         
         // Suppress saving when programmatically changing aspect ratio (prevents unwanted saves during restoration)
         private bool _suppressAspectRatioSave = false;
+        
+        // Track consecutive capture errors for safety
+        private int _consecutiveCaptureErrors = 0;
+        private const int MAX_CONSECUTIVE_ERRORS = 3;
 
         #endregion
 
@@ -119,6 +123,7 @@ namespace TimelapseCapture
                         numQuality.Value = _activeSession.JpegQuality;
 
                     UpdateStatusDisplay();
+                    UpdateSessionInfoPanel();
                 }
             }
         }
@@ -333,6 +338,7 @@ namespace TimelapseCapture
             SaveSettings();
             UpdateStatusDisplay();
             UpdateCaptureTimer();
+            UpdateSessionInfoPanel();
 
             MessageBox.Show(
                 $"Session '{session.Name}' loaded!\n\n" +
@@ -426,6 +432,7 @@ namespace TimelapseCapture
 
                         UpdateStatusDisplay();
                         UpdateCaptureTimer();
+                        UpdateSessionInfoPanel();
 
                         MessageBox.Show(
                             $"✅ New session '{sessionName}' created!\n\n" +
@@ -523,6 +530,7 @@ namespace TimelapseCapture
                 _activeSessionFolder = null;
                 if (txtSessionName != null) txtSessionName.Text = "No session loaded";
                 UpdateStatusDisplay();
+                UpdateSessionInfoPanel();
             }
 
             // Create context menu with all screens
@@ -742,6 +750,7 @@ namespace TimelapseCapture
             Show();
             UpdateStatusDisplay();
             UpdateCaptureTimer();
+            UpdateSessionInfoPanel();
         }
 
         /// <summary>
@@ -951,16 +960,15 @@ namespace TimelapseCapture
                 // No active session - prompt for name
                 var result = MessageBox.Show(
                     "No session is loaded. Create one now?\n\n" +
-                    "Choose how to name your session:\n\n" +
-                    "• CUSTOM NAME: Click 'Yes' to enter a custom name\n" +
+                    "• CUSTOM: Enter a custom name\n" +
                     "  Example: \"Sunset Timelapse\"\n\n" +
-                    "• AUTO NAME: Click 'No' for automatic timestamp\n" +
-                    "  Example: \"Session_2025-10-19_143022\"\n\n" +
-                    "• CANCEL: Don't create a session yet",
+                    "• DEFAULT: Use automatic timestamp\n" +
+                    "  Example: \"Session_2025-10-19_143022\"",
                     "Create New Session",
                     MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Question);
 
+                // Map Yes to Custom, No to Default
                 if (result == DialogResult.Cancel)
                     return;
 
@@ -1045,10 +1053,14 @@ namespace TimelapseCapture
             settings.JpegQuality = quality;
             SaveSettings();
 
+            // Reset error counter at start of new capture
+            _consecutiveCaptureErrors = 0;
+
             var intervalMs = intervalSec * 1000;
             _captureTimer = new System.Threading.Timer(CaptureFrame, null, 0, intervalMs);
             UpdateStatusDisplay();
             UpdateCaptureTimer();
+            UpdateSessionInfoPanel();
         }
 
         /// <summary>
@@ -1071,6 +1083,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             SaveSettings();
             UpdateCaptureTimer();
+            UpdateSessionInfoPanel();
         }
 
         /// <summary>
@@ -1096,6 +1109,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Capture a single frame (called by timer).
         /// Tracks actual elapsed time and updates real-time counter.
+        /// Enhanced with comprehensive error handling and safety checks.
         /// </summary>
         private void CaptureFrame(object? state)
         {
@@ -1103,13 +1117,32 @@ namespace TimelapseCapture
 
             try
             {
+                // SAFETY CHECK: Disk space (check every 10 frames to reduce overhead)
+                if (_activeSession.FramesCaptured % 10 == 0 && !string.IsNullOrEmpty(_activeSessionFolder))
+                {
+                    if (!CheckDiskSpace(_activeSessionFolder, 50_000_000)) // Require 50MB free
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            StopCapture();
+                            MessageBox.Show(
+                                "⚠️ Disk space is running low!\n\n" +
+                                "Capture has been stopped automatically to prevent data loss.\n\n" +
+                                "Please free up disk space before continuing.",
+                                "Low Disk Space",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }));
+                        return;
+                    }
+                }
+
                 DateTime now = DateTime.UtcNow;
 
                 // Initialize LastCaptureTime on first frame
                 if (!_activeSession.LastCaptureTime.HasValue)
                 {
                     _activeSession.LastCaptureTime = now;
-                    // Don't add time for first frame
                 }
                 else
                 {
@@ -1126,8 +1159,14 @@ namespace TimelapseCapture
                 string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder!);
                 string fileName = Path.Combine(framesFolder, $"{frameNumber}.jpg");
 
+                // SAFETY: Use using statement to ensure bitmap disposal
                 using (var bmp = CaptureScreen())
                 {
+                    if (bmp == null || bmp.Width == 0 || bmp.Height == 0)
+                    {
+                        throw new InvalidOperationException("Captured bitmap is invalid");
+                    }
+                    
                     bmp.Save(fileName, ImageFormat.Jpeg);
                 }
 
@@ -1136,22 +1175,108 @@ namespace TimelapseCapture
                 SessionManager.IncrementFrameCount(_activeSessionFolder!);
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
-                // UI updates happen automatically via _uiUpdateTimer
-                // But we can force an immediate update:
+                // Reset error counter on success
+                _consecutiveCaptureErrors = 0;
+
+                // UI updates
                 BeginInvoke(new Action(() =>
                 {
                     UpdateStatusDisplay();
-                    UpdateCaptureTimer(); // Force immediate update
+                    UpdateCaptureTimer();
+                    UpdateSessionInfoPanel();
+                }));
+            }
+            catch (IOException ioEx)
+            {
+                Debug.WriteLine($"I/O error during capture: {ioEx.Message}");
+                _consecutiveCaptureErrors++;
+                
+                BeginInvoke(new Action(() =>
+                {
+                    if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
+                    {
+                        StopCapture();
+                        MessageBox.Show(
+                            $"❌ Capture stopped after {MAX_CONSECUTIVE_ERRORS} consecutive errors.\n\n" +
+                            $"Last error: {ioEx.Message}\n\n" +
+                            "Possible causes:\n" +
+                            "• Disk full or nearly full\n" +
+                            "• File system errors\n" +
+                            "• Antivirus blocking file access\n" +
+                            "• Network drive disconnected",
+                            "Capture Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        if (lblStatus != null)
+                            lblStatus.Text = $"⚠️ I/O Error ({_consecutiveCaptureErrors}/{MAX_CONSECUTIVE_ERRORS})";
+                    }
+                }));
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                Debug.WriteLine($"Permission error: {uaEx.Message}");
+                
+                BeginInvoke(new Action(() =>
+                {
+                    StopCapture();
+                    MessageBox.Show(
+                        "🚫 Permission denied during capture.\n\n" +
+                        $"Cannot write to: {_activeSessionFolder}\n\n" +
+                        "Solutions:\n" +
+                        "• Run as administrator\n" +
+                        "• Choose a different output folder\n" +
+                        "• Check folder permissions",
+                        "Permission Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }));
+            }
+            catch (OutOfMemoryException memEx)
+            {
+                Debug.WriteLine($"Out of memory: {memEx.Message}");
+                
+                BeginInvoke(new Action(() =>
+                {
+                    StopCapture();
+                    MessageBox.Show(
+                        "💥 Out of memory!\n\n" +
+                        "The system has run out of available memory.\n\n" +
+                        "Solutions:\n" +
+                        "• Close other applications\n" +
+                        "• Reduce capture resolution\n" +
+                        "• Restart the application",
+                        "Memory Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                 }));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Capture error: {ex.Message}");
-
+                Debug.WriteLine($"Unexpected capture error: {ex.GetType().Name} - {ex.Message}");
+                _consecutiveCaptureErrors++;
+                
                 BeginInvoke(new Action(() =>
                 {
-                    if (lblStatus != null)
-                        lblStatus.Text = $"⚠️ Capture error - check logs";
+                    if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
+                    {
+                        StopCapture();
+                        MessageBox.Show(
+                            $"❌ Unexpected error during capture.\n\n" +
+                            $"Type: {ex.GetType().Name}\n" +
+                            $"Message: {ex.Message}\n\n" +
+                            "Capture has been stopped for safety.",
+                            "Capture Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        if (lblStatus != null)
+                            lblStatus.Text = $"⚠️ Error ({_consecutiveCaptureErrors}/{MAX_CONSECUTIVE_ERRORS}): {ex.Message}";
+                    }
                 }));
             }
         }
@@ -1174,9 +1299,70 @@ namespace TimelapseCapture
         #region Display Updates
 
         /// <summary>
-        /// Update status label with current capture state.
-        /// Provides clear visual feedback about session state with color coding.
+        /// Update the Session Info Panel to show current session settings.
+        /// Provides at-a-glance visibility of locked settings during capture.
         /// </summary>
+        private void UpdateSessionInfoPanel()
+        {
+            if (lblSessionInfoRegion == null || lblSessionInfoFormat == null || 
+                lblSessionInfoQuality == null || lblSessionInfoInterval == null)
+                return;
+
+            if (_activeSession != null)
+            {
+                // Show session settings
+                var region = _activeSession.CaptureRegion;
+                string ratioInfo = AspectRatio.CalculateRatioString(region.Width, region.Height);
+                lblSessionInfoRegion.Text = $"📍 Region: {region.Width}×{region.Height} ({ratioInfo})";
+                lblSessionInfoRegion.ForeColor = Color.FromArgb(100, 200, 255); // Light blue
+
+                lblSessionInfoFormat.Text = $"🗄 Format: {_activeSession.ImageFormat}";
+                lblSessionInfoFormat.ForeColor = Color.FromArgb(100, 200, 255);
+
+                if (_activeSession.ImageFormat == "JPEG")
+                {
+                    lblSessionInfoQuality.Text = $"⭐ Quality: {_activeSession.JpegQuality}";
+                    lblSessionInfoQuality.ForeColor = Color.FromArgb(100, 200, 255);
+                    lblSessionInfoQuality.Visible = true;
+                }
+                else
+                {
+                    lblSessionInfoQuality.Text = "⭐ Quality: N/A (lossless)";
+                    lblSessionInfoQuality.ForeColor = Color.FromArgb(150, 150, 150);
+                    lblSessionInfoQuality.Visible = true;
+                }
+
+                lblSessionInfoInterval.Text = $"⏱ Interval: {_activeSession.IntervalSeconds}s";
+                lblSessionInfoInterval.ForeColor = Color.FromArgb(100, 200, 255);
+
+                // Change panel title based on state
+                if (grpSessionInfo != null)
+                {
+                    if (IsCapturing)
+                        grpSessionInfo.Text = "🔒 Session Settings (Locked - Capturing)";
+                    else if (_activeSession.FramesCaptured > 0)
+                        grpSessionInfo.Text = "📋 Session Settings (Active)";
+                    else
+                        grpSessionInfo.Text = "🆕 Session Settings (New)";
+                }
+            }
+            else
+            {
+                // No session - show placeholders
+                lblSessionInfoRegion.Text = "📍 Region: Not set";
+                lblSessionInfoFormat.Text = "🗄 Format: Not set";
+                lblSessionInfoQuality.Text = "⭐ Quality: Not set";
+                lblSessionInfoInterval.Text = "⏱ Interval: Not set";
+                
+                lblSessionInfoRegion.ForeColor = Color.FromArgb(100, 100, 100);
+                lblSessionInfoFormat.ForeColor = Color.FromArgb(100, 100, 100);
+                lblSessionInfoQuality.ForeColor = Color.FromArgb(100, 100, 100);
+                lblSessionInfoInterval.ForeColor = Color.FromArgb(100, 100, 100);
+
+                if (grpSessionInfo != null)
+                    grpSessionInfo.Text = "📋 Session Settings";
+            }
+        }
         private void UpdateStatusDisplay()
         {
             if (lblStatus == null) return;
@@ -1681,6 +1867,54 @@ namespace TimelapseCapture
             }
         }
 
+
+        #endregion
+
+        #region Error Handling & Safety
+
+        /// <summary>
+        /// Check if there's sufficient disk space for capture operations.
+        /// </summary>
+        private bool CheckDiskSpace(string path, long requiredBytes = 100_000_000) // 100MB default
+        {
+            try
+            {
+                var rootPath = Path.GetPathRoot(path);
+                if (string.IsNullOrEmpty(rootPath)) return true;
+                
+                var drive = new DriveInfo(rootPath);
+                return drive.AvailableFreeSpace > requiredBytes;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Could not check disk space: {ex.Message}");
+                return true; // If we can't check, assume OK rather than block
+            }
+        }
+
+        /// <summary>
+        /// Sanitize session name for filesystem compatibility.
+        /// </summary>
+        private string SanitizeSessionName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
+            
+            // Remove invalid filename characters
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = name;
+            foreach (var c in invalid)
+                sanitized = sanitized.Replace(c, '_');
+            
+            // Also remove some problematic characters that are technically valid
+            sanitized = sanitized.Replace('.', '_').Replace(' ', '_');
+            
+            // Limit length to prevent path too long errors
+            if (sanitized.Length > 50)
+                sanitized = sanitized.Substring(0, 50);
+            
+            return sanitized.Trim('_'); // Remove leading/trailing underscores
+        }
 
         #endregion
 

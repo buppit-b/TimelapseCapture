@@ -58,6 +58,13 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpCaptureSettings;
         private System.Windows.Forms.GroupBox grpSession;
         private System.Windows.Forms.GroupBox grpOutput;
+        private System.Windows.Forms.GroupBox grpSessionInfo;
+
+        // === Session Info Panel Labels ===
+        private System.Windows.Forms.Label lblSessionInfoRegion;
+        private System.Windows.Forms.Label lblSessionInfoFormat;
+        private System.Windows.Forms.Label lblSessionInfoQuality;
+        private System.Windows.Forms.Label lblSessionInfoInterval;
 
         #endregion
 
@@ -124,6 +131,11 @@ namespace TimelapseCapture
             grpCaptureSettings = new System.Windows.Forms.GroupBox();
             grpSession = new System.Windows.Forms.GroupBox();
             grpOutput = new System.Windows.Forms.GroupBox();
+            grpSessionInfo = new System.Windows.Forms.GroupBox();
+            lblSessionInfoRegion = new System.Windows.Forms.Label();
+            lblSessionInfoFormat = new System.Windows.Forms.Label();
+            lblSessionInfoQuality = new System.Windows.Forms.Label();
+            lblSessionInfoInterval = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)numInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numQuality).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).BeginInit();
@@ -131,7 +143,62 @@ namespace TimelapseCapture
             grpCaptureSettings.SuspendLayout();
             grpSession.SuspendLayout();
             grpOutput.SuspendLayout();
+            grpSessionInfo.SuspendLayout();
             SuspendLayout();
+            // 
+            // grpSessionInfo
+            // 
+            grpSessionInfo.Controls.Add(lblSessionInfoRegion);
+            grpSessionInfo.Controls.Add(lblSessionInfoFormat);
+            grpSessionInfo.Controls.Add(lblSessionInfoQuality);
+            grpSessionInfo.Controls.Add(lblSessionInfoInterval);
+            grpSessionInfo.ForeColor = Color.LightGray;
+            grpSessionInfo.Location = new Point(490, 15);
+            grpSessionInfo.Name = "grpSessionInfo";
+            grpSessionInfo.Size = new Size(280, 145);
+            grpSessionInfo.TabIndex = 3;
+            grpSessionInfo.TabStop = false;
+            grpSessionInfo.Text = "📋 Session Settings (Locked)";
+            // 
+            // lblSessionInfoRegion
+            // 
+            lblSessionInfoRegion.AutoSize = false;
+            lblSessionInfoRegion.Location = new Point(10, 25);
+            lblSessionInfoRegion.Name = "lblSessionInfoRegion";
+            lblSessionInfoRegion.Size = new Size(260, 20);
+            lblSessionInfoRegion.TabIndex = 0;
+            lblSessionInfoRegion.Text = "Region: Not set";
+            lblSessionInfoRegion.ForeColor = Color.FromArgb(180, 180, 180);
+            // 
+            // lblSessionInfoFormat
+            // 
+            lblSessionInfoFormat.AutoSize = false;
+            lblSessionInfoFormat.Location = new Point(10, 52);
+            lblSessionInfoFormat.Name = "lblSessionInfoFormat";
+            lblSessionInfoFormat.Size = new Size(260, 20);
+            lblSessionInfoFormat.TabIndex = 1;
+            lblSessionInfoFormat.Text = "Format: Not set";
+            lblSessionInfoFormat.ForeColor = Color.FromArgb(180, 180, 180);
+            // 
+            // lblSessionInfoQuality
+            // 
+            lblSessionInfoQuality.AutoSize = false;
+            lblSessionInfoQuality.Location = new Point(10, 79);
+            lblSessionInfoQuality.Name = "lblSessionInfoQuality";
+            lblSessionInfoQuality.Size = new Size(260, 20);
+            lblSessionInfoQuality.TabIndex = 2;
+            lblSessionInfoQuality.Text = "Quality: Not set";
+            lblSessionInfoQuality.ForeColor = Color.FromArgb(180, 180, 180);
+            // 
+            // lblSessionInfoInterval
+            // 
+            lblSessionInfoInterval.AutoSize = false;
+            lblSessionInfoInterval.Location = new Point(10, 106);
+            lblSessionInfoInterval.Name = "lblSessionInfoInterval";
+            lblSessionInfoInterval.Size = new Size(260, 20);
+            lblSessionInfoInterval.TabIndex = 3;
+            lblSessionInfoInterval.Text = "Interval: Not set";
+            lblSessionInfoInterval.ForeColor = Color.FromArgb(180, 180, 180);
             // 
             // btnStart
             // 
@@ -515,7 +582,8 @@ namespace TimelapseCapture
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(490, 675);
+            ClientSize = new Size(785, 675);
+            Controls.Add(grpSessionInfo);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
             Controls.Add(grpCaptureSettings);
@@ -537,6 +605,7 @@ namespace TimelapseCapture
             grpSession.PerformLayout();
             grpOutput.ResumeLayout(false);
             grpOutput.PerformLayout();
+            grpSessionInfo.ResumeLayout(false);
             ResumeLayout(false);
         }
 
