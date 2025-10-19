@@ -12,7 +12,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Display name of the aspect ratio.
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// Width component of the ratio.

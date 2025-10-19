@@ -21,16 +21,16 @@ namespace TimelapseCapture
 
     public static class SettingsManager
     {
-        private static readonly string Path = System.IO.Path.Combine(AppContext.BaseDirectory, "settings.json");
+        private static readonly string SettingsFilePath = System.IO.Path.Combine(AppContext.BaseDirectory, "settings.json");
 
         public static CaptureSettings Load()
         {
             try
             {
-                if (!File.Exists(Path))
+                if (!File.Exists(SettingsFilePath))
                     return new CaptureSettings();
 
-                var json = File.ReadAllText(Path);
+                var json = File.ReadAllText(SettingsFilePath);
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var s = JsonSerializer.Deserialize<CaptureSettings>(json, opts) ?? new CaptureSettings();
                 return s;
@@ -47,7 +47,7 @@ namespace TimelapseCapture
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(settings, opts);
-                File.WriteAllText(Path, json);
+                File.WriteAllText(SettingsFilePath, json);
             }
             catch
             {
@@ -70,7 +70,7 @@ namespace TimelapseCapture
 
             // Sanitize session name for folder
             string safeName = SanitizeFolderName(sessionName);
-            string folder = Path.Combine(capturesRoot, safeName);
+            string folder = System.IO.Path.Combine(capturesRoot, safeName);
 
             // Handle duplicates by appending number
             int counter = 1;
@@ -83,9 +83,9 @@ namespace TimelapseCapture
 
             // Create organized folder structure
             Directory.CreateDirectory(folder);
-            Directory.CreateDirectory(Path.Combine(folder, FramesFolder));
-            Directory.CreateDirectory(Path.Combine(folder, OutputFolder));
-            Directory.CreateDirectory(Path.Combine(folder, TempFolder));
+            Directory.CreateDirectory(System.IO.Path.Combine(folder, "frames"));
+            Directory.CreateDirectory(System.IO.Path.Combine(folder, "output"));
+            Directory.CreateDirectory(System.IO.Path.Combine(folder, ".temp"));
 
             var info = new SessionInfo
             {
@@ -104,7 +104,7 @@ namespace TimelapseCapture
                 IntervalChanged = false
             };
 
-            SaveSession(folder, info);
+            SessionManager.SaveSession(folder, info);
             return folder;
         }
 
@@ -118,7 +118,7 @@ namespace TimelapseCapture
                 return $"session_{DateTime.Now:yyyyMMdd_HHmmss}";
 
             // Remove invalid characters
-            char[] invalid = Path.GetInvalidFileNameChars();
+            char[] invalid = System.IO.Path.GetInvalidFileNameChars();
             string safe = string.Join("_", name.Split(invalid, StringSplitOptions.RemoveEmptyEntries));
 
             // Replace multiple spaces/underscores with single underscore

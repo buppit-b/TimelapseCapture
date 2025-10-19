@@ -208,6 +208,137 @@ namespace TimelapseCapture
         #region Settings Management
 
         /// <summary>
+        /// Handle Load Session button click.
+        /// Opens file browser to select session.json file.
+        /// </summary>
+        private void btnLoadSession_Click(object? sender, EventArgs e)
+        {
+            if (IsCapturing)
+            {
+                MessageBox.Show(
+                    "Cannot load session while capturing. Stop capture first.",
+                    "Cannot Load Session",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Warn if active session exists
+            if (_activeSession != null && _activeSession.FramesCaptured > 0)
+            {
+                var result = MessageBox.Show(
+                    $"Current session '{_activeSession.Name}' has {_activeSession.FramesCaptured} frames.\n\n" +
+                    "Loading another session will close the current one.\n\n" +
+                    "Continue?",
+                    "Close Current Session?",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.No)
+                    return;
+
+                if (_activeSessionFolder != null)
+                    SessionManager.MarkSessionInactive(_activeSessionFolder);
+            }
+
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Title = "Load Session";
+                ofd.Filter = "Session Files (session.json)|session.json|All Files (*.*)|*.*";
+                ofd.CheckFileExists = true;
+
+                // Start in captures folder if available
+                if (!string.IsNullOrEmpty(settings.SaveFolder))
+                {
+                    var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                    if (Directory.Exists(capturesRoot))
+                        ofd.InitialDirectory = capturesRoot;
+                }
+
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    string sessionFile = ofd.FileName;
+                    string sessionFolder = Path.GetDirectoryName(sessionFile);
+
+                    if (string.IsNullOrEmpty(sessionFolder))
+                    {
+                        MessageBox.Show(
+                            "Invalid session file location.",
+                            "Load Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    LoadSessionFromPath(sessionFolder);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Load a session from a path.
+        /// </summary>
+        private void LoadSessionFromPath(string sessionPath)
+        {
+            var session = SessionManager.LoadSession(sessionPath);
+            if (session == null)
+            {
+                MessageBox.Show(
+                    "Failed to load session.",
+                    "Load Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            // Mark all other sessions as inactive first
+            if (!string.IsNullOrEmpty(settings.SaveFolder))
+            {
+                var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                SessionManager.MarkAllSessionsInactive(capturesRoot);
+            }
+
+            // Mark this session as active
+            session.Active = true;
+            SessionManager.SaveSession(sessionPath, session);
+
+            // Load into UI
+            _activeSessionFolder = sessionPath;
+            _activeSession = session;
+            captureRegion = session.CaptureRegion;
+
+            if (txtSessionName != null)
+                txtSessionName.Text = session.Name;
+
+            if (numInterval != null)
+                numInterval.Value = session.IntervalSeconds;
+
+            if (cmbFormat != null)
+                cmbFormat.SelectedItem = session.ImageFormat ?? "JPEG";
+
+            if (numQuality != null && session.ImageFormat == "JPEG")
+                numQuality.Value = session.JpegQuality;
+
+            string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+            if (lblRegion != null)
+                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+
+            SaveSettings();
+            UpdateStatusDisplay();
+            UpdateCaptureTimer();
+
+            MessageBox.Show(
+                $"Session '{session.Name}' loaded!\n\n" +
+                $"Frames: {session.FramesCaptured}\n" +
+                $"Region: {captureRegion.Width}×{captureRegion.Height}\n" +
+                $"Location: {Path.GetFileName(sessionPath)}\n\n" +
+                $"Ready to continue capturing.",
+                "Session Loaded",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        /// <summary>
         /// Handle New Session button click.
         /// Prompts for session name and creates new session.
         /// </summary>
@@ -287,7 +418,7 @@ namespace TimelapseCapture
                             txtSessionName.Text = sessionName;
 
                         UpdateStatusDisplay();
-                        UpdateEstimate();
+                        UpdateCaptureTimer();
 
                         MessageBox.Show(
                             $"✅ New session '{sessionName}' created!\n\n" +
@@ -340,6 +471,115 @@ namespace TimelapseCapture
         #endregion
 
         #region UI Event Handlers
+
+        /// <summary>
+        /// Handle full screen button click.
+        /// Shows context menu with all available monitors.
+        /// </summary>
+        private void btnFullScreen_Click(object? sender, EventArgs e)
+        {
+            if (IsCapturing)
+            {
+                MessageBox.Show(
+                    "Cannot change region while capturing. Stop capture first.",
+                    "Cannot Change Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_activeSession != null && captureRegion != Rectangle.Empty)
+            {
+                var result = MessageBox.Show(
+                    $"An active session exists with {_activeSession.FramesCaptured} frames.\n\n" +
+                    "Changing the region will require starting a new session.\n\n" +
+                    "Do you want to:\n" +
+                    "• YES: Close current session and start fresh\n" +
+                    "• NO: Keep current session and cancel region change",
+                    "Active Session Detected",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.No) return;
+
+                if (_activeSessionFolder != null) SessionManager.MarkSessionInactive(_activeSessionFolder);
+                _activeSession = null;
+                _activeSessionFolder = null;
+            }
+
+            // Create context menu with all screens
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.BackColor = Color.FromArgb(45, 45, 45);
+            contextMenu.ForeColor = Color.LightGray;
+
+            var screens = Screen.AllScreens;
+            for (int i = 0; i < screens.Length; i++)
+            {
+                var screen = screens[i];
+                var bounds = screen.Bounds;
+                
+                // Create descriptive label
+                string label = $"Monitor {i + 1}: {bounds.Width}×{bounds.Height}";
+                if (screen.Primary)
+                    label += " (Primary)";
+
+                var menuItem = new ToolStripMenuItem(label);
+                menuItem.Tag = screen;
+                menuItem.Click += (s, args) =>
+                {
+                    SelectFullScreenRegion((Screen)menuItem.Tag!);
+                };
+
+                contextMenu.Items.Add(menuItem);
+            }
+
+            // Show menu below the button
+            if (btnFullScreen != null)
+            {
+                contextMenu.Show(btnFullScreen, new Point(0, btnFullScreen.Height));
+            }
+        }
+
+        /// <summary>
+        /// Select full screen region for a specific monitor.
+        /// Ensures even dimensions for video encoding.
+        /// </summary>
+        private void SelectFullScreenRegion(Screen screen)
+        {
+            var bounds = screen.Bounds;
+
+            // Ensure even dimensions (required for video encoding)
+            int width = bounds.Width;
+            int height = bounds.Height;
+
+            if ((width & 1) == 1) width--;
+            if ((height & 1) == 1) height--;
+
+            // Ensure minimum dimensions
+            width = Math.Max(2, width);
+            height = Math.Max(2, height);
+
+            captureRegion = new Rectangle(bounds.X, bounds.Y, width, height);
+
+            // Calculate and display aspect ratio
+            string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+
+            if (lblRegion != null)
+            {
+                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+            }
+
+            if (lblFullScreenInfo != null)
+            {
+                string monitorInfo = screen.Primary ? "Primary Monitor" : "Secondary Monitor";
+                lblFullScreenInfo.Text = $"Full screen\n{monitorInfo}";
+            }
+
+            settings.Region = captureRegion;
+            SaveSettings();
+            UpdateStatusDisplay();
+            UpdateCaptureTimer();
+        }
 
         /// <summary>
         /// Handle region selection button click.
@@ -405,6 +645,10 @@ namespace TimelapseCapture
 
                         if (lblRegion != null)
                             lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+
+                        // Clear full screen info since this is manual selection
+                        if (lblFullScreenInfo != null)
+                            lblFullScreenInfo.Text = "";
 
                         settings.Region = captureRegion;
                         SaveSettings();
@@ -644,7 +888,8 @@ namespace TimelapseCapture
                 {
                     // Create default session
                     _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
-                    _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                    if (!string.IsNullOrEmpty(_activeSessionFolder))
+                        _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
                     if (txtSessionName != null)
                         txtSessionName.Text = _activeSession?.Name ?? "Session";
@@ -723,6 +968,7 @@ namespace TimelapseCapture
             if (trkQuality != null) trkQuality.Enabled = !locked && (cmbFormat?.SelectedItem?.ToString() == "JPEG");
             if (numQuality != null) numQuality.Enabled = !locked && (cmbFormat?.SelectedItem?.ToString() == "JPEG");
             if (btnSelectRegion != null) btnSelectRegion.Enabled = !locked;
+            if (btnFullScreen != null) btnFullScreen.Enabled = !locked;
             if (btnChooseFolder != null) btnChooseFolder.Enabled = !locked;
             if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = !locked;
             if (btnStart != null) btnStart.Enabled = !locked;
