@@ -27,6 +27,12 @@ namespace TimelapseCapture
         private bool _isEncoding = false;
         private System.Windows.Forms.Timer? _uiUpdateTimer;
 
+        // Remember the user's aspect-ratio selection so we can restore it when leaving Full Screen.
+        private int _lastAspectRatioIndex = 0;
+        
+        // Suppress saving when programmatically changing aspect ratio (prevents unwanted saves during restoration)
+        private bool _suppressAspectRatioSave = false;
+
         #endregion
 
         #region Initialization
@@ -123,7 +129,7 @@ namespace TimelapseCapture
         /// </summary>
         private void WireInitialValues()
         {
-            // Load session name display    
+            // Load session name display
             if (txtSessionName != null)
             {
                 if (_activeSession != null && !string.IsNullOrEmpty(_activeSession.Name))
@@ -138,17 +144,15 @@ namespace TimelapseCapture
 
             if (cmbFormat != null) cmbFormat.SelectedItem = settings.Format ?? "JPEG";
             if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
-            if (numDesiredSec != null) numDesiredSec.Value = 30; 
+            if (numDesiredSec != null) numDesiredSec.Value = 30;
 
             // Load and validate saved region
             if (settings.Region.HasValue && _activeSession == null)
             {
                 var r = settings.Region.Value;
-
                 if (r.Width > 0 && r.Height > 0)
                 {
                     bool wasFixed = false;
-
                     // Ensure even dimensions for video encoding compatibility
                     if ((r.Width & 1) == 1)
                     {
@@ -160,24 +164,19 @@ namespace TimelapseCapture
                         r.Height = Math.Max(2, r.Height - 1);
                         wasFixed = true;
                     }
-
                     captureRegion = r;
-
                     if (wasFixed)
                     {
                         settings.Region = r;
                         SaveSettings();
                     }
-
-                    if (lblRegion != null)
-                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                    if (lblRegion != null) lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
                 }
             }
 
             if (!string.IsNullOrEmpty(settings.SaveFolder))
             {
-                if (lblFolder != null)
-                    lblFolder.Text = "Save to: " + settings.SaveFolder;
+                if (lblFolder != null) lblFolder.Text = "Save to: " + settings.SaveFolder;
             }
 
             if (trkQuality != null) trkQuality.Value = settings.JpegQuality;
@@ -188,15 +187,23 @@ namespace TimelapseCapture
             if (cmbAspectRatio != null)
             {
                 cmbAspectRatio.Items.Clear();
-                cmbAspectRatio.Items.AddRange(AspectRatio.CommonRatios); // AspectRatio.ToString() returns Name
-
+                cmbAspectRatio.Items.AddRange(AspectRatio.CommonRatios);
                 int savedIndex = settings.AspectRatioIndex;
                 if (savedIndex >= 0 && savedIndex < cmbAspectRatio.Items.Count)
                 {
                     cmbAspectRatio.SelectedIndex = savedIndex;
                     _selectedAspectRatio = AspectRatio.CommonRatios[savedIndex];
-                    if (_selectedAspectRatio.Width == 0)
-                        _selectedAspectRatio = null;
+                    // If "Free" mode (width = 0), treat as unconstrained in runtime but keep index
+                    if (_selectedAspectRatio.Width == 0) _selectedAspectRatio = null;
+                    _lastAspectRatioIndex = savedIndex;
+                }
+                else
+                {
+                    // default to first if saved index invalid
+                    cmbAspectRatio.SelectedIndex = 0;
+                    _lastAspectRatioIndex = 0;
+                    _selectedAspectRatio = AspectRatio.CommonRatios[0];
+                    if (_selectedAspectRatio.Width == 0) _selectedAspectRatio = null;
                 }
             }
 
@@ -456,7 +463,13 @@ namespace TimelapseCapture
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
             settings.FfmpegPath = _ffmpegPath;
-            settings.AspectRatioIndex = cmbAspectRatio?.SelectedIndex ?? 0; // NEW
+
+            // Only save aspect-ratio preference if the user can actively set it (not while we are temporarily in full-screen mode)
+            if (cmbAspectRatio != null && cmbAspectRatio.Enabled)
+            {
+                settings.AspectRatioIndex = cmbAspectRatio.SelectedIndex;
+            }
+
             SettingsManager.Save(settings);
         }
 
@@ -481,30 +494,35 @@ namespace TimelapseCapture
             if (IsCapturing)
             {
                 MessageBox.Show(
-                    "Cannot change region while capturing. Stop capture first.",
-                    "Cannot Change Region",
+                    "Cannot change region while capturing.\n\n" +
+                    "Please stop the current capture session first.",
+                    "Stop Capture First",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
-            if (_activeSession != null && captureRegion != Rectangle.Empty)
+            if (_activeSession != null)
             {
                 var result = MessageBox.Show(
-                    $"An active session exists with {_activeSession.FramesCaptured} frames.\n\n" +
-                    "Changing the region will require starting a new session.\n\n" +
-                    "Do you want to:\n" +
-                    "• YES: Close current session and start fresh\n" +
-                    "• NO: Keep current session and cancel region change",
-                    "Active Session Detected",
+                    $"Session '{_activeSession.Name}' is currently loaded.\n\n" +
+                    $"Status: {_activeSession.FramesCaptured} frames captured\n" +
+                    $"Region: {_activeSession.CaptureRegion.Width}×{_activeSession.CaptureRegion.Height}\n\n" +
+                    "Changing to full screen requires closing this session.\n\n" +
+                    "• YES: Close current session and select full screen\n" +
+                    "• NO: Keep current session (cancel)",
+                    "Close Current Session?",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
                 if (result == DialogResult.No) return;
 
+                // User confirmed - close the session
                 if (_activeSessionFolder != null) SessionManager.MarkSessionInactive(_activeSessionFolder);
                 _activeSession = null;
                 _activeSessionFolder = null;
+                if (txtSessionName != null) txtSessionName.Text = "No session loaded";
+                UpdateStatusDisplay();
             }
 
             // Create context menu with all screens
@@ -551,32 +569,67 @@ namespace TimelapseCapture
             // Ensure even dimensions (required for video encoding)
             int width = bounds.Width;
             int height = bounds.Height;
-
             if ((width & 1) == 1) width--;
             if ((height & 1) == 1) height--;
-
-            // Ensure minimum dimensions
             width = Math.Max(2, width);
             height = Math.Max(2, height);
 
+            // Save user's previous aspect-ratio selection so we can restore after region selection
+            if (cmbAspectRatio != null)
+            {
+                _lastAspectRatioIndex = cmbAspectRatio.SelectedIndex >= 0 ? cmbAspectRatio.SelectedIndex : _lastAspectRatioIndex;
+            }
+
+            // Set capture region to this monitor
             captureRegion = new Rectangle(bounds.X, bounds.Y, width, height);
 
-            // Calculate and display aspect ratio
+            // Calculate and display aspect ratio string
             string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
-
             if (lblRegion != null)
             {
                 lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
             }
 
+            // Indicate full screen monitor in UI
             if (lblFullScreenInfo != null)
             {
                 string monitorInfo = screen.Primary ? "Primary Monitor" : "Secondary Monitor";
                 lblFullScreenInfo.Text = $"Full screen\n{monitorInfo}";
             }
 
+            // Temporarily set the aspect ratio UI to "Unconstrained" / Free and disable it
+            if (cmbAspectRatio != null)
+            {
+                // Try to find an AspectRatio entry with width == 0 (convention used for 'Free' / unconstrained)
+                int freeIndex = -1;
+                for (int i = 0; i < AspectRatio.CommonRatios.Length; i++)
+                {
+                    if (AspectRatio.CommonRatios[i].Width == 0)
+                    {
+                        freeIndex = i;
+                        break;
+                    }
+                }
+
+                if (freeIndex >= 0 && freeIndex < cmbAspectRatio.Items.Count)
+                {
+                    cmbAspectRatio.SelectedIndex = freeIndex;
+                }
+                else
+                {
+                    // No free mode item found in list — fallback: disable and clear selection
+                    cmbAspectRatio.SelectedIndex = -1;
+                }
+
+                cmbAspectRatio.Enabled = false;
+            }
+
+            // Persist region while preserving the user's saved aspect-ratio preference
+            int preservedAspectIndex = _lastAspectRatioIndex;
             settings.Region = captureRegion;
-            SaveSettings();
+            settings.AspectRatioIndex = preservedAspectIndex; // Preserve user's original choice
+            SettingsManager.Save(settings);
+
             UpdateStatusDisplay();
             UpdateCaptureTimer();
         }
@@ -652,6 +705,36 @@ namespace TimelapseCapture
 
                         settings.Region = captureRegion;
                         SaveSettings();
+
+                        if (cmbAspectRatio != null)
+                        {
+                            cmbAspectRatio.Enabled = true;
+                            
+                            // Suppress save during programmatic restoration
+                            _suppressAspectRatioSave = true;
+                            
+                            // Restore previous user selection if valid
+                            if (_lastAspectRatioIndex >= 0 && _lastAspectRatioIndex < cmbAspectRatio.Items.Count)
+                            {
+                                cmbAspectRatio.SelectedIndex = _lastAspectRatioIndex;
+                            }
+                            else if (cmbAspectRatio.Items.Count > 0)
+                            {
+                                cmbAspectRatio.SelectedIndex = 0;
+                                _lastAspectRatioIndex = 0;
+                            }
+                            
+                            // Re-enable saves now that restoration is complete
+                            _suppressAspectRatioSave = false;
+                            
+                            // Update the runtime aspect ratio object
+                            if (_lastAspectRatioIndex >= 0 && _lastAspectRatioIndex < AspectRatio.CommonRatios.Length)
+                            {
+                                _selectedAspectRatio = AspectRatio.CommonRatios[_lastAspectRatioIndex];
+                                if (_selectedAspectRatio?.Width == 0)
+                                    _selectedAspectRatio = null;
+                            }
+                        }
                     }
                 }
             }
@@ -663,10 +746,11 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Handle aspect ratio dropdown change.
+        /// Only saves when user manually changes it (not during programmatic restoration).
         /// </summary>
         private void cmbAspectRatio_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            if (cmbAspectRatio == null) return;
+            if (cmbAspectRatio == null || _suppressAspectRatioSave) return;
 
             int index = cmbAspectRatio.SelectedIndex;
             if (index >= 0 && index < AspectRatio.CommonRatios.Length)
@@ -677,6 +761,8 @@ namespace TimelapseCapture
                 if (_selectedAspectRatio.Width == 0)
                     _selectedAspectRatio = null;
 
+                // Track this as the user's preference
+                _lastAspectRatioIndex = index;
                 SaveSettings();
             }
         }
@@ -864,11 +950,14 @@ namespace TimelapseCapture
             {
                 // No active session - prompt for name
                 var result = MessageBox.Show(
-                    "No active session exists.\n\n" +
-                    "Would you like to:\n" +
-                    "• YES: Create a new named session\n" +
-                    "• NO: Create default timestamped session",
-                    "Create Session?",
+                    "No session is loaded. Create one now?\n\n" +
+                    "Choose how to name your session:\n\n" +
+                    "• CUSTOM NAME: Click 'Yes' to enter a custom name\n" +
+                    "  Example: \"Sunset Timelapse\"\n\n" +
+                    "• AUTO NAME: Click 'No' for automatic timestamp\n" +
+                    "  Example: \"Session_2025-10-19_143022\"\n\n" +
+                    "• CANCEL: Don't create a session yet",
+                    "Create New Session",
                     MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Question);
 
@@ -900,12 +989,39 @@ namespace TimelapseCapture
                 // Existing session - validate settings
                 if (!SessionManager.ValidateSessionSettings(_activeSession, captureRegion, format, quality))
                 {
+                    // Build detailed mismatch list
+                    var mismatches = new System.Text.StringBuilder();
+                    mismatches.AppendLine("Your current settings don't match the loaded session:\n");
+                    
+                    if (_activeSession.CaptureRegion != captureRegion)
+                    {
+                        mismatches.AppendLine($"• Region:");
+                        mismatches.AppendLine($"  Session: {_activeSession.CaptureRegion.Width}×{_activeSession.CaptureRegion.Height}");
+                        mismatches.AppendLine($"  Current: {captureRegion.Width}×{captureRegion.Height}\n");
+                    }
+                    
+                    if (_activeSession.ImageFormat != format)
+                    {
+                        mismatches.AppendLine($"• Format:");
+                        mismatches.AppendLine($"  Session: {_activeSession.ImageFormat}");
+                        mismatches.AppendLine($"  Current: {format}\n");
+                    }
+                    
+                    if (_activeSession.JpegQuality != quality && format == "JPEG")
+                    {
+                        mismatches.AppendLine($"• JPEG Quality:");
+                        mismatches.AppendLine($"  Session: {_activeSession.JpegQuality}");
+                        mismatches.AppendLine($"  Current: {quality}\n");
+                    }
+                    
                     var result = MessageBox.Show(
-                        "Current settings don't match the active session.\n\n" +
-                        "Start a new session?",
+                        mismatches.ToString() +
+                        "What would you like to do?\n\n" +
+                        "• YES: Start a new session with current settings\n" +
+                        "• NO: Cancel and adjust settings to match session",
                         "Settings Mismatch",
                         MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question);
+                        MessageBoxIcon.Warning);
 
                     if (result == DialogResult.Yes)
                     {
@@ -1059,17 +1175,41 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Update status label with current capture state.
+        /// Provides clear visual feedback about session state with color coding.
         /// </summary>
         private void UpdateStatusDisplay()
         {
             if (lblStatus == null) return;
 
             if (IsCapturing)
-                lblStatus.Text = $"🔴 Capturing ({_activeSession?.FramesCaptured ?? 0} frames)";
+            {
+                // Currently capturing - RED background
+                lblStatus.Text = $"🔴 CAPTURING - {_activeSession?.Name ?? "Session"} ({_activeSession?.FramesCaptured ?? 0} frames)";
+                lblStatus.BackColor = Color.FromArgb(220, 50, 50); // Red
+                lblStatus.ForeColor = Color.White;
+            }
             else if (_activeSession != null)
-                lblStatus.Text = $"Session: {_activeSession.Name} ({_activeSession.FramesCaptured} frames)";
+            {
+                // Session loaded but not capturing - GREEN background
+                if (_activeSession.FramesCaptured > 0)
+                {
+                    lblStatus.Text = $"📂 Session loaded: {_activeSession.Name} ({_activeSession.FramesCaptured} frames) - Ready to capture";
+                    lblStatus.BackColor = Color.FromArgb(60, 180, 75); // Green
+                }
+                else
+                {
+                    lblStatus.Text = $"🆕 New session ready: {_activeSession.Name} - Press Start to begin";
+                    lblStatus.BackColor = Color.FromArgb(70, 160, 220); // Blue
+                }
+                lblStatus.ForeColor = Color.White;
+            }
             else
-                lblStatus.Text = "Ready - No active session";
+            {
+                // No session - GRAY background
+                lblStatus.Text = "⚪ No session - Select region and press Start to create one";
+                lblStatus.BackColor = Color.FromArgb(120, 120, 120); // Gray
+                lblStatus.ForeColor = Color.White;
+            }
         }
 
         /*
