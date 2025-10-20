@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Windows.Forms;
 
 namespace TimelapseCapture
 {
@@ -59,12 +60,22 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpSession;
         private System.Windows.Forms.GroupBox grpOutput;
         private System.Windows.Forms.GroupBox grpSessionInfo;
+        private System.Windows.Forms.GroupBox grpEncodingSettings;
 
         // === Session Info Panel Labels ===
         private System.Windows.Forms.Label lblSessionInfoRegion;
         private System.Windows.Forms.Label lblSessionInfoFormat;
         private System.Windows.Forms.Label lblSessionInfoQuality;
         private System.Windows.Forms.Label lblSessionInfoInterval;
+        
+        // === Encoding Settings Controls ===
+        private System.Windows.Forms.Label lblFrameRateText;
+        private System.Windows.Forms.ComboBox cmbFrameRate;
+        private System.Windows.Forms.NumericUpDown numCustomFrameRate;
+        private System.Windows.Forms.Label lblEncodingPresetText;
+        private System.Windows.Forms.ComboBox cmbEncodingPreset;
+        private System.Windows.Forms.Label lblVideoCodecText;
+        private System.Windows.Forms.ComboBox cmbVideoCodec;
 
         #endregion
 
@@ -136,6 +147,14 @@ namespace TimelapseCapture
             lblSessionInfoFormat = new System.Windows.Forms.Label();
             lblSessionInfoQuality = new System.Windows.Forms.Label();
             lblSessionInfoInterval = new System.Windows.Forms.Label();
+            grpEncodingSettings = new System.Windows.Forms.GroupBox();
+            lblFrameRateText = new System.Windows.Forms.Label();
+            cmbFrameRate = new System.Windows.Forms.ComboBox();
+            numCustomFrameRate = new System.Windows.Forms.NumericUpDown();
+            lblEncodingPresetText = new System.Windows.Forms.Label();
+            cmbEncodingPreset = new System.Windows.Forms.ComboBox();
+            lblVideoCodecText = new System.Windows.Forms.Label();
+            cmbVideoCodec = new System.Windows.Forms.ComboBox();
             ((System.ComponentModel.ISupportInitialize)numInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numQuality).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).BeginInit();
@@ -144,7 +163,110 @@ namespace TimelapseCapture
             grpSession.SuspendLayout();
             grpOutput.SuspendLayout();
             grpSessionInfo.SuspendLayout();
+            grpEncodingSettings.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).BeginInit();
             SuspendLayout();
+            // 
+            // grpEncodingSettings
+            // 
+            grpEncodingSettings.Controls.Add(lblFrameRateText);
+            grpEncodingSettings.Controls.Add(cmbFrameRate);
+            grpEncodingSettings.Controls.Add(numCustomFrameRate);
+            grpEncodingSettings.Controls.Add(lblEncodingPresetText);
+            grpEncodingSettings.Controls.Add(cmbEncodingPreset);
+            grpEncodingSettings.Controls.Add(lblVideoCodecText);
+            grpEncodingSettings.Controls.Add(cmbVideoCodec);
+            grpEncodingSettings.ForeColor = Color.LightGray;
+            grpEncodingSettings.Location = new Point(490, 170);
+            grpEncodingSettings.Name = "grpEncodingSettings";
+            grpEncodingSettings.Size = new Size(280, 160);
+            grpEncodingSettings.TabIndex = 4;
+            grpEncodingSettings.TabStop = false;
+            grpEncodingSettings.Text = "🎬 Encoding Settings";
+            // 
+            // lblFrameRateText
+            // 
+            lblFrameRateText.AutoSize = true;
+            lblFrameRateText.Location = new Point(10, 25);
+            lblFrameRateText.Name = "lblFrameRateText";
+            lblFrameRateText.Size = new Size(70, 15);
+            lblFrameRateText.TabIndex = 0;
+            lblFrameRateText.Text = "Frame Rate:";
+            // 
+            // cmbFrameRate
+            // 
+            cmbFrameRate.BackColor = SystemColors.InactiveCaptionText;
+            cmbFrameRate.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbFrameRate.FlatStyle = FlatStyle.Popup;
+            cmbFrameRate.ForeColor = SystemColors.ScrollBar;
+            cmbFrameRate.FormattingEnabled = true;
+            cmbFrameRate.Items.AddRange(new object[] { "24 fps (Film)", "25 fps (PAL)", "30 fps (NTSC)", "60 fps (Smooth)", "Custom..." });
+            cmbFrameRate.Location = new Point(10, 45);
+            cmbFrameRate.Name = "cmbFrameRate";
+            cmbFrameRate.Size = new Size(140, 23);
+            cmbFrameRate.TabIndex = 1;
+            cmbFrameRate.SelectedIndexChanged += cmbFrameRate_SelectedIndexChanged;
+            // 
+            // numCustomFrameRate
+            // 
+            numCustomFrameRate.BackColor = SystemColors.InactiveCaptionText;
+            numCustomFrameRate.BorderStyle = BorderStyle.FixedSingle;
+            numCustomFrameRate.ForeColor = SystemColors.ScrollBar;
+            numCustomFrameRate.Location = new Point(160, 45);
+            numCustomFrameRate.Maximum = new decimal(new int[] { 120, 0, 0, 0 });
+            numCustomFrameRate.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numCustomFrameRate.Name = "numCustomFrameRate";
+            numCustomFrameRate.Size = new Size(110, 23);
+            numCustomFrameRate.TabIndex = 2;
+            numCustomFrameRate.Value = new decimal(new int[] { 30, 0, 0, 0 });
+            numCustomFrameRate.Visible = false;
+            numCustomFrameRate.ValueChanged += numCustomFrameRate_ValueChanged;
+            // 
+            // lblEncodingPresetText
+            // 
+            lblEncodingPresetText.AutoSize = true;
+            lblEncodingPresetText.Location = new Point(10, 78);
+            lblEncodingPresetText.Name = "lblEncodingPresetText";
+            lblEncodingPresetText.Size = new Size(44, 15);
+            lblEncodingPresetText.TabIndex = 3;
+            lblEncodingPresetText.Text = "Preset:";
+            // 
+            // cmbEncodingPreset
+            // 
+            cmbEncodingPreset.BackColor = SystemColors.InactiveCaptionText;
+            cmbEncodingPreset.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbEncodingPreset.FlatStyle = FlatStyle.Popup;
+            cmbEncodingPreset.ForeColor = SystemColors.ScrollBar;
+            cmbEncodingPreset.FormattingEnabled = true;
+            cmbEncodingPreset.Items.AddRange(new object[] { "Ultrafast (Fast encode, large file)", "Fast (Balanced)", "Medium (Good quality)", "Slow (Best quality, slow)" });
+            cmbEncodingPreset.Location = new Point(10, 98);
+            cmbEncodingPreset.Name = "cmbEncodingPreset";
+            cmbEncodingPreset.Size = new Size(260, 23);
+            cmbEncodingPreset.TabIndex = 4;
+            // 
+            // lblVideoCodecText
+            // 
+            lblVideoCodecText.AutoSize = true;
+            lblVideoCodecText.Location = new Point(10, 131);
+            lblVideoCodecText.Name = "lblVideoCodecText";
+            lblVideoCodecText.Size = new Size(45, 15);
+            lblVideoCodecText.TabIndex = 5;
+            lblVideoCodecText.Text = "Codec:";
+            lblVideoCodecText.Visible = false; // Hide for now - future feature
+            // 
+            // cmbVideoCodec
+            // 
+            cmbVideoCodec.BackColor = SystemColors.InactiveCaptionText;
+            cmbVideoCodec.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbVideoCodec.FlatStyle = FlatStyle.Popup;
+            cmbVideoCodec.ForeColor = SystemColors.ScrollBar;
+            cmbVideoCodec.FormattingEnabled = true;
+            cmbVideoCodec.Items.AddRange(new object[] { "H.264 (Best compatibility)", "H.265 (Smaller files)" });
+            cmbVideoCodec.Location = new Point(65, 128);
+            cmbVideoCodec.Name = "cmbVideoCodec";
+            cmbVideoCodec.Size = new Size(205, 23);
+            cmbVideoCodec.TabIndex = 6;
+            cmbVideoCodec.Visible = false; // Hide for now - future feature
             // 
             // grpSessionInfo
             // 
@@ -583,6 +705,7 @@ namespace TimelapseCapture
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
             ClientSize = new Size(785, 675);
+            Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
@@ -606,6 +729,9 @@ namespace TimelapseCapture
             grpOutput.ResumeLayout(false);
             grpOutput.PerformLayout();
             grpSessionInfo.ResumeLayout(false);
+            grpEncodingSettings.ResumeLayout(false);
+            grpEncodingSettings.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).EndInit();
             ResumeLayout(false);
         }
 

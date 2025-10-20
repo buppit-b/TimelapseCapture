@@ -36,6 +36,9 @@ namespace TimelapseCapture
         // Track consecutive capture errors for safety
         private int _consecutiveCaptureErrors = 0;
         private const int MAX_CONSECUTIVE_ERRORS = 3;
+        
+        // Encoding settings
+        private int _targetFrameRate = 25; // Default to 25fps
 
         #endregion
 
@@ -213,6 +216,16 @@ namespace TimelapseCapture
             }
 
             UpdateQualityControls();
+            
+            // Initialize encoding settings
+            if (cmbFrameRate != null)
+            {
+                cmbFrameRate.SelectedIndex = 1; // Default to 25 fps (PAL)
+            }
+            if (cmbEncodingPreset != null)
+            {
+                cmbEncodingPreset.SelectedIndex = 2; // Default to Medium
+            }
         }
 
         #endregion
@@ -270,7 +283,7 @@ namespace TimelapseCapture
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     string sessionFile = ofd.FileName;
-                    string sessionFolder = Path.GetDirectoryName(sessionFile);
+                    string? sessionFolder = Path.GetDirectoryName(sessionFile);
 
                     if (string.IsNullOrEmpty(sessionFolder))
                     {
@@ -290,8 +303,18 @@ namespace TimelapseCapture
         /// <summary>
         /// Load a session from a path.
         /// </summary>
-        private void LoadSessionFromPath(string sessionPath)
+        private void LoadSessionFromPath(string? sessionPath)
         {
+            if (string.IsNullOrEmpty(sessionPath))
+            {
+                MessageBox.Show(
+                    "Invalid session path.",
+                    "Load Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
             var session = SessionManager.LoadSession(sessionPath);
             if (session == null)
             {
@@ -437,7 +460,7 @@ namespace TimelapseCapture
                         MessageBox.Show(
                             $"✅ New session '{sessionName}' created!\n\n" +
                             "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n" +
-                            "Ready to start capturing.",
+                            "👉 Press 'Start Capture' when you're ready to begin recording.",
                             "Session Created",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
@@ -777,6 +800,54 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// Handle frame rate dropdown change.
+        /// Shows/hides custom frame rate input.
+        /// </summary>
+        private void cmbFrameRate_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbFrameRate == null || numCustomFrameRate == null) return;
+
+            int index = cmbFrameRate.SelectedIndex;
+            
+            // Show custom input if "Custom..." selected (last item)
+            bool isCustom = index == cmbFrameRate.Items.Count - 1;
+            numCustomFrameRate.Visible = isCustom;
+            
+            if (!isCustom)
+            {
+                // Parse FPS from preset selection
+                switch (index)
+                {
+                    case 0: _targetFrameRate = 24; break; // Film
+                    case 1: _targetFrameRate = 25; break; // PAL
+                    case 2: _targetFrameRate = 30; break; // NTSC
+                    case 3: _targetFrameRate = 60; break; // Smooth
+                    default: _targetFrameRate = 25; break;
+                }
+            }
+            else
+            {
+                // Use custom value
+                _targetFrameRate = (int)numCustomFrameRate.Value;
+            }
+            
+            // Update estimates with new frame rate
+            UpdateCaptureTimer();
+        }
+        
+        /// <summary>
+        /// Handle custom frame rate value change.
+        /// </summary>
+        private void numCustomFrameRate_ValueChanged(object? sender, EventArgs e)
+        {
+            if (numCustomFrameRate != null && numCustomFrameRate.Visible)
+            {
+                _targetFrameRate = (int)numCustomFrameRate.Value;
+                UpdateCaptureTimer();
+            }
+        }
+
+        /// <summary>
         /// Handle folder selection button click.
         /// </summary>
         private void btnChooseFolder_Click(object? sender, EventArgs e)
@@ -957,40 +1028,16 @@ namespace TimelapseCapture
             // Create new session or validate existing
             if (_activeSession == null)
             {
-                // No active session - prompt for name
-                var result = MessageBox.Show(
-                    "No session is loaded. Create one now?\n\n" +
-                    "• CUSTOM: Enter a custom name\n" +
-                    "  Example: \"Sunset Timelapse\"\n\n" +
-                    "• DEFAULT: Use automatic timestamp\n" +
-                    "  Example: \"Session_2025-10-19_143022\"",
-                    "Create New Session",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
-
-                // Map Yes to Custom, No to Default
-                if (result == DialogResult.Cancel)
-                    return;
-
-                if (result == DialogResult.Yes)
-                {
-                    // Create named session via dialog
-                    btnNewSession_Click(sender, e);
-
-                    // Check if session was created
-                    if (_activeSession == null)
-                        return; // User cancelled
-                }
-                else
-                {
-                    // Create default session
-                    _activeSessionFolder = SessionManager.CreateNewSession(capturesRoot, intervalSec, captureRegion, format, quality);
-                    if (!string.IsNullOrEmpty(_activeSessionFolder))
-                        _activeSession = SessionManager.LoadSession(_activeSessionFolder);
-
-                    if (txtSessionName != null)
-                        txtSessionName.Text = _activeSession?.Name ?? "Session";
-                }
+                // No active session - must create one first
+                MessageBox.Show(
+                    "No session is loaded.\n\n" +
+                    "Please create a session first using:\n" +
+                    "• 'New' button (custom name)\n" +
+                    "• 'Load' button (resume existing)",
+                    "Create Session First",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
             }
             else
             {
@@ -1523,13 +1570,13 @@ namespace TimelapseCapture
                     // Show planning mode
                     int desiredSec = (int)(numDesiredSec?.Value ?? 30);
                     int interval = (int)(numInterval?.Value ?? 5);
-                    int neededFrames = desiredSec * 25;
+                    int neededFrames = desiredSec * _targetFrameRate; // Use dynamic FPS
                     double captureTimeSeconds = neededFrames * interval;
 
                     string captureTimeDisplay = FormatElapsedTime(captureTimeSeconds);
 
                     lblEstimate.Text =
-                        $"Planning: {neededFrames} frames needed for {desiredSec}s video\n" +
+                        $"Planning: {neededFrames} frames needed for {desiredSec}s video @ {_targetFrameRate}fps\n" +
                         $"Estimated capture time: {captureTimeDisplay} @ {interval}s intervals";
                 }
                 else
@@ -1552,13 +1599,28 @@ namespace TimelapseCapture
             string timeDisplay = FormatElapsedTime(elapsedSeconds);
             int frames = (int)_activeSession.FramesCaptured;
 
-            // Calculate resulting video lengths
-            double videoAt25fps = frames / 25.0;
+            // Calculate resulting video length at selected frame rate
+            double videoLength = frames / (double)_targetFrameRate;
+            
+            // Also show at standard frame rates for comparison
+            double videoAt24fps = frames / 24.0;
             double videoAt30fps = frames / 30.0;
             double videoAt60fps = frames / 60.0;
 
             // Show warning if interval was changed
             string warningIcon = _activeSession.IntervalChanged ? " ⚠️" : "";
+
+            // Build display with selected FPS highlighted
+            string videoLengthDisplay = $"Video @ {_targetFrameRate}fps: {videoLength:F1}s";
+            
+            // Add comparison rates if different from selected
+            var comparisons = new System.Collections.Generic.List<string>();
+            if (_targetFrameRate != 24) comparisons.Add($"{videoAt24fps:F1}s @24");
+            if (_targetFrameRate != 30) comparisons.Add($"{videoAt30fps:F1}s @30");
+            if (_targetFrameRate != 60) comparisons.Add($"{videoAt60fps:F1}s @60");
+            
+            if (comparisons.Count > 0)
+                videoLengthDisplay += $" | {string.Join(" | ", comparisons)}";
 
             // Update display
             if (IsCapturing)
@@ -1566,14 +1628,14 @@ namespace TimelapseCapture
                 // Active capture - emphasize timer
                 lblEstimate.Text =
                     $"⏱️  {timeDisplay}  |  {frames} frames{warningIcon}\n" +
-                    $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+                    videoLengthDisplay;
             }
             else
             {
                 // Capture stopped - show summary
                 lblEstimate.Text =
                     $"⏹  {timeDisplay}  |  {frames} frames{warningIcon}\n" +
-                    $"Video: {videoAt25fps:F1}s @25fps | {videoAt30fps:F1}s @30fps | {videoAt60fps:F1}s @60fps";
+                    videoLengthDisplay;
             }
         }
 
@@ -1756,7 +1818,21 @@ namespace TimelapseCapture
                 Directory.CreateDirectory(outputFolder);
                 string outputPath = Path.Combine(outputFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
 
-                string ffmpegArgs = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r 25 -c:v libx264 -crf 23 -preset medium \"{outputPath}\"";
+                // Build FFmpeg arguments with selected settings
+                string preset = "medium"; // Default
+                if (cmbEncodingPreset != null && cmbEncodingPreset.SelectedIndex >= 0)
+                {
+                    preset = cmbEncodingPreset.SelectedIndex switch
+                    {
+                        0 => "ultrafast",
+                        1 => "fast",
+                        2 => "medium",
+                        3 => "slow",
+                        _ => "medium"
+                    };
+                }
+
+                string ffmpegArgs = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {_targetFrameRate} -c:v libx264 -preset {preset} -crf 23 \"{outputPath}\"";
 
                 var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
 
