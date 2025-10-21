@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
@@ -211,7 +212,7 @@ namespace TimelapseCapture
             var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
             _activeSessionFolder = SessionManager.FindActiveSession(capturesRoot);
 
-            if (_activeSessionFolder != null)
+            if (!string.IsNullOrEmpty(_activeSessionFolder))
             {
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
                 if (_activeSession != null)
@@ -672,8 +673,8 @@ namespace TimelapseCapture
 
             // Position overlay to cover entire virtual screen
             _regionOverlay.Bounds = new Rectangle(minX, minY, maxX - minX, maxY - minY);
-            _regionOverlay.Region = captureRegion;
-            _regionOverlay.IsActive = IsCapturing;
+            _regionOverlay.CaptureRegion = captureRegion;
+            _regionOverlay.IsActiveCapture = IsCapturing;
             _regionOverlay.Show();
 
             _isOverlayVisible = true;
@@ -700,8 +701,8 @@ namespace TimelapseCapture
         {
             if (_regionOverlay == null || !_isOverlayVisible) return;
 
-            _regionOverlay.Region = captureRegion;
-            _regionOverlay.IsActive = IsCapturing;
+            _regionOverlay.CaptureRegion = captureRegion;
+            _regionOverlay.IsActiveCapture = IsCapturing;
         }
 
         /// <summary>
@@ -1447,7 +1448,7 @@ namespace TimelapseCapture
                 // Save session with updated time
                 SessionManager.SaveSession(_activeSessionFolder!, _activeSession);
                 SessionManager.IncrementFrameCount(_activeSessionFolder!);
-                _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                _activeSession = SessionManager.LoadSession(_activeSessionFolder!);
 
                 // Reset error counter on success
                 _consecutiveCaptureErrors = 0;
@@ -1458,6 +1459,7 @@ namespace TimelapseCapture
                     UpdateStatusDisplay();
                     UpdateCaptureTimer();
                     UpdateSessionInfoPanel();
+                    UpdateRegionOverlay();
                 }));
             }
             catch (IOException ioEx)

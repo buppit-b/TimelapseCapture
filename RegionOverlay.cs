@@ -10,9 +10,9 @@ namespace TimelapseCapture
     /// </summary>
     public class RegionOverlay : Form
     {
-        private Rectangle _region;
-        private string _regionInfo;
-        private bool _isActive;
+        private Rectangle _captureRegion;
+        private string _regionInfo = string.Empty;
+        private bool _isActiveCapture;
         private readonly Pen _borderPen;
         private readonly Pen _cornerPen;
         private readonly Font _infoFont;
@@ -20,14 +20,14 @@ namespace TimelapseCapture
         private readonly Brush _backgroundBrush;
 
         /// <summary>
-        /// Gets or sets the region to display.
+        /// Gets or sets the capture region to display.
         /// </summary>
-        public Rectangle Region
+        public Rectangle CaptureRegion
         {
-            get => _region;
+            get => _captureRegion;
             set
             {
-                _region = value;
+                _captureRegion = value;
                 UpdateRegionInfo();
                 Invalidate();
             }
@@ -37,12 +37,12 @@ namespace TimelapseCapture
         /// Gets or sets whether the session is actively capturing.
         /// Changes the border color (green=active, blue=inactive).
         /// </summary>
-        public bool IsActive
+        public bool IsActiveCapture
         {
-            get => _isActive;
+            get => _isActiveCapture;
             set
             {
-                _isActive = value;
+                _isActiveCapture = value;
                 UpdateBorderColor();
                 Invalidate();
             }
@@ -129,7 +129,7 @@ namespace TimelapseCapture
 
         private void UpdateBorderColor()
         {
-            Color borderColor = _isActive
+            Color borderColor = _isActiveCapture
                 ? Color.FromArgb(0, 200, 100)  // Green when active
                 : Color.FromArgb(0, 122, 204); // Blue when inactive
 
@@ -139,7 +139,7 @@ namespace TimelapseCapture
 
         private void UpdateRegionInfo()
         {
-            _regionInfo = $"{_region.Width} × {_region.Height}  •  ({_region.X}, {_region.Y})";
+            _regionInfo = $"{_captureRegion.Width} × {_captureRegion.Height}  •  ({_captureRegion.X}, {_captureRegion.Y})";
         }
 
         private void RegionOverlay_Paint(object? sender, PaintEventArgs e)
@@ -149,10 +149,10 @@ namespace TimelapseCapture
 
             // Convert absolute region to form coordinates
             Rectangle localRegion = new Rectangle(
-                _region.X - Left,
-                _region.Y - Top,
-                _region.Width,
-                _region.Height
+                _captureRegion.X - Left,
+                _captureRegion.Y - Top,
+                _captureRegion.Width,
+                _captureRegion.Height
             );
 
             // Draw main border
