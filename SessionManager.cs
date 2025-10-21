@@ -193,10 +193,18 @@ namespace TimelapseCapture
             // Handle duplicates by appending number
             int counter = 1;
             string originalFolder = folder;
+            string? adjustedName = null;
             while (Directory.Exists(folder))
             {
+                adjustedName = $"{sessionName} ({counter})";
                 folder = $"{originalFolder}_{counter}";
                 counter++;
+            }
+            
+            // If name was adjusted, update the display name
+            if (adjustedName != null)
+            {
+                sessionName = adjustedName;
             }
 
             // Create organized folder structure

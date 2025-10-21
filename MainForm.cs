@@ -29,16 +29,20 @@ namespace TimelapseCapture
 
         // Remember the user's aspect-ratio selection so we can restore it when leaving Full Screen.
         private int _lastAspectRatioIndex = 0;
-        
+
         // Suppress saving when programmatically changing aspect ratio (prevents unwanted saves during restoration)
         private bool _suppressAspectRatioSave = false;
-        
+
         // Track consecutive capture errors for safety
         private int _consecutiveCaptureErrors = 0;
         private const int MAX_CONSECUTIVE_ERRORS = 3;
-        
+
         // Encoding settings
         private int _targetFrameRate = 25; // Default to 25fps
+
+        // Region overlay
+        private RegionOverlay? _regionOverlay;
+        private bool _isOverlayVisible = false;
 
         #endregion
 
@@ -58,6 +62,36 @@ namespace TimelapseCapture
             _uiUpdateTimer.Interval = 500; // Update twice per second
             _uiUpdateTimer.Tick += (s, e) => UpdateCaptureTimer();
             _uiUpdateTimer.Start();
+
+            // Initialize region overlay
+            InitializeRegionOverlay();
+
+            // Register keyboard shortcuts
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+        }
+
+        /// <summary>
+        /// Initialize the region overlay system.
+        /// </summary>
+        private void InitializeRegionOverlay()
+        {
+            _regionOverlay = new RegionOverlay();
+            _regionOverlay.Hide();
+            UpdateRegionOverlayButton();
+        }
+
+        /// <summary>
+        /// Handle keyboard shortcuts.
+        /// </summary>
+        private void MainForm_KeyDown(object? sender, KeyEventArgs e)
+        {
+            // Ctrl+R: Toggle region overlay
+            if (e.Control && e.KeyCode == Keys.R)
+            {
+                e.Handled = true;
+                ToggleRegionOverlay();
+            }
         }
 
         /// <summary>
@@ -70,35 +104,101 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Initialize FFmpeg - find existing installation or download if needed.
+        /// Initialize FFmpeg - find existing installation only (no auto-download).
         /// </summary>
-        private async void InitializeFfmpeg()
+        private void InitializeFfmpeg()
         {
             _ffmpegPath = FfmpegRunner.FindFfmpeg(settings.FfmpegPath);
+
+            if (txtFfmpegPath != null)
+                txtFfmpegPath.Text = _ffmpegPath ?? "Not configured";
+
             if (string.IsNullOrEmpty(_ffmpegPath))
             {
-                if (lblStatus != null) lblStatus.Text = "Downloading/locating FFmpeg...";
-                var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
-                _ffmpegPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(dirTarget);
-
-                if (!string.IsNullOrEmpty(_ffmpegPath))
-                {
-                    settings.FfmpegPath = _ffmpegPath;
-                    SaveSettings();
-                    if (lblStatus != null) lblStatus.Text = "FFmpeg ready";
-                }
-                else
-                {
-                    if (lblStatus != null) lblStatus.Text = "FFmpeg not available - please browse to ffmpeg.exe";
-                }
+                // Don't auto-download - let user initiate it
+                if (lblStatus != null)
+                    lblStatus.Text = "⚠️ FFmpeg not found - Click 'Download FFmpeg' button";
             }
             else
             {
                 UpdateStatusDisplay();
             }
+        }
 
-            if (txtFfmpegPath != null)
-                txtFfmpegPath.Text = _ffmpegPath ?? "";
+        /// <summary>
+        /// Download FFmpeg when user requests it.
+        /// </summary>
+        private async void DownloadFfmpeg()
+        {
+            if (!string.IsNullOrEmpty(_ffmpegPath) && File.Exists(_ffmpegPath))
+            {
+                var result = MessageBox.Show(
+                    "FFmpeg is already installed.\n\nDo you want to download again?",
+                    "FFmpeg Already Installed",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.No)
+                    return;
+            }
+
+            if (lblStatus != null) lblStatus.Text = "Starting FFmpeg download...";
+            var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+
+            // Disable buttons during download
+            if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = false;
+            if (btnEncode != null) btnEncode.Enabled = false;
+
+            try
+            {
+                _ffmpegPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(dirTarget,
+                    (bytesDownloaded, totalBytes, status) =>
+                    {
+                        // Update status label on UI thread
+                        if (lblStatus != null && !lblStatus.IsDisposed)
+                        {
+                            try
+                            {
+                                if (InvokeRequired)
+                                    Invoke(new Action(() => lblStatus.Text = status));
+                                else
+                                    lblStatus.Text = status;
+                            }
+                            catch { /* Form may be closing */ }
+                        }
+                    });
+
+                if (!string.IsNullOrEmpty(_ffmpegPath))
+                {
+                    settings.FfmpegPath = _ffmpegPath;
+                    SaveSettings();
+                    if (lblStatus != null) lblStatus.Text = "✅ FFmpeg ready!";
+                    if (txtFfmpegPath != null) txtFfmpegPath.Text = _ffmpegPath;
+
+                    MessageBox.Show(
+                        "FFmpeg downloaded and installed successfully!\n\n" +
+                        $"Location: {_ffmpegPath}",
+                        "Download Complete",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    if (lblStatus != null) lblStatus.Text = "❌ FFmpeg download failed";
+                    MessageBox.Show(
+                        "Failed to download FFmpeg.\n\n" +
+                        "Please check your internet connection or use the Browse button to locate ffmpeg.exe manually.",
+                        "Download Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
+            finally
+            {
+                // Re-enable buttons
+                if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = true;
+                if (btnEncode != null) btnEncode.Enabled = true;
+            }
         }
 
         /// <summary>
@@ -216,7 +316,7 @@ namespace TimelapseCapture
             }
 
             UpdateQualityControls();
-            
+
             // Initialize encoding settings
             if (cmbFrameRate != null)
             {
@@ -439,6 +539,10 @@ namespace TimelapseCapture
 
                     try
                     {
+                        // Mark old session as inactive first
+                        if (_activeSessionFolder != null)
+                            SessionManager.MarkSessionInactive(_activeSessionFolder);
+
                         _activeSessionFolder = SessionManager.CreateNamedSession(
                             capturesRoot,
                             sessionName,
@@ -451,16 +555,24 @@ namespace TimelapseCapture
 
                         // Update UI
                         if (txtSessionName != null)
-                            txtSessionName.Text = sessionName;
+                            txtSessionName.Text = _activeSession?.Name ?? sessionName;
 
                         UpdateStatusDisplay();
                         UpdateCaptureTimer();
                         UpdateSessionInfoPanel();
 
+                        // Show warning if name was adjusted for duplicates
+                        string message = $"✅ New session '{_activeSession?.Name ?? sessionName}' created!\n\n";
+                        if (_activeSession?.Name != sessionName && _activeSession?.Name?.Contains("(") == true)
+                        {
+                            message += "⚠️ A session with this name already exists.\n";
+                            message += "The new session was renamed to avoid conflicts.\n\n";
+                        }
+                        message += "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n";
+                        message += "👉 Press 'Start Capture' when you're ready to begin recording.";
+
                         MessageBox.Show(
-                            $"✅ New session '{sessionName}' created!\n\n" +
-                            "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n" +
-                            "👉 Press 'Start Capture' when you're ready to begin recording.",
+                            message,
                             "Session Created",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
@@ -509,6 +621,116 @@ namespace TimelapseCapture
         private bool IsValidRegion(Rectangle r)
         {
             return r.Width > 0 && r.Height > 0 && (r.Width & 1) == 0 && (r.Height & 1) == 0;
+        }
+
+        #endregion
+
+        #region Region Overlay
+
+        /// <summary>
+        /// Toggle region overlay visibility.
+        /// </summary>
+        private void ToggleRegionOverlay()
+        {
+            if (_isOverlayVisible)
+            {
+                HideRegionOverlay();
+            }
+            else
+            {
+                ShowRegionOverlay();
+            }
+        }
+
+        /// <summary>
+        /// Show the region overlay.
+        /// </summary>
+        private void ShowRegionOverlay()
+        {
+            if (_regionOverlay == null) return;
+
+            // Check if region is set
+            if (captureRegion.IsEmpty || captureRegion.Width == 0 || captureRegion.Height == 0)
+            {
+                MessageBox.Show(
+                    "No region selected yet.\n\n" +
+                    "Please select a capture region first using:\n" +
+                    "• 'Select' button - Manual selection\n" +
+                    "• 'Full Screen' button - Entire monitor",
+                    "No Region",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            // Get all screens to calculate overlay bounds
+            var allScreens = Screen.AllScreens;
+            int minX = allScreens.Min(s => s.Bounds.X);
+            int minY = allScreens.Min(s => s.Bounds.Y);
+            int maxX = allScreens.Max(s => s.Bounds.Right);
+            int maxY = allScreens.Max(s => s.Bounds.Bottom);
+
+            // Position overlay to cover entire virtual screen
+            _regionOverlay.Bounds = new Rectangle(minX, minY, maxX - minX, maxY - minY);
+            _regionOverlay.Region = captureRegion;
+            _regionOverlay.IsActive = IsCapturing;
+            _regionOverlay.Show();
+
+            _isOverlayVisible = true;
+            UpdateRegionOverlayButton();
+        }
+
+        /// <summary>
+        /// Hide the region overlay.
+        /// </summary>
+        private void HideRegionOverlay()
+        {
+            if (_regionOverlay == null) return;
+
+            _regionOverlay.Hide();
+            _isOverlayVisible = false;
+            UpdateRegionOverlayButton();
+        }
+
+        /// <summary>
+        /// Update region overlay with current settings.
+        /// Call this whenever region or capture state changes.
+        /// </summary>
+        private void UpdateRegionOverlay()
+        {
+            if (_regionOverlay == null || !_isOverlayVisible) return;
+
+            _regionOverlay.Region = captureRegion;
+            _regionOverlay.IsActive = IsCapturing;
+        }
+
+        /// <summary>
+        /// Update the Show Region button appearance based on overlay state.
+        /// </summary>
+        private void UpdateRegionOverlayButton()
+        {
+            if (btnShowRegion == null) return;
+
+            if (_isOverlayVisible)
+            {
+                btnShowRegion.Text = "👁 Hide";
+                btnShowRegion.ForeColor = Color.LimeGreen;
+                btnShowRegion.FlatAppearance.BorderSize = 2;
+            }
+            else
+            {
+                btnShowRegion.Text = "👁 Show";
+                btnShowRegion.ForeColor = Color.MediumPurple;
+                btnShowRegion.FlatAppearance.BorderSize = 1;
+            }
+        }
+
+        /// <summary>
+        /// Handle Show Region button click.
+        /// </summary>
+        private void btnShowRegion_Click(object? sender, EventArgs e)
+        {
+            ToggleRegionOverlay();
         }
 
         #endregion
@@ -566,7 +788,7 @@ namespace TimelapseCapture
             {
                 var screen = screens[i];
                 var bounds = screen.Bounds;
-                
+
                 // Create descriptive label
                 string label = $"Monitor {i + 1}: {bounds.Width}×{bounds.Height}";
                 if (screen.Primary)
@@ -663,6 +885,7 @@ namespace TimelapseCapture
 
             UpdateStatusDisplay();
             UpdateCaptureTimer();
+            UpdateRegionOverlay();
         }
 
         /// <summary>
@@ -740,10 +963,10 @@ namespace TimelapseCapture
                         if (cmbAspectRatio != null)
                         {
                             cmbAspectRatio.Enabled = true;
-                            
+
                             // Suppress save during programmatic restoration
                             _suppressAspectRatioSave = true;
-                            
+
                             // Restore previous user selection if valid
                             if (_lastAspectRatioIndex >= 0 && _lastAspectRatioIndex < cmbAspectRatio.Items.Count)
                             {
@@ -754,10 +977,10 @@ namespace TimelapseCapture
                                 cmbAspectRatio.SelectedIndex = 0;
                                 _lastAspectRatioIndex = 0;
                             }
-                            
+
                             // Re-enable saves now that restoration is complete
                             _suppressAspectRatioSave = false;
-                            
+
                             // Update the runtime aspect ratio object
                             if (_lastAspectRatioIndex >= 0 && _lastAspectRatioIndex < AspectRatio.CommonRatios.Length)
                             {
@@ -774,6 +997,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
+            UpdateRegionOverlay();
         }
 
         /// <summary>
@@ -808,11 +1032,11 @@ namespace TimelapseCapture
             if (cmbFrameRate == null || numCustomFrameRate == null) return;
 
             int index = cmbFrameRate.SelectedIndex;
-            
+
             // Show custom input if "Custom..." selected (last item)
             bool isCustom = index == cmbFrameRate.Items.Count - 1;
             numCustomFrameRate.Visible = isCustom;
-            
+
             if (!isCustom)
             {
                 // Parse FPS from preset selection
@@ -830,11 +1054,11 @@ namespace TimelapseCapture
                 // Use custom value
                 _targetFrameRate = (int)numCustomFrameRate.Value;
             }
-            
+
             // Update estimates with new frame rate
             UpdateCaptureTimer();
         }
-        
+
         /// <summary>
         /// Handle custom frame rate value change.
         /// </summary>
@@ -873,7 +1097,7 @@ namespace TimelapseCapture
         private void numInterval_ValueChanged(object? sender, EventArgs e)
         {
             // Always update estimates when interval changes
-            UpdateCaptureTimer();   
+            UpdateCaptureTimer();
 
             // If there's an active session with frames, warn about changing interval
             if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
@@ -916,13 +1140,14 @@ namespace TimelapseCapture
         /// </summary>
         private void cmbFormat_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            if (_activeSession != null && !IsCapturing)
+            // Only validate if there's an active session with frames
+            if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
             {
                 var newFormat = cmbFormat?.SelectedItem?.ToString();
                 if (newFormat != _activeSession.ImageFormat)
                 {
                     MessageBox.Show(
-                        $"Active session uses {_activeSession.ImageFormat} format.\n" +
+                        $"Active session '{_activeSession.Name}' has {_activeSession.FramesCaptured} frames using {_activeSession.ImageFormat} format.\n\n" +
                         $"Format change requires starting a new session.",
                         "Format Mismatch",
                         MessageBoxButtons.OK,
@@ -1047,28 +1272,28 @@ namespace TimelapseCapture
                     // Build detailed mismatch list
                     var mismatches = new System.Text.StringBuilder();
                     mismatches.AppendLine("Your current settings don't match the loaded session:\n");
-                    
+
                     if (_activeSession.CaptureRegion != captureRegion)
                     {
                         mismatches.AppendLine($"• Region:");
                         mismatches.AppendLine($"  Session: {_activeSession.CaptureRegion.Width}×{_activeSession.CaptureRegion.Height}");
                         mismatches.AppendLine($"  Current: {captureRegion.Width}×{captureRegion.Height}\n");
                     }
-                    
+
                     if (_activeSession.ImageFormat != format)
                     {
                         mismatches.AppendLine($"• Format:");
                         mismatches.AppendLine($"  Session: {_activeSession.ImageFormat}");
                         mismatches.AppendLine($"  Current: {format}\n");
                     }
-                    
+
                     if (_activeSession.JpegQuality != quality && format == "JPEG")
                     {
                         mismatches.AppendLine($"• JPEG Quality:");
                         mismatches.AppendLine($"  Session: {_activeSession.JpegQuality}");
                         mismatches.AppendLine($"  Current: {quality}\n");
                     }
-                    
+
                     var result = MessageBox.Show(
                         mismatches.ToString() +
                         "What would you like to do?\n\n" +
@@ -1108,6 +1333,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
+            UpdateRegionOverlay();
         }
 
         /// <summary>
@@ -1131,6 +1357,7 @@ namespace TimelapseCapture
             SaveSettings();
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
+            UpdateRegionOverlay();
         }
 
         /// <summary>
@@ -1213,7 +1440,7 @@ namespace TimelapseCapture
                     {
                         throw new InvalidOperationException("Captured bitmap is invalid");
                     }
-                    
+
                     bmp.Save(fileName, ImageFormat.Jpeg);
                 }
 
@@ -1237,7 +1464,7 @@ namespace TimelapseCapture
             {
                 Debug.WriteLine($"I/O error during capture: {ioEx.Message}");
                 _consecutiveCaptureErrors++;
-                
+
                 BeginInvoke(new Action(() =>
                 {
                     if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
@@ -1265,7 +1492,7 @@ namespace TimelapseCapture
             catch (UnauthorizedAccessException uaEx)
             {
                 Debug.WriteLine($"Permission error: {uaEx.Message}");
-                
+
                 BeginInvoke(new Action(() =>
                 {
                     StopCapture();
@@ -1284,7 +1511,7 @@ namespace TimelapseCapture
             catch (OutOfMemoryException memEx)
             {
                 Debug.WriteLine($"Out of memory: {memEx.Message}");
-                
+
                 BeginInvoke(new Action(() =>
                 {
                     StopCapture();
@@ -1304,7 +1531,7 @@ namespace TimelapseCapture
             {
                 Debug.WriteLine($"Unexpected capture error: {ex.GetType().Name} - {ex.Message}");
                 _consecutiveCaptureErrors++;
-                
+
                 BeginInvoke(new Action(() =>
                 {
                     if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
@@ -1351,7 +1578,7 @@ namespace TimelapseCapture
         /// </summary>
         private void UpdateSessionInfoPanel()
         {
-            if (lblSessionInfoRegion == null || lblSessionInfoFormat == null || 
+            if (lblSessionInfoRegion == null || lblSessionInfoFormat == null ||
                 lblSessionInfoQuality == null || lblSessionInfoInterval == null)
                 return;
 
@@ -1400,7 +1627,7 @@ namespace TimelapseCapture
                 lblSessionInfoFormat.Text = "🗄 Format: Not set";
                 lblSessionInfoQuality.Text = "⭐ Quality: Not set";
                 lblSessionInfoInterval.Text = "⏱ Interval: Not set";
-                
+
                 lblSessionInfoRegion.ForeColor = Color.FromArgb(100, 100, 100);
                 lblSessionInfoFormat.ForeColor = Color.FromArgb(100, 100, 100);
                 lblSessionInfoQuality.ForeColor = Color.FromArgb(100, 100, 100);
@@ -1601,7 +1828,7 @@ namespace TimelapseCapture
 
             // Calculate resulting video length at selected frame rate
             double videoLength = frames / (double)_targetFrameRate;
-            
+
             // Also show at standard frame rates for comparison
             double videoAt24fps = frames / 24.0;
             double videoAt30fps = frames / 30.0;
@@ -1612,13 +1839,13 @@ namespace TimelapseCapture
 
             // Build display with selected FPS highlighted
             string videoLengthDisplay = $"Video @ {_targetFrameRate}fps: {videoLength:F1}s";
-            
+
             // Add comparison rates if different from selected
             var comparisons = new System.Collections.Generic.List<string>();
             if (_targetFrameRate != 24) comparisons.Add($"{videoAt24fps:F1}s @24");
             if (_targetFrameRate != 30) comparisons.Add($"{videoAt30fps:F1}s @30");
             if (_targetFrameRate != 60) comparisons.Add($"{videoAt60fps:F1}s @60");
-            
+
             if (comparisons.Count > 0)
                 videoLengthDisplay += $" | {string.Join(" | ", comparisons)}";
 
@@ -1678,6 +1905,14 @@ namespace TimelapseCapture
             }
 
             Process.Start(new ProcessStartInfo() { FileName = folderToOpen, UseShellExecute = true });
+        }
+
+        /// <summary>
+        /// Download FFmpeg button click.
+        /// </summary>
+        private void btnDownloadFfmpeg_Click(object? sender, EventArgs e)
+        {
+            DownloadFfmpeg();
         }
 
         /// <summary>
@@ -1957,7 +2192,7 @@ namespace TimelapseCapture
             {
                 var rootPath = Path.GetPathRoot(path);
                 if (string.IsNullOrEmpty(rootPath)) return true;
-                
+
                 var drive = new DriveInfo(rootPath);
                 return drive.AvailableFreeSpace > requiredBytes;
             }
@@ -1975,20 +2210,20 @@ namespace TimelapseCapture
         {
             if (string.IsNullOrWhiteSpace(name))
                 return $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
-            
+
             // Remove invalid filename characters
             var invalid = Path.GetInvalidFileNameChars();
             var sanitized = name;
             foreach (var c in invalid)
                 sanitized = sanitized.Replace(c, '_');
-            
+
             // Also remove some problematic characters that are technically valid
             sanitized = sanitized.Replace('.', '_').Replace(' ', '_');
-            
+
             // Limit length to prevent path too long errors
             if (sanitized.Length > 50)
                 sanitized = sanitized.Substring(0, 50);
-            
+
             return sanitized.Trim('_'); // Remove leading/trailing underscores
         }
 
@@ -1996,17 +2231,23 @@ namespace TimelapseCapture
 
         #region Form Lifecycle
         /// <summary>
-        /// Dispose UI update timer.
+        /// Dispose UI update timer and region overlay.
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             _captureTimer?.Dispose();
-            _uiUpdateTimer?.Dispose(); // NEW: Dispose update timer
+            _uiUpdateTimer?.Dispose();
+            _regionOverlay?.Dispose();
 
             if (_activeSessionFolder != null)
                 SessionManager.MarkSessionInactive(_activeSessionFolder);
         }
 
         #endregion
+
+        private void lblQuality_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

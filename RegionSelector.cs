@@ -48,6 +48,9 @@ namespace TimelapseCapture
                     Close();
                 }
             };
+
+            // Show helpful instructions
+            this.Paint += ShowInstructions;
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -60,8 +63,19 @@ namespace TimelapseCapture
             }
             else if (e.Button == MouseButtons.Right)
             {
-                DialogResult = DialogResult.Cancel;
-                Close();
+                // Right-click cancels current selection and allows retry
+                if (drawing)
+                {
+                    // Cancel current drag
+                    drawing = false;
+                    Invalidate();
+                }
+                else
+                {
+                    // No active drag - close with cancel
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                }
             }
         }
 
@@ -126,9 +140,11 @@ namespace TimelapseCapture
                 drawing = false;
                 end = e.Location;
 
-                // Convert client coordinates to ABSOLUTE screen coordinates
-                var absStart = new Point(start.X + Bounds.X, start.Y + Bounds.Y);
-                var absEnd = new Point(end.X + Bounds.X, end.Y + Bounds.Y);
+                // Mouse coordinates are already in virtual screen space
+                // since the form covers SystemInformation.VirtualScreen
+                // We need to convert them to absolute screen coordinates
+                Point absStart = PointToScreen(start);
+                Point absEnd = PointToScreen(end);
 
                 int x = Math.Min(absStart.X, absEnd.X);
                 int y = Math.Min(absStart.Y, absEnd.Y);
@@ -185,7 +201,7 @@ namespace TimelapseCapture
                 DrawCornerBrackets(e.Graphics, rect);
 
                 // Draw dimension text with aspect ratio info
-                string dimensions = $"{rect.Width} � {rect.Height}";
+                string dimensions = $"{rect.Width} � {rect.Height}";
                 if (_lockedRatio != null && _lockedRatio.Width > 0)
                 {
                     dimensions += $" ({_lockedRatio.Width}:{_lockedRatio.Height})";
@@ -227,6 +243,39 @@ namespace TimelapseCapture
 
                     e.Graphics.DrawString(dimensions, font, brush, textPos);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Show instructions on the overlay.
+        /// </summary>
+        private void ShowInstructions(object? sender, PaintEventArgs e)
+        {
+            if (drawing) return; // Don't show instructions during selection
+
+            string instructions = "LEFT CLICK & DRAG to select region  •  RIGHT CLICK to cancel  •  ESC to exit";
+            using (var font = new Font("Segoe UI", 11, FontStyle.Regular))
+            using (var brush = new SolidBrush(Color.White))
+            {
+                var textSize = e.Graphics.MeasureString(instructions, font);
+                var textPos = new PointF(
+                    (Bounds.Width - textSize.Width) / 2,
+                    30
+                );
+
+                // Draw background
+                var textRect = new RectangleF(
+                    textPos.X - 12,
+                    textPos.Y - 8,
+                    textSize.Width + 24,
+                    textSize.Height + 16
+                );
+                using (var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0)))
+                {
+                    e.Graphics.FillRectangle(bgBrush, textRect);
+                }
+
+                e.Graphics.DrawString(instructions, font, brush, textPos);
             }
         }
 

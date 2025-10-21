@@ -1,3 +1,20 @@
 {
-  "version": "6.1"
+  "version": "1.1.0-dev",
+  "versionNumber": "1.1.0",
+  "releaseStage": "development",
+  "buildDate": "2025-10-21",
+  "changesSinceLastRelease": [
+    "Region overlay system with HUD-style display",
+    "Fixed multi-monitor region capture offset",
+    "User-triggered FFmpeg download with progress",
+    "Session name collision warnings",
+    "Fixed new session format validation",
+    "Enhanced region selector UX",
+    "FFmpeg downloader overhaul",
+    "Comprehensive project documentation"
+  ],
+  "inProgress": [
+    "Testing region overlay on multi-monitor setups",
+    "Investigation: Mid-session region adjustments"
+  ]
 }
