@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -22,6 +23,8 @@ namespace TimelapseCapture
         /// <summary>
         /// Gets or sets the capture region to display.
         /// </summary>
+        /// 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Rectangle CaptureRegion
         {
             get => _captureRegion;
@@ -37,6 +40,7 @@ namespace TimelapseCapture
         /// Gets or sets whether the session is actively capturing.
         /// Changes the border color (green=active, blue=inactive).
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsActiveCapture
         {
             get => _isActiveCapture;
