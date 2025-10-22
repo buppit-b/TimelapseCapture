@@ -19,7 +19,6 @@ namespace TimelapseCapture
         #region Fields
 
         private AspectRatio? _selectedAspectRatio;
-        private Rectangle captureRegion = Rectangle.Empty;
         private System.Threading.Timer? _captureTimer;
         private CaptureSettings settings = new CaptureSettings();
         private string? _ffmpegPath;
@@ -36,7 +35,6 @@ namespace TimelapseCapture
 
         // Track consecutive capture errors for safety
         private int _consecutiveCaptureErrors = 0;
-        private const int MAX_CONSECUTIVE_ERRORS = 3;
 
         // Encoding settings
         private int _targetFrameRate = 25; // Default to 25fps
@@ -44,6 +42,39 @@ namespace TimelapseCapture
         // Region overlay
         private RegionOverlay? _regionOverlay;
         private bool _isOverlayVisible = false;
+
+        private Rectangle captureRegion = Rectangle.Empty;
+
+        /// <summary>
+        /// Set internal captureRegion from a nullable Rectangle (session/setting).
+        /// Ensures even dimensions (video encoding friendly), updates UI label,
+        /// and keeps settings.Region in sync.
+        /// </summary>
+        private void SetCaptureRegionFromNullable(Rectangle? maybeRegion)
+        {
+            if (maybeRegion.HasValue)
+            {
+                // Copy and sanitize (ensure even dimensions)
+                var r = maybeRegion.Value;
+                if ((r.Width & 1) == 1) r.Width = Math.Max(2, r.Width - 1);
+                if ((r.Height & 1) == 1) r.Height = Math.Max(2, r.Height - 1);
+
+                captureRegion = r;
+                try { settings.Region = captureRegion; } catch { /* defensive */ }
+
+                if (lblRegion != null)
+                {
+                    string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+                    lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+                }
+            }
+            else
+            {
+                captureRegion = Rectangle.Empty;
+                if (lblRegion != null)
+                    lblRegion.Text = "No region selected";
+            }
+        }
 
         #endregion
 
@@ -60,7 +91,7 @@ namespace TimelapseCapture
             InitializeFfmpeg();
 
             _uiUpdateTimer = new System.Windows.Forms.Timer();
-            _uiUpdateTimer.Interval = 500; // Update twice per second
+            _uiUpdateTimer.Interval = Constants.UI_UPDATE_INTERVAL_MS;
             _uiUpdateTimer.Tick += (s, e) => UpdateCaptureTimer();
             _uiUpdateTimer.Start();
 
@@ -217,9 +248,8 @@ namespace TimelapseCapture
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
                 if (_activeSession != null)
                 {
-                    captureRegion = (Rectangle)_activeSession.CaptureRegion;
-                    if (lblRegion != null)
-                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                    // Use helper to safely set captureRegion from nullable session value
+                    SetCaptureRegionFromNullable(_activeSession.CaptureRegion);
 
                     if (numInterval != null) numInterval.Value = _activeSession.IntervalSeconds;
                     if (cmbFormat != null) cmbFormat.SelectedItem = _activeSession.ImageFormat ?? "JPEG";
@@ -449,23 +479,21 @@ namespace TimelapseCapture
             // Load into UI
             _activeSessionFolder = sessionPath;
             _activeSession = session;
-            captureRegion = (Rectangle)session.CaptureRegion;
+            SetCaptureRegionFromNullable(session.CaptureRegion);
 
-            if (txtSessionName != null)
-                txtSessionName.Text = session.Name;
-
-            if (numInterval != null)
-                numInterval.Value = session.IntervalSeconds;
-
-            if (cmbFormat != null)
-                cmbFormat.SelectedItem = session.ImageFormat ?? "JPEG";
-
+            if (numInterval != null) numInterval.Value = session.IntervalSeconds;
+            if (cmbFormat != null) cmbFormat.SelectedItem = session.ImageFormat ?? "JPEG";
             if (numQuality != null && session.ImageFormat == "JPEG")
                 numQuality.Value = session.JpegQuality;
 
-            string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+            string ratioInfo = captureRegion.IsEmpty ? "N/A" : AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
             if (lblRegion != null)
-                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+            {
+                if (captureRegion.IsEmpty)
+                    lblRegion.Text = "No region selected";
+                else
+                    lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+            }
 
             SaveSettings();
             UpdateStatusDisplay();
@@ -495,21 +523,32 @@ namespace TimelapseCapture
             // Warn if active session exists with frames
             if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
+                string regionInfo;
+                if (_activeSession.CaptureRegion.HasValue)
+                {
+                    var r = _activeSession.CaptureRegion.Value;
+                    regionInfo = $"{r.Width}×{r.Height}";
+                }
+                else
+                {
+                    regionInfo = "Not set (select before capture)";
+                }
+
                 var result = MessageBox.Show(
-                    $"Current session '{_activeSession.Name}' has {_activeSession.FramesCaptured} frames.\n\n" +
-                    "Starting a new session will:\n" +
-                    "• Save and close the current session\n" +
-                    "• Start fresh with new settings\n\n" +
-                    "Continue?",
-                    "Start New Session?",
+                    $"Session '{_activeSession.Name}' is currently loaded.\n\n" +
+                    $"Status: {_activeSession.FramesCaptured} frames captured\n" +
+                    $"Region: {regionInfo}\n\n" +
+                    "Changing to full screen requires closing this session.\n\n" +
+                    "• YES: Close current session and select full screen\n" +
+                    "• NO: Keep current session (cancel)",
+                    "Switch to Full Screen?",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
                 if (result == DialogResult.No)
                     return;
 
-                // Mark current session inactive
-                if (_activeSessionFolder != null)
+                    if (_activeSessionFolder != null)
                     SessionManager.MarkSessionInactive(_activeSessionFolder);
             }
 
@@ -628,10 +667,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Validate that a region has even dimensions (required for video encoding).
         /// </summary>
-        private bool IsValidRegion(Rectangle r)
-        {
-            return r.Width > 0 && r.Height > 0 && (r.Width & 1) == 0 && (r.Height & 1) == 0;
-        }
+        private bool IsValidRegion(Rectangle r) => ValidationHelper.IsValidRegion(r);
 
         #endregion
 
@@ -830,7 +866,7 @@ namespace TimelapseCapture
                 var result = MessageBox.Show(
                     $"Session '{_activeSession.Name}' is currently loaded.\n\n" +
                     $"Status: {_activeSession.FramesCaptured} frames captured\n" +
-                    $"Region: {_activeSession.CaptureRegion.Width}×{_activeSession.CaptureRegion.Height}\n\n" +
+                    $"Region: {_activeSession.CaptureRegion?.Width ?? 0}×{_activeSession.CaptureRegion?.Height ?? 0}\n\n" +
                     "Changing to full screen requires closing this session.\n\n" +
                     "• YES: Close current session and select full screen\n" +
                     "• NO: Keep current session (cancel)",
@@ -1005,7 +1041,7 @@ namespace TimelapseCapture
 
             // Hide main form temporarily for clean region selection
             Hide();
-            Task.Delay(200).Wait();
+            Task.Delay(Constants.REGION_SELECTION_DELAY_MS).Wait();
 
             using (var selector = new RegionSelector(_selectedAspectRatio))
             {
@@ -1312,124 +1348,114 @@ namespace TimelapseCapture
         /// </summary>
         private void btnStart_Click(object? sender, EventArgs e)
         {
-            // Validate region
-            if (captureRegion.Width == 0 || captureRegion.Height == 0)
-            {
-                MessageBox.Show(
-                    "Please select a capture region first.",
-                    "Missing Region",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+            if (!ValidateStartCapturePrerequisites())
                 return;
-            }
 
-            if (!IsValidRegion(captureRegion))
-            {
-                MessageBox.Show(
-                    $"Invalid capture region dimensions: {captureRegion.Width}×{captureRegion.Height}\n\n" +
-                    "Dimensions must be even numbers for video encoding.\n" +
-                    "Please select a new region.",
-                    "Invalid Region",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+            if (!ValidateActiveSession(sender, e))
                 return;
-            }
 
-            if (string.IsNullOrEmpty(settings.SaveFolder))
+            StartCaptureSession();
+        }
+
+        /// <summary>
+        /// Validates all prerequisites for starting capture.
+        /// </summary>
+        private bool ValidateStartCapturePrerequisites()
+        {
+            // Validate region selection
+            if (!ValidationHelper.IsRegionSelected(captureRegion))
             {
-                MessageBox.Show(
-                    "Please select a save folder.",
-                    "Missing Folder",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
+                UIHelper.ShowWarning(Constants.MSG_NO_REGION_SELECTED, "Missing Region");
+                return false;
             }
 
-            int intervalSec = (int)(numInterval?.Value ?? 5);
-            var format = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
-            var quality = (int)(numQuality?.Value ?? 90);
-            var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
-
-            // Create new session or validate existing
-            if (_activeSession == null)
+            // Validate region dimensions
+            if (!ValidationHelper.IsValidRegion(captureRegion))
             {
-                // No active session - must create one first
-                MessageBox.Show(
-                    "No session is loaded.\n\n" +
-                    "Please create a session first using:\n" +
-                    "• 'New' button (custom name)\n" +
-                    "• 'Load' button (resume existing)",
-                    "Create Session First",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
+                UIHelper.ShowError(
+                    string.Format(Constants.MSG_INVALID_REGION, captureRegion.Width, captureRegion.Height),
+                    "Invalid Region");
+                return false;
             }
-            else
+
+            // Validate save folder
+            if (!ValidationHelper.IsSaveFolderConfigured(settings.SaveFolder))
             {
-                // Existing session - validate settings
-                if (!SessionManager.ValidateSessionSettings(_activeSession, captureRegion, format, quality))
-                {
-                    // Build detailed mismatch list
-                    var mismatches = new System.Text.StringBuilder();
-                    mismatches.AppendLine("Your current settings don't match the loaded session:\n");
-
-                    if (_activeSession.CaptureRegion != captureRegion)
-                    {
-                        mismatches.AppendLine($"• Region:");
-                        mismatches.AppendLine($"  Session: {_activeSession.CaptureRegion.Width}×{_activeSession.CaptureRegion.Height}");
-                        mismatches.AppendLine($"  Current: {captureRegion.Width}×{captureRegion.Height}\n");
-                    }
-
-                    if (_activeSession.ImageFormat != format)
-                    {
-                        mismatches.AppendLine($"• Format:");
-                        mismatches.AppendLine($"  Session: {_activeSession.ImageFormat}");
-                        mismatches.AppendLine($"  Current: {format}\n");
-                    }
-
-                    if (_activeSession.JpegQuality != quality && format == "JPEG")
-                    {
-                        mismatches.AppendLine($"• JPEG Quality:");
-                        mismatches.AppendLine($"  Session: {_activeSession.JpegQuality}");
-                        mismatches.AppendLine($"  Current: {quality}\n");
-                    }
-
-                    var result = MessageBox.Show(
-                        mismatches.ToString() +
-                        "What would you like to do?\n\n" +
-                        "• YES: Start a new session with current settings\n" +
-                        "• NO: Cancel and adjust settings to match session",
-                        "Settings Mismatch",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Warning);
-
-                    if (result == DialogResult.Yes)
-                    {
-                        SessionManager.MarkSessionInactive(_activeSessionFolder!);
-                        btnNewSession_Click(sender, e);
-
-                        if (_activeSession == null)
-                            return;
-                    }
-                    else
-                    {
-                        return;
-                    }
-                }
+                UIHelper.ShowWarning(Constants.MSG_NO_SAVE_FOLDER, "Missing Folder");
+                return false;
             }
 
-            // Lock UI and start capture timer
-            LockCaptureUI(true);
+            return true;
+        }
+
+        /// <summary>
+        /// Validates active session and handles settings mismatches.
+        /// </summary>
+        private bool ValidateActiveSession(object? sender, EventArgs e)
+        {
+            if (!ValidationHelper.HasActiveSession(_activeSession))
+            {
+                UIHelper.ShowInfo(Constants.MSG_NO_SESSION, "Create Session First");
+                return false;
+            }
+
+            // Get current settings
+            int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
+            var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
+            var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
+
+            // Validate session settings match
+            if (!SessionManager.ValidateSessionSettings(_activeSession!, captureRegion, format, quality))
+            {
+                return HandleSessionSettingsMismatch(sender, e, intervalSec, format, quality);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Handles session settings mismatch by showing dialog and creating new session if needed.
+        /// </summary>
+        private bool HandleSessionSettingsMismatch(object? sender, EventArgs e, int intervalSec, string format, int quality)
+        {
+            string mismatchMessage = ValidationHelper.BuildSettingsMismatchMessage(_activeSession!, captureRegion, format, quality);
+            
+            var result = UIHelper.ShowQuestion(mismatchMessage, "Settings Mismatch");
+
+            if (result == DialogResult.Yes)
+            {
+                SessionManager.MarkSessionInactive(_activeSessionFolder!);
+                btnNewSession_Click(sender, e);
+                return ValidationHelper.HasActiveSession(_activeSession);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Starts the capture session with current settings.
+        /// </summary>
+        private void StartCaptureSession()
+        {
+            // Get current settings
+            int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
+            var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
+            var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
+
+            // Update settings and save
             settings.IntervalSeconds = intervalSec;
             settings.Format = format;
             settings.JpegQuality = quality;
             SaveSettings();
 
-            // Reset error counter at start of new capture
+            // Lock UI and start capture timer
+            LockCaptureUI(true);
             _consecutiveCaptureErrors = 0;
 
             var intervalMs = intervalSec * 1000;
             _captureTimer = new System.Threading.Timer(CaptureFrame, null, 0, intervalMs);
+            
+            // Update UI
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
@@ -1491,169 +1517,228 @@ namespace TimelapseCapture
 
             try
             {
-                // SAFETY CHECK: Disk space (check every 10 frames to reduce overhead)
-                if (_activeSession.FramesCaptured % 10 == 0 && !string.IsNullOrEmpty(_activeSessionFolder))
-                {
-                    if (!CheckDiskSpace(_activeSessionFolder, 50_000_000)) // Require 50MB free
-                    {
-                        BeginInvoke(new Action(() =>
-                        {
-                            StopCapture();
-                            MessageBox.Show(
-                                "⚠️ Disk space is running low!\n\n" +
-                                "Capture has been stopped automatically to prevent data loss.\n\n" +
-                                "Please free up disk space before continuing.",
-                                "Low Disk Space",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Warning);
-                        }));
-                        return;
-                    }
-                }
+                if (!PerformSafetyChecks())
+                    return;
 
-                DateTime now = DateTime.UtcNow;
-
-                // Initialize LastCaptureTime on first frame
-                if (!_activeSession.LastCaptureTime.HasValue)
-                {
-                    _activeSession.LastCaptureTime = now;
-                }
-                else
-                {
-                    // Calculate actual elapsed time since last capture
-                    double elapsedSeconds = (now - _activeSession.LastCaptureTime.Value).TotalSeconds;
-                    _activeSession.TotalCaptureSeconds += elapsedSeconds;
-                    _activeSession.LastCaptureTime = now;
-                }
-
-                // Use sequential frame numbering
-                long nextFrameNumber = _activeSession.FramesCaptured + 1;
-                string frameNumber = $"{nextFrameNumber:D5}";
-
-                string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder!);
-                string fileName = Path.Combine(framesFolder, $"{frameNumber}.jpg");
-
-                // SAFETY: Use using statement to ensure bitmap disposal
-                using (var bmp = CaptureScreen())
-                {
-                    if (bmp == null || bmp.Width == 0 || bmp.Height == 0)
-                    {
-                        throw new InvalidOperationException("Captured bitmap is invalid");
-                    }
-
-                    bmp.Save(fileName, ImageFormat.Jpeg);
-                }
-
-                // Save session with updated time
-                SessionManager.SaveSession(_activeSessionFolder!, _activeSession);
-                SessionManager.IncrementFrameCount(_activeSessionFolder!);
-                _activeSession = SessionManager.LoadSession(_activeSessionFolder!);
-
-                // Reset error counter on success
-                _consecutiveCaptureErrors = 0;
-
-                // UI updates
-                BeginInvoke(new Action(() =>
-                {
-                    UpdateStatusDisplay();
-                    UpdateCaptureTimer();
-                    UpdateSessionInfoPanel();
-                    UpdateRegionOverlay();
-                }));
+                UpdateCaptureTiming();
+                SaveCapturedFrame();
+                UpdateSessionAfterCapture();
+                ResetErrorCounter();
+                UpdateUIAfterCapture();
             }
             catch (IOException ioEx)
             {
-                Debug.WriteLine($"I/O error during capture: {ioEx.Message}");
-                _consecutiveCaptureErrors++;
-
-                BeginInvoke(new Action(() =>
-                {
-                    if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
-                    {
-                        StopCapture();
-                        MessageBox.Show(
-                            $"❌ Capture stopped after {MAX_CONSECUTIVE_ERRORS} consecutive errors.\n\n" +
-                            $"Last error: {ioEx.Message}\n\n" +
-                            "Possible causes:\n" +
-                            "• Disk full or nearly full\n" +
-                            "• File system errors\n" +
-                            "• Antivirus blocking file access\n" +
-                            "• Network drive disconnected",
-                            "Capture Error",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Error);
-                    }
-                    else
-                    {
-                        if (lblStatus != null)
-                            lblStatus.Text = $"⚠️ I/O Error ({_consecutiveCaptureErrors}/{MAX_CONSECUTIVE_ERRORS})";
-                    }
-                }));
+                HandleCaptureError(ioEx, "I/O Error", "I/O error during capture");
             }
             catch (UnauthorizedAccessException uaEx)
             {
-                Debug.WriteLine($"Permission error: {uaEx.Message}");
-
-                BeginInvoke(new Action(() =>
-                {
-                    StopCapture();
-                    MessageBox.Show(
-                        "🚫 Permission denied during capture.\n\n" +
-                        $"Cannot write to: {_activeSessionFolder}\n\n" +
-                        "Solutions:\n" +
-                        "• Run as administrator\n" +
-                        "• Choose a different output folder\n" +
-                        "• Check folder permissions",
-                        "Permission Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }));
+                HandlePermissionError(uaEx);
             }
             catch (OutOfMemoryException memEx)
             {
-                Debug.WriteLine($"Out of memory: {memEx.Message}");
-
-                BeginInvoke(new Action(() =>
-                {
-                    StopCapture();
-                    MessageBox.Show(
-                        "💥 Out of memory!\n\n" +
-                        "The system has run out of available memory.\n\n" +
-                        "Solutions:\n" +
-                        "• Close other applications\n" +
-                        "• Reduce capture resolution\n" +
-                        "• Restart the application",
-                        "Memory Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }));
+                HandleMemoryError(memEx);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Unexpected capture error: {ex.GetType().Name} - {ex.Message}");
-                _consecutiveCaptureErrors++;
+                HandleUnexpectedError(ex);
+            }
+        }
 
-                BeginInvoke(new Action(() =>
+        /// <summary>
+        /// Performs safety checks before capture.
+        /// </summary>
+        private bool PerformSafetyChecks()
+        {
+            // Check disk space periodically
+            if (_activeSession!.FramesCaptured % Constants.DISK_SPACE_CHECK_INTERVAL == 0 && 
+                !string.IsNullOrEmpty(_activeSessionFolder))
+            {
+                if (!ValidationHelper.CheckDiskSpace(_activeSessionFolder))
                 {
-                    if (_consecutiveCaptureErrors >= MAX_CONSECUTIVE_ERRORS)
+                    UIHelper.SafeBeginInvoke(this, () =>
                     {
                         StopCapture();
-                        MessageBox.Show(
-                            $"❌ Unexpected error during capture.\n\n" +
-                            $"Type: {ex.GetType().Name}\n" +
-                            $"Message: {ex.Message}\n\n" +
-                            "Capture has been stopped for safety.",
-                            "Capture Error",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Error);
-                    }
-                    else
-                    {
-                        if (lblStatus != null)
-                            lblStatus.Text = $"⚠️ Error ({_consecutiveCaptureErrors}/{MAX_CONSECUTIVE_ERRORS}): {ex.Message}";
-                    }
-                }));
+                        UIHelper.ShowWarning(
+                            "⚠️ Disk space is running low!\n\n" +
+                            "Capture has been stopped automatically to prevent data loss.\n\n" +
+                            "Please free up disk space before continuing.",
+                            "Low Disk Space");
+                    });
+                    return false;
+                }
             }
+            return true;
+        }
+
+        /// <summary>
+        /// Updates capture timing information.
+        /// </summary>
+        private void UpdateCaptureTiming()
+        {
+            DateTime now = DateTime.UtcNow;
+
+            if (!_activeSession!.LastCaptureTime.HasValue)
+            {
+                _activeSession.LastCaptureTime = now;
+            }
+            else
+            {
+                double elapsedSeconds = (now - _activeSession.LastCaptureTime.Value).TotalSeconds;
+                _activeSession.TotalCaptureSeconds += elapsedSeconds;
+                _activeSession.LastCaptureTime = now;
+            }
+        }
+
+        /// <summary>
+        /// Saves the captured frame to disk.
+        /// </summary>
+        private void SaveCapturedFrame()
+        {
+            long nextFrameNumber = _activeSession!.FramesCaptured + 1;
+            string frameNumber = $"{nextFrameNumber:D5}";
+            string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder!);
+            string fileName = Path.Combine(framesFolder, $"{frameNumber}.jpg");
+
+            using (var bmp = CaptureScreen())
+            {
+                if (bmp == null || bmp.Width == 0 || bmp.Height == 0)
+                {
+                    throw new InvalidOperationException("Captured bitmap is invalid");
+                }
+
+                bmp.Save(fileName, ImageFormat.Jpeg);
+            }
+        }
+
+        /// <summary>
+        /// Updates session information after successful capture.
+        /// </summary>
+        private void UpdateSessionAfterCapture()
+        {
+            SessionManager.SaveSession(_activeSessionFolder!, _activeSession!);
+            SessionManager.IncrementFrameCount(_activeSessionFolder!);
+            _activeSession = SessionManager.LoadSession(_activeSessionFolder!);
+        }
+
+        /// <summary>
+        /// Resets the error counter after successful capture.
+        /// </summary>
+        private void ResetErrorCounter()
+        {
+            _consecutiveCaptureErrors = 0;
+        }
+
+        /// <summary>
+        /// Updates UI after successful capture.
+        /// </summary>
+        private void UpdateUIAfterCapture()
+        {
+            UIHelper.SafeBeginInvoke(this, () =>
+            {
+                UpdateStatusDisplay();
+                UpdateCaptureTimer();
+                UpdateSessionInfoPanel();
+                UpdateRegionOverlay();
+            });
+        }
+
+        /// <summary>
+        /// Handles I/O errors during capture.
+        /// </summary>
+        private void HandleCaptureError(Exception ex, string errorType, string debugMessage)
+        {
+            Debug.WriteLine($"{debugMessage}: {ex.Message}");
+            _consecutiveCaptureErrors++;
+
+            UIHelper.SafeBeginInvoke(this, () =>
+            {
+                if (_consecutiveCaptureErrors >= Constants.MAX_CONSECUTIVE_ERRORS)
+                {
+                    StopCapture();
+                    UIHelper.ShowError(
+                        $"❌ Capture stopped after {Constants.MAX_CONSECUTIVE_ERRORS} consecutive errors.\n\n" +
+                        $"Last error: {ex.Message}\n\n" +
+                        "Possible causes:\n" +
+                        "• Disk full or nearly full\n" +
+                        "• File system errors\n" +
+                        "• Antivirus blocking file access\n" +
+                        "• Network drive disconnected",
+                        "Capture Error");
+                }
+                else
+                {
+                    UIHelper.SafeUpdateLabel(lblStatus, $"⚠️ {errorType} ({_consecutiveCaptureErrors}/{Constants.MAX_CONSECUTIVE_ERRORS})");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Handles permission errors during capture.
+        /// </summary>
+        private void HandlePermissionError(UnauthorizedAccessException uaEx)
+        {
+            Debug.WriteLine($"Permission error: {uaEx.Message}");
+
+            UIHelper.SafeBeginInvoke(this, () =>
+            {
+                StopCapture();
+                UIHelper.ShowError(
+                    "🚫 Permission denied during capture.\n\n" +
+                    $"Cannot write to: {_activeSessionFolder}\n\n" +
+                    "Solutions:\n" +
+                    "• Run as administrator\n" +
+                    "• Choose a different output folder\n" +
+                    "• Check folder permissions",
+                    "Permission Error");
+            });
+        }
+
+        /// <summary>
+        /// Handles memory errors during capture.
+        /// </summary>
+        private void HandleMemoryError(OutOfMemoryException memEx)
+        {
+            Debug.WriteLine($"Out of memory: {memEx.Message}");
+
+            UIHelper.SafeBeginInvoke(this, () =>
+            {
+                StopCapture();
+                UIHelper.ShowError(
+                    "💥 Out of memory!\n\n" +
+                    "The system has run out of available memory.\n\n" +
+                    "Solutions:\n" +
+                    "• Close other applications\n" +
+                    "• Reduce capture resolution\n" +
+                    "• Restart the application",
+                    "Memory Error");
+            });
+        }
+
+        /// <summary>
+        /// Handles unexpected errors during capture.
+        /// </summary>
+        private void HandleUnexpectedError(Exception ex)
+        {
+            Debug.WriteLine($"Unexpected capture error: {ex.GetType().Name} - {ex.Message}");
+            _consecutiveCaptureErrors++;
+
+            UIHelper.SafeBeginInvoke(this, () =>
+            {
+                if (_consecutiveCaptureErrors >= Constants.MAX_CONSECUTIVE_ERRORS)
+                {
+                    StopCapture();
+                    UIHelper.ShowError(
+                        $"❌ Unexpected error during capture.\n\n" +
+                        $"Type: {ex.GetType().Name}\n" +
+                        $"Message: {ex.Message}\n\n" +
+                        "Capture has been stopped for safety.",
+                        "Capture Error");
+                }
+                else
+                {
+                    UIHelper.SafeUpdateLabel(lblStatus, $"⚠️ Error ({_consecutiveCaptureErrors}/{Constants.MAX_CONSECUTIVE_ERRORS}): {ex.Message}");
+                }
+            });
         }
 
         /// <summary>
@@ -1687,8 +1772,8 @@ namespace TimelapseCapture
             {
                 // Show session settings
                 var region = _activeSession.CaptureRegion;
-                string ratioInfo = AspectRatio.CalculateRatioString(region.Width, region.Height);
-                lblSessionInfoRegion.Text = $"📍 Region: {region.Width}×{region.Height} ({ratioInfo})";
+                string ratioInfo = region.HasValue ? AspectRatio.CalculateRatioString(region.Value.Width, region.Value.Height) : "N/A";
+                lblSessionInfoRegion.Text = region.HasValue ? $"📍 Region: {region.Value.Width}×{region.Value.Height} ({ratioInfo})" : "📍 Region: Not set";
                 lblSessionInfoRegion.ForeColor = Color.FromArgb(100, 200, 255); // Light blue
 
                 lblSessionInfoFormat.Text = $"🗄 Format: {_activeSession.ImageFormat}";
@@ -1745,31 +1830,34 @@ namespace TimelapseCapture
             if (IsCapturing)
             {
                 // Currently capturing - RED background
-                lblStatus.Text = $"🔴 CAPTURING - {_activeSession?.Name ?? "Session"} ({_activeSession?.FramesCaptured ?? 0} frames)";
-                lblStatus.BackColor = Color.FromArgb(220, 50, 50); // Red
-                lblStatus.ForeColor = Color.White;
+                string statusText = string.Format(Constants.STATUS_CAPTURING, _activeSession?.Name ?? "Session", _activeSession?.FramesCaptured ?? 0);
+                UIHelper.SafeSetText(lblStatus, statusText);
+                UIHelper.SafeSetBackColor(lblStatus, Color.FromArgb(220, 50, 50)); // Red
+                UIHelper.SafeSetColor(lblStatus, Color.White);
             }
             else if (_activeSession != null)
             {
                 // Session loaded but not capturing - GREEN background
                 if (_activeSession.FramesCaptured > 0)
                 {
-                    lblStatus.Text = $"📂 Session loaded: {_activeSession.Name} ({_activeSession.FramesCaptured} frames) - Ready to capture";
-                    lblStatus.BackColor = Color.FromArgb(60, 180, 75); // Green
+                    string statusText = string.Format(Constants.STATUS_SESSION_LOADED, _activeSession.Name, _activeSession.FramesCaptured);
+                    UIHelper.SafeSetText(lblStatus, statusText);
+                    UIHelper.SafeSetBackColor(lblStatus, Color.FromArgb(60, 180, 75)); // Green
                 }
                 else
                 {
-                    lblStatus.Text = $"🆕 New session ready: {_activeSession.Name} - Press Start to begin";
-                    lblStatus.BackColor = Color.FromArgb(70, 160, 220); // Blue
+                    string statusText = string.Format(Constants.STATUS_NEW_SESSION, _activeSession.Name);
+                    UIHelper.SafeSetText(lblStatus, statusText);
+                    UIHelper.SafeSetBackColor(lblStatus, Color.FromArgb(70, 160, 220)); // Blue
                 }
-                lblStatus.ForeColor = Color.White;
+                UIHelper.SafeSetColor(lblStatus, Color.White);
             }
             else
             {
                 // No session - GRAY background
-                lblStatus.Text = "⚪ No session - Select region and press Start to create one";
-                lblStatus.BackColor = Color.FromArgb(120, 120, 120); // Gray
-                lblStatus.ForeColor = Color.White;
+                UIHelper.SafeSetText(lblStatus, Constants.STATUS_NO_SESSION);
+                UIHelper.SafeSetBackColor(lblStatus, Color.FromArgb(120, 120, 120)); // Gray
+                UIHelper.SafeSetColor(lblStatus, Color.White);
             }
         }
 
@@ -2040,243 +2128,289 @@ namespace TimelapseCapture
         /// </summary>
         private async void btnEncode_Click(object? sender, EventArgs e)
         {
-            // FAST PRE-CHECK: Prevent multiple clicks
+            if (!ValidateEncodingPrerequisites(sender, e))
+                return;
+
+            await PerformEncoding();
+        }
+
+        /// <summary>
+        /// Validates all prerequisites for encoding.
+        /// </summary>
+        private bool ValidateEncodingPrerequisites(object? sender, EventArgs e)
+        {
+            // Check if already encoding
             if (_isEncoding)
             {
-                MessageBox.Show(
-                    "Encoding already in progress.\nPlease wait for current encode to complete.",
-                    "Encoding In Progress",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
+                UIHelper.ShowInfo("Encoding already in progress.\nPlease wait for current encode to complete.", "Encoding In Progress");
+                return false;
             }
 
-            // FAST PRE-CHECK: FFmpeg must be configured before we start
-            if (string.IsNullOrEmpty(_ffmpegPath) || !File.Exists(_ffmpegPath))
+            // Check FFmpeg configuration
+            if (!ValidationHelper.IsFfmpegConfigured(_ffmpegPath))
             {
-                var result = MessageBox.Show(
-                    "FFmpeg is not configured!\n\n" +
-                    "FFmpeg is required for video encoding but has not been set up.\n\n" +
-                    "Would you like to:\n" +
-                    "• YES: Browse for ffmpeg.exe on your system\n" +
-                    "• NO: Cancel encoding\n\n" +
-                    "To download FFmpeg:\n" +
-                    "Visit https://ffmpeg.org/download.html",
-                    "FFmpeg Not Found",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-
-                if (result == DialogResult.Yes)
-                {
-                    // Trigger browse dialog
-                    btnBrowseFfmpeg_Click(sender, e);
-                    return;
-                }
-                else
-                {
-                    return;
-                }
+                return HandleFfmpegNotConfigured(sender, e);
             }
 
-            // FAST PRE-CHECK: Must have save folder
-            if (string.IsNullOrEmpty(settings.SaveFolder))
+            // Check save folder
+            if (!ValidationHelper.IsSaveFolderConfigured(settings.SaveFolder))
             {
-                MessageBox.Show(
-                    "Please select a save folder first.",
-                    "No Save Folder",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
+                UIHelper.ShowWarning("Please select a save folder first.", "No Save Folder");
+                return false;
             }
 
-            // FAST PRE-CHECK: Must have frames
-            string sessionFolder = _activeSessionFolder ?? settings.SaveFolder;
+            // Check for frames
+            string sessionFolder = _activeSessionFolder ?? settings.SaveFolder!;
             var frameFiles = SessionManager.GetFrameFiles(sessionFolder);
-
-            if (frameFiles.Length == 0)
+            if (!ValidationHelper.HasFramesToEncode(frameFiles))
             {
-                MessageBox.Show(
-                    "No frames to encode!\n\n" +
-                    "Please capture some frames before encoding.",
-                    "No Frames",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
+                UIHelper.ShowWarning(Constants.MSG_NO_FRAMES, "No Frames");
+                return false;
             }
 
-            // FAST PRE-CHECK: Valid region
-            if (!IsValidRegion(captureRegion))
+            // Check region validity
+            if (!ValidationHelper.IsValidRegion(captureRegion))
             {
-                MessageBox.Show(
-                    "Invalid capture region dimensions.\n\n" +
-                    "Please select a new region before encoding.",
-                    "Invalid Region",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return;
+                UIHelper.ShowError("Invalid capture region dimensions.\n\nPlease select a new region before encoding.", "Invalid Region");
+                return false;
             }
 
-            // All pre-checks passed - start encoding
+            return true;
+        }
+
+        /// <summary>
+        /// Handles FFmpeg not configured scenario.
+        /// </summary>
+        private bool HandleFfmpegNotConfigured(object? sender, EventArgs e)
+        {
+            var result = UIHelper.ShowQuestion(Constants.MSG_FFMPEG_NOT_FOUND, "FFmpeg Not Found");
+
+            if (result == DialogResult.Yes)
+            {
+                btnBrowseFfmpeg_Click(sender, e);
+                return false; // Don't proceed with encoding after browse
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Performs the actual encoding process.
+        /// </summary>
+        private async Task PerformEncoding()
+        {
             _isEncoding = true;
-
-            // Update UI to show encoding in progress
-            if (btnEncode != null)
-            {
-                btnEncode.Enabled = false;
-                btnEncode.Text = "🎬 Encoding...";
-            }
-            if (lblStatus != null)
-                lblStatus.Text = $"Encoding {frameFiles.Length} frames...";
+            string sessionFolder = _activeSessionFolder ?? settings.SaveFolder!;
+            var frameFiles = SessionManager.GetFrameFiles(sessionFolder);
 
             try
             {
-                // Verify FFmpeg still accessible (final check)
-                if (!File.Exists(_ffmpegPath))
-                {
-                    throw new FileNotFoundException($"FFmpeg not found at: {_ffmpegPath}");
-                }
-
-                // Create filelist in .temp/ folder
-                string tempFolder = SessionManager.GetTempFolder(sessionFolder);
-                Directory.CreateDirectory(tempFolder);
-                string fileListPath = Path.Combine(tempFolder, "filelist.txt");
-
-                using (var writer = new StreamWriter(fileListPath, false))
-                {
-                    foreach (var file in frameFiles)
-                    {
-                        writer.WriteLine($"file '{file.Replace("'", "'\\''")}'");
-                    }
-                }
-
-                // Output to organized output/ folder
-                string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
-                Directory.CreateDirectory(outputFolder);
-                string outputPath = Path.Combine(outputFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
-
-                // Build FFmpeg arguments with selected settings
-                string preset = "medium"; // Default
-                if (cmbEncodingPreset != null && cmbEncodingPreset.SelectedIndex >= 0)
-                {
-                    preset = cmbEncodingPreset.SelectedIndex switch
-                    {
-                        0 => "ultrafast",
-                        1 => "fast",
-                        2 => "medium",
-                        3 => "slow",
-                        _ => "medium"
-                    };
-                }
-
-                string ffmpegArgs = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {_targetFrameRate} -c:v libx264 -preset {preset} -crf 23 \"{outputPath}\"";
-
-                var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
-
-                // Clean up temp folder
-                SessionManager.CleanTempFolder(sessionFolder);
-
-                if (result.exitCode == 0)
-                {
-                    if (lblStatus != null)
-                        lblStatus.Text = "✅ Encoding complete!";
-
-                    MessageBox.Show(
-                        $"✅ Video encoded successfully!\n\n" +
-                        $"Frames: {frameFiles.Length}\n" +
-                        $"Output: {Path.GetFileName(outputPath)}\n" +
-                        $"Location: output/ folder\n\n" +
-                        $"Full path:\n{outputPath}",
-                        "Encoding Complete",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-
-                    try
-                    {
-                        Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
-                    }
-                    catch
-                    {
-                        Process.Start(new ProcessStartInfo { FileName = outputFolder, UseShellExecute = true });
-                    }
-                }
-                else
-                {
-                    if (lblStatus != null)
-                        lblStatus.Text = "❌ Encoding failed";
-
-                    MessageBox.Show(
-                        $"FFmpeg encoding failed with exit code {result.exitCode}\n\n" +
-                        $"Error output:\n{result.error}\n\n" +
-                        $"Standard output:\n{result.output}",
-                        "Encoding Failed",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }
+                UpdateEncodingUI(true, frameFiles.Length);
+                await ExecuteFfmpegEncoding(sessionFolder, frameFiles);
             }
             catch (FileNotFoundException fnfEx)
             {
-                if (lblStatus != null)
-                    lblStatus.Text = "❌ FFmpeg not found";
-
-                MessageBox.Show(
-                    $"FFmpeg executable not found:\n\n{fnfEx.Message}\n\n" +
-                    "Please use 'Browse...' button to locate ffmpeg.exe",
-                    "FFmpeg Not Found",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                HandleEncodingError("❌ FFmpeg not found", "FFmpeg Not Found", 
+                    $"FFmpeg executable not found:\n\n{fnfEx.Message}\n\nPlease use 'Browse...' button to locate ffmpeg.exe");
             }
             catch (IOException ioEx)
             {
-                if (lblStatus != null)
-                    lblStatus.Text = "❌ File access error";
-
-                MessageBox.Show(
-                    $"File access error during encoding:\n\n{ioEx.Message}\n\n" +
-                    "This may be caused by:\n" +
-                    "• Another program using the files\n" +
-                    "• Insufficient permissions\n" +
-                    "• Disk full or read-only",
-                    "File Access Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                HandleEncodingError("❌ File access error", "File Access Error",
+                    $"File access error during encoding:\n\n{ioEx.Message}\n\nThis may be caused by:\n• Another program using the files\n• Insufficient permissions\n• Disk full or read-only");
             }
             catch (UnauthorizedAccessException uaEx)
             {
-                if (lblStatus != null)
-                    lblStatus.Text = "❌ Permission denied";
-
-                MessageBox.Show(
-                    $"Permission denied:\n\n{uaEx.Message}\n\n" +
-                    "Try running the application as administrator.",
-                    "Permission Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                HandleEncodingError("❌ Permission denied", "Permission Error",
+                    $"Permission denied:\n\n{uaEx.Message}\n\nTry running the application as administrator.");
             }
             catch (Exception ex)
             {
-                if (lblStatus != null)
-                    lblStatus.Text = "❌ Encoding error";
-
-                MessageBox.Show(
-                    $"Unexpected error during encoding:\n\n{ex.Message}\n\n" +
-                    $"Type: {ex.GetType().Name}",
-                    "Encoding Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                HandleEncodingError("❌ Encoding error", "Encoding Error",
+                    $"Unexpected error during encoding:\n\n{ex.Message}\n\nType: {ex.GetType().Name}");
             }
             finally
             {
-                // Always reset encoding state
-                _isEncoding = false;
-
-                if (btnEncode != null)
-                {
-                    btnEncode.Enabled = true;
-                    btnEncode.Text = "🎬 Encode Video";
-                }
-
-                UpdateStatusDisplay();
+                ResetEncodingState();
             }
+        }
+
+        /// <summary>
+        /// Updates UI during encoding process.
+        /// </summary>
+        private void UpdateEncodingUI(bool isEncoding, int frameCount = 0)
+        {
+            if (isEncoding)
+            {
+                UIHelper.SafeSetEnabled(btnEncode, false);
+                UIHelper.SafeSetText(btnEncode, "🎬 Encoding...");
+                UIHelper.SafeUpdateLabel(lblStatus, string.Format(Constants.STATUS_ENCODING, frameCount));
+            }
+            else
+            {
+                UIHelper.SafeSetEnabled(btnEncode, true);
+                UIHelper.SafeSetText(btnEncode, "🎬 Encode Video");
+            }
+        }
+
+        /// <summary>
+        /// Executes the FFmpeg encoding process.
+        /// </summary>
+        private async Task ExecuteFfmpegEncoding(string sessionFolder, string[] frameFiles)
+        {
+            // Verify FFmpeg still accessible
+            if (!File.Exists(_ffmpegPath))
+            {
+                throw new FileNotFoundException($"FFmpeg not found at: {_ffmpegPath}");
+            }
+
+            // Create filelist
+            string fileListPath = CreateFileList(sessionFolder, frameFiles);
+
+            // Prepare output
+            string outputPath = PrepareOutputPath(sessionFolder);
+
+            // Build FFmpeg arguments
+            string preset = GetEncodingPreset();
+            string ffmpegArgs = BuildFfmpegArguments(fileListPath, outputPath, preset);
+
+            // Run FFmpeg
+            var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
+
+            // Clean up
+            SessionManager.CleanTempFolder(sessionFolder);
+
+            // Handle result
+            if (result.exitCode == 0)
+            {
+                HandleEncodingSuccess(frameFiles.Length, outputPath);
+            }
+            else
+            {
+                HandleEncodingFailure(result);
+            }
+        }
+
+        /// <summary>
+        /// Creates the file list for FFmpeg.
+        /// </summary>
+        private string CreateFileList(string sessionFolder, string[] frameFiles)
+        {
+            string tempFolder = SessionManager.GetTempFolder(sessionFolder);
+            Directory.CreateDirectory(tempFolder);
+            string fileListPath = Path.Combine(tempFolder, "filelist.txt");
+
+            using (var writer = new StreamWriter(fileListPath, false))
+            {
+                foreach (var file in frameFiles)
+                {
+                    writer.WriteLine($"file '{file.Replace("'", "'\\''")}'");
+                }
+            }
+
+            return fileListPath;
+        }
+
+        /// <summary>
+        /// Prepares the output path for the encoded video.
+        /// </summary>
+        private string PrepareOutputPath(string sessionFolder)
+        {
+            string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
+            Directory.CreateDirectory(outputFolder);
+            return Path.Combine(outputFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+        }
+
+        /// <summary>
+        /// Gets the encoding preset from UI selection.
+        /// </summary>
+        private string GetEncodingPreset()
+        {
+            if (cmbEncodingPreset?.SelectedIndex >= 0)
+            {
+                return cmbEncodingPreset.SelectedIndex switch
+                {
+                    0 => "ultrafast",
+                    1 => "fast",
+                    2 => "medium",
+                    3 => "slow",
+                    _ => Constants.DEFAULT_ENCODING_PRESET
+                };
+            }
+            return Constants.DEFAULT_ENCODING_PRESET;
+        }
+
+        /// <summary>
+        /// Builds FFmpeg command line arguments.
+        /// </summary>
+        private string BuildFfmpegArguments(string fileListPath, string outputPath, string preset)
+        {
+            return $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {_targetFrameRate} -c:v libx264 -preset {preset} -crf 23 \"{outputPath}\"";
+        }
+
+        /// <summary>
+        /// Handles successful encoding completion.
+        /// </summary>
+        private void HandleEncodingSuccess(int frameCount, string outputPath)
+        {
+            UIHelper.SafeUpdateLabel(lblStatus, Constants.STATUS_ENCODING_COMPLETE);
+
+            UIHelper.ShowInfo(
+                $"✅ Video encoded successfully!\n\n" +
+                $"Frames: {frameCount}\n" +
+                $"Output: {Path.GetFileName(outputPath)}\n" +
+                $"Location: output/ folder\n\n" +
+                $"Full path:\n{outputPath}",
+                "Encoding Complete");
+
+            OpenOutputFolder(outputPath);
+        }
+
+        /// <summary>
+        /// Handles encoding failure.
+        /// </summary>
+        private void HandleEncodingFailure((int exitCode, string output, string error) result)
+        {
+            UIHelper.SafeUpdateLabel(lblStatus, Constants.STATUS_ENCODING_FAILED);
+
+            UIHelper.ShowError(
+                $"FFmpeg encoding failed with exit code {result.exitCode}\n\n" +
+                $"Error output:\n{result.error}\n\n" +
+                $"Standard output:\n{result.output}",
+                "Encoding Failed");
+        }
+
+        /// <summary>
+        /// Handles encoding errors with consistent UI updates.
+        /// </summary>
+        private void HandleEncodingError(string statusText, string title, string message)
+        {
+            UIHelper.SafeUpdateLabel(lblStatus, statusText);
+            UIHelper.ShowError(message, title);
+        }
+
+        /// <summary>
+        /// Opens the output folder with the encoded video.
+        /// </summary>
+        private void OpenOutputFolder(string outputPath)
+        {
+            try
+            {
+                Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
+            }
+            catch
+            {
+                Process.Start(new ProcessStartInfo { FileName = Path.GetDirectoryName(outputPath), UseShellExecute = true });
+            }
+        }
+
+        /// <summary>
+        /// Resets the encoding state and UI.
+        /// </summary>
+        private void ResetEncodingState()
+        {
+            _isEncoding = false;
+            UpdateEncodingUI(false);
+            UpdateStatusDisplay();
         }
 
 
@@ -2284,49 +2418,11 @@ namespace TimelapseCapture
 
         #region Error Handling & Safety
 
-        /// <summary>
-        /// Check if there's sufficient disk space for capture operations.
-        /// </summary>
-        private bool CheckDiskSpace(string path, long requiredBytes = 100_000_000) // 100MB default
-        {
-            try
-            {
-                var rootPath = Path.GetPathRoot(path);
-                if (string.IsNullOrEmpty(rootPath)) return true;
-
-                var drive = new DriveInfo(rootPath);
-                return drive.AvailableFreeSpace > requiredBytes;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Could not check disk space: {ex.Message}");
-                return true; // If we can't check, assume OK rather than block
-            }
-        }
 
         /// <summary>
         /// Sanitize session name for filesystem compatibility.
         /// </summary>
-        private string SanitizeSessionName(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
-
-            // Remove invalid filename characters
-            var invalid = Path.GetInvalidFileNameChars();
-            var sanitized = name;
-            foreach (var c in invalid)
-                sanitized = sanitized.Replace(c, '_');
-
-            // Also remove some problematic characters that are technically valid
-            sanitized = sanitized.Replace('.', '_').Replace(' ', '_');
-
-            // Limit length to prevent path too long errors
-            if (sanitized.Length > 50)
-                sanitized = sanitized.Substring(0, 50);
-
-            return sanitized.Trim('_'); // Remove leading/trailing underscores
-        }
+        private string SanitizeSessionName(string name) => ValidationHelper.SanitizeSessionName(name);
 
         #endregion
 
