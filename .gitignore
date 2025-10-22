@@ -4,6 +4,7 @@ obj/
 
 # Visual Studio
 .vs/
+properties/
 *.user
 *.suo
 *.userosscache
@@ -36,3 +37,7 @@ timelapse/
 *.log
 /bfg.jar
 /git-filter-repo.py
+..bfg-report/
+
+#claude mess
+claude/

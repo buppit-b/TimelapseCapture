@@ -19,18 +19,18 @@ namespace TimelapseCapture
         public bool Active { get; set; } = true;
         public long FramesCaptured { get; set; } = 0;
 
-        // Capture settings to prevent mismatches
-        public Rectangle CaptureRegion { get; set; }
+        // Capture settings - OPTIONAL until capture starts
+        public Rectangle? CaptureRegion { get; set; } // Nullable - can be set later
         public string? ImageFormat { get; set; }
         public int JpegQuality { get; set; }
 
         // File organization
         public int FormatVersion { get; set; } = 2;
 
-        // NEW: Track actual capture time and interval changes
+        // Track actual capture time and interval changes
         public DateTime? LastCaptureTime { get; set; }
-        public double TotalCaptureSeconds { get; set; } = 0; // Actual elapsed time
-        public bool IntervalChanged { get; set; } = false; // Flag if interval was changed mid-session
+        public double TotalCaptureSeconds { get; set; } = 0;
+        public bool IntervalChanged { get; set; } = false;
     }
 
 
@@ -174,15 +174,16 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Create new session with custom name.
+        /// Create new session with custom name - region is OPTIONAL.
+        /// Region can be set later before starting capture.
         /// </summary>
         public static string CreateNamedSession(
             string capturesRoot,
             string sessionName,
-            int intervalSeconds,
-            Rectangle region,
-            string format,
-            int jpegQuality)
+            int intervalSeconds = 5,
+            Rectangle? region = null,
+            string? format = "JPEG",
+            int jpegQuality = 90)
         {
             Directory.CreateDirectory(capturesRoot);
 
@@ -215,13 +216,13 @@ namespace TimelapseCapture
 
             var info = new SessionInfo
             {
-                Name = sessionName, // Store original display name
+                Name = sessionName,
                 IntervalSeconds = intervalSeconds,
                 VideoFps = 30,
                 StartTime = DateTime.UtcNow,
                 Active = true,
                 FramesCaptured = 0,
-                CaptureRegion = region,
+                CaptureRegion = region, // Can be null
                 ImageFormat = format,
                 JpegQuality = jpegQuality,
                 FormatVersion = 2,
@@ -293,17 +294,26 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Validate that current settings match session settings.
+        /// Only validates non-null session properties.
         /// </summary>
         public static bool ValidateSessionSettings(SessionInfo session, Rectangle region, string format, int jpegQuality)
         {
-            if (session.CaptureRegion != region)
-                return false;
+            // If session has a region set and frames captured, it must match
+            if (session.CaptureRegion.HasValue && session.FramesCaptured > 0)
+            {
+                if (session.CaptureRegion.Value != region)
+                    return false;
+            }
 
-            if (session.ImageFormat != format)
-                return false;
+            // If session has frames, format must match
+            if (session.FramesCaptured > 0 && session.ImageFormat != null)
+            {
+                if (session.ImageFormat != format)
+                    return false;
 
-            if (format == "JPEG" && session.JpegQuality != jpegQuality)
-                return false;
+                if (format == "JPEG" && session.JpegQuality != jpegQuality)
+                    return false;
+            }
 
             return true;
         }

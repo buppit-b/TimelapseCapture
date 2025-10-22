@@ -6,8 +6,8 @@ using System.Windows.Forms;
 namespace TimelapseCapture
 {
     /// <summary>
-    /// Semi-transparent overlay that displays the currently selected capture region.
-    /// Shows HUD-style border with corner brackets and region information.
+    /// Simple overlay that displays the capture region.
+    /// Designed to be created and disposed each time - do not reuse instances.
     /// </summary>
     public class RegionOverlay : Form
     {
@@ -23,7 +23,6 @@ namespace TimelapseCapture
         /// <summary>
         /// Gets or sets the capture region to display.
         /// </summary>
-        /// 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Rectangle CaptureRegion
         {
@@ -32,13 +31,13 @@ namespace TimelapseCapture
             {
                 _captureRegion = value;
                 UpdateRegionInfo();
-                Invalidate();
+                if (!IsDisposed)
+                    Invalidate();
             }
         }
 
         /// <summary>
         /// Gets or sets whether the session is actively capturing.
-        /// Changes the border color (green=active, blue=inactive).
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsActiveCapture
@@ -48,7 +47,8 @@ namespace TimelapseCapture
             {
                 _isActiveCapture = value;
                 UpdateBorderColor();
-                Invalidate();
+                if (!IsDisposed)
+                    Invalidate();
             }
         }
 
@@ -60,7 +60,7 @@ namespace TimelapseCapture
             ShowInTaskbar = false;
             TopMost = true;
             BackColor = Color.Black;
-            Opacity = 0.0; // Start invisible, will fade in
+            Opacity = 0.8; // Semi-transparent
             DoubleBuffered = true;
 
             // Make form click-through
@@ -72,63 +72,9 @@ namespace TimelapseCapture
             _cornerPen = new Pen(Color.FromArgb(0, 200, 100), 4); // Thicker for corners
             _infoFont = new Font("Consolas", 11f, FontStyle.Bold);
             _infoBrush = new SolidBrush(Color.FromArgb(200, 200, 200));
-            _backgroundBrush = new SolidBrush(Color.FromArgb(180, 20, 20, 20)); // Semi-transparent dark
+            _backgroundBrush = new SolidBrush(Color.FromArgb(180, 20, 20, 20));
 
             Paint += RegionOverlay_Paint;
-        }
-
-        /// <summary>
-        /// Shows the overlay with fade-in animation.
-        /// </summary>
-        public new void Show()
-        {
-            base.Show();
-            FadeIn();
-        }
-
-        /// <summary>
-        /// Hides the overlay with fade-out animation.
-        /// </summary>
-        public new void Hide()
-        {
-            FadeOut();
-            base.Hide();
-        }
-
-        private void FadeIn()
-        {
-            Timer timer = new Timer { Interval = 20 };
-            timer.Tick += (s, e) =>
-            {
-                if (Opacity < 1.0)
-                {
-                    Opacity += 0.1;
-                }
-                else
-                {
-                    timer.Stop();
-                    timer.Dispose();
-                }
-            };
-            timer.Start();
-        }
-
-        private void FadeOut()
-        {
-            Timer timer = new Timer { Interval = 20 };
-            timer.Tick += (s, e) =>
-            {
-                if (Opacity > 0.0)
-                {
-                    Opacity -= 0.1;
-                }
-                else
-                {
-                    timer.Stop();
-                    timer.Dispose();
-                }
-            };
-            timer.Start();
         }
 
         private void UpdateBorderColor()
@@ -148,6 +94,8 @@ namespace TimelapseCapture
 
         private void RegionOverlay_Paint(object? sender, PaintEventArgs e)
         {
+            if (IsDisposed) return;
+
             Graphics g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
@@ -179,18 +127,10 @@ namespace TimelapseCapture
             int yDir = isTop ? 1 : -1;
 
             // Horizontal line
-            g.DrawLine(_cornerPen,
-                x,
-                y,
-                x + (size * xDir),
-                y);
+            g.DrawLine(_cornerPen, x, y, x + (size * xDir), y);
 
             // Vertical line
-            g.DrawLine(_cornerPen,
-                x,
-                y,
-                x,
-                y + (size * yDir));
+            g.DrawLine(_cornerPen, x, y, x, y + (size * yDir));
         }
 
         private void DrawInfoBox(Graphics g, int x, int y)
@@ -219,6 +159,7 @@ namespace TimelapseCapture
         {
             if (disposing)
             {
+                // Dispose drawing resources
                 _borderPen?.Dispose();
                 _cornerPen?.Dispose();
                 _infoFont?.Dispose();

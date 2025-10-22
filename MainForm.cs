@@ -217,7 +217,7 @@ namespace TimelapseCapture
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
                 if (_activeSession != null)
                 {
-                    captureRegion = _activeSession.CaptureRegion;
+                    captureRegion = (Rectangle)_activeSession.CaptureRegion;
                     if (lblRegion != null)
                         lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
 
@@ -229,6 +229,14 @@ namespace TimelapseCapture
                     UpdateStatusDisplay();
                     UpdateSessionInfoPanel();
                 }
+            }
+
+            // If no active session found, clear any stored region from settings
+            if (_activeSession == null && settings.Region.HasValue)
+            {
+                captureRegion = Rectangle.Empty;
+                if (lblRegion != null)
+                    lblRegion.Text = "No region selected";
             }
         }
 
@@ -441,7 +449,7 @@ namespace TimelapseCapture
             // Load into UI
             _activeSessionFolder = sessionPath;
             _activeSession = session;
-            captureRegion = session.CaptureRegion;
+            captureRegion = (Rectangle)session.CaptureRegion;
 
             if (txtSessionName != null)
                 txtSessionName.Text = session.Name;
@@ -467,7 +475,9 @@ namespace TimelapseCapture
             MessageBox.Show(
                 $"Session '{session.Name}' loaded!\n\n" +
                 $"Frames: {session.FramesCaptured}\n" +
-                $"Region: {captureRegion.Width}×{captureRegion.Height}\n" +
+                (session.CaptureRegion.HasValue
+                    ? $"Region: {session.CaptureRegion.Value.Width}×{session.CaptureRegion.Value.Height}\n"
+                    : "Region: N/A\n") +
                 $"Location: {Path.GetFileName(sessionPath)}\n\n" +
                 $"Ready to continue capturing.",
                 "Session Loaded",
@@ -475,9 +485,10 @@ namespace TimelapseCapture
                 MessageBoxIcon.Information);
         }
 
+
         /// <summary>
         /// Handle New Session button click.
-        /// Prompts for session name and creates new session.
+        /// Creates session WITHOUT requiring region first.
         /// </summary>
         private void btnNewSession_Click(object? sender, EventArgs e)
         {
@@ -502,7 +513,7 @@ namespace TimelapseCapture
                     SessionManager.MarkSessionInactive(_activeSessionFolder);
             }
 
-            // Validate required settings first
+            // Validate ONLY output folder is required
             if (string.IsNullOrEmpty(settings.SaveFolder))
             {
                 MessageBox.Show(
@@ -514,16 +525,7 @@ namespace TimelapseCapture
                 return;
             }
 
-            if (captureRegion.IsEmpty || !IsValidRegion(captureRegion))
-            {
-                MessageBox.Show(
-                    "Please select a valid capture region first.\n\n" +
-                    "Click 'Select Region' to choose the area to capture.",
-                    "Capture Region Required",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
+            // Region is NOT required for session creation!
 
             // Show session name dialog
             using (var dialog = new SessionNameDialog())
@@ -532,25 +534,20 @@ namespace TimelapseCapture
                 {
                     string sessionName = dialog.SessionName;
 
-                    // Create new session with custom name
-                    var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
-                    int interval = (int)(numInterval?.Value ?? 5);
-                    var format = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
-                    var quality = (int)(numQuality?.Value ?? 90);
-
                     try
                     {
                         // Mark old session as inactive first
                         if (_activeSessionFolder != null)
                             SessionManager.MarkSessionInactive(_activeSessionFolder);
 
+                        // Create session WITHOUT region (optional parameters)
+                        var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                        int interval = (int)(numInterval?.Value ?? 5);
+
                         _activeSessionFolder = SessionManager.CreateNamedSession(
                             capturesRoot,
                             sessionName,
-                            interval,
-                            captureRegion,
-                            format,
-                            quality);
+                            interval);  // Region NOT required!
 
                         _activeSession = SessionManager.LoadSession(_activeSessionFolder);
 
@@ -562,15 +559,28 @@ namespace TimelapseCapture
                         UpdateCaptureTimer();
                         UpdateSessionInfoPanel();
 
-                        // Show warning if name was adjusted for duplicates
+                        // Show success message
                         string message = $"✅ New session '{_activeSession?.Name ?? sessionName}' created!\n\n";
+
                         if (_activeSession?.Name != sessionName && _activeSession?.Name?.Contains("(") == true)
                         {
                             message += "⚠️ A session with this name already exists.\n";
                             message += "The new session was renamed to avoid conflicts.\n\n";
                         }
+
                         message += "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n";
-                        message += "👉 Press 'Start Capture' when you're ready to begin recording.";
+
+                        // Updated instruction
+                        if (captureRegion.IsEmpty)
+                        {
+                            message += "📋 Next steps:\n";
+                            message += "1. Click 'Select' or 'Full Screen' to choose capture region\n";
+                            message += "2. Press 'Start Capture' to begin recording";
+                        }
+                        else
+                        {
+                            message += "👉 Region already selected - Press 'Start Capture' to begin.";
+                        }
 
                         MessageBox.Show(
                             message,
@@ -589,7 +599,6 @@ namespace TimelapseCapture
                 }
             }
         }
-
 
         /// <summary>
         /// Load settings from persistent storage.
@@ -645,34 +654,51 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Show the region overlay.
+        /// Creates a fresh overlay instance each time.
         /// </summary>
         private void ShowRegionOverlay()
         {
-            if (_regionOverlay == null) return;
+            // Dispose old overlay if exists
+            if (_regionOverlay != null)
+            {
+                try
+                {
+                    _regionOverlay.Hide();
+                    _regionOverlay.Dispose();
+                }
+                catch { }
+                finally
+                {
+                    _regionOverlay = null;
+                }
+            }
 
             // Check if region is set
             if (captureRegion.IsEmpty || captureRegion.Width == 0 || captureRegion.Height == 0)
             {
                 MessageBox.Show(
-                    "No region selected yet.\n\n" +
-                    "Please select a capture region first using:\n" +
-                    "• 'Select' button - Manual selection\n" +
-                    "• 'Full Screen' button - Entire monitor",
-                    "No Region",
+                    "No region selected.\n\n" +
+                    "Select a region first:\n" +
+                    "• Click 'Select' for manual selection\n" +
+                    "• Click 'Full Screen' for entire monitor",
+                    "No Region Selected",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
             }
 
-            // Get all screens to calculate overlay bounds
-            var allScreens = Screen.AllScreens;
-            int minX = allScreens.Min(s => s.Bounds.X);
-            int minY = allScreens.Min(s => s.Bounds.Y);
-            int maxX = allScreens.Max(s => s.Bounds.Right);
-            int maxY = allScreens.Max(s => s.Bounds.Bottom);
+            // Create fresh overlay instance
+            _regionOverlay = new RegionOverlay();
 
-            // Position overlay to cover entire virtual screen
-            _regionOverlay.Bounds = new Rectangle(minX, minY, maxX - minX, maxY - minY);
+            // Position overlay to cover only the capture region (plus border)
+            int borderSize = 50; // Extra space for info box and brackets
+            _regionOverlay.Bounds = new Rectangle(
+                captureRegion.X - borderSize,
+                captureRegion.Y - borderSize,
+                captureRegion.Width + (borderSize * 2),
+                captureRegion.Height + (borderSize * 2)
+            );
+
             _regionOverlay.CaptureRegion = captureRegion;
             _regionOverlay.IsActiveCapture = IsCapturing;
             _regionOverlay.Show();
@@ -682,27 +708,71 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Hide the region overlay.
+        /// Hide the region overlay and dispose it.
         /// </summary>
         private void HideRegionOverlay()
         {
-            if (_regionOverlay == null) return;
+            if (_regionOverlay == null)
+            {
+                _isOverlayVisible = false;
+                UpdateRegionOverlayButton();
+                return;
+            }
 
-            _regionOverlay.Hide();
             _isOverlayVisible = false;
             UpdateRegionOverlayButton();
+
+            try
+            {
+                _regionOverlay.Hide();
+                _regionOverlay.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error disposing overlay: {ex.Message}");
+            }
+            finally
+            {
+                _regionOverlay = null;
+            }
         }
 
         /// <summary>
         /// Update region overlay with current settings.
-        /// Call this whenever region or capture state changes.
+        /// Recreates overlay if settings changed.
         /// </summary>
         private void UpdateRegionOverlay()
         {
-            if (_regionOverlay == null || !_isOverlayVisible) return;
+            // If overlay is visible, recreate it with new settings
+            if (_isOverlayVisible && !captureRegion.IsEmpty)
+            {
+                // Hide current
+                if (_regionOverlay != null)
+                {
+                    try
+                    {
+                        _regionOverlay.Hide();
+                        _regionOverlay.Dispose();
+                    }
+                    catch { }
+                    _regionOverlay = null;
+                }
 
-            _regionOverlay.CaptureRegion = captureRegion;
-            _regionOverlay.IsActiveCapture = IsCapturing;
+                // Create new with updated settings
+                _regionOverlay = new RegionOverlay();
+
+                int borderSize = 50;
+                _regionOverlay.Bounds = new Rectangle(
+                    captureRegion.X - borderSize,
+                    captureRegion.Y - borderSize,
+                    captureRegion.Width + (borderSize * 2),
+                    captureRegion.Height + (borderSize * 2)
+                );
+
+                _regionOverlay.CaptureRegion = captureRegion;
+                _regionOverlay.IsActiveCapture = IsCapturing;
+                _regionOverlay.Show();
+            }
         }
 
         /// <summary>
@@ -755,7 +825,7 @@ namespace TimelapseCapture
                 return;
             }
 
-            if (_activeSession != null)
+            if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
                 var result = MessageBox.Show(
                     $"Session '{_activeSession.Name}' is currently loaded.\n\n" +
@@ -884,6 +954,15 @@ namespace TimelapseCapture
             settings.AspectRatioIndex = preservedAspectIndex; // Preserve user's original choice
             SettingsManager.Save(settings);
 
+            // Update active session with new region
+            if (_activeSession != null && _activeSessionFolder != null)
+            {
+                _activeSession.CaptureRegion = captureRegion;
+                _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
+                _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
+                SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+            }
+
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateRegionOverlay();
@@ -992,6 +1071,26 @@ namespace TimelapseCapture
                         }
                     }
                 }
+            }
+
+            // Update active session with new region
+            if (_activeSession != null && _activeSessionFolder != null)
+            {
+                if (_activeSession.CaptureRegion.HasValue)
+                {
+                    captureRegion = _activeSession.CaptureRegion.Value;
+                    if (lblRegion != null)
+                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                }
+                else
+                {
+                    captureRegion = Rectangle.Empty;
+                    if (lblRegion != null)
+                        lblRegion.Text = "No region selected";
+                }
+                _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
+                _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
+                SessionManager.SaveSession(_activeSessionFolder, _activeSession);
             }
 
             Show();

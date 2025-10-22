@@ -192,7 +192,7 @@ namespace TimelapseCapture
             btnStop.FlatStyle = FlatStyle.Flat;
             btnStop.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnStop.ForeColor = Color.White;
-            btnStop.Location = new Point(230, 95);
+            btnStop.Location = new Point(225, 95);
             btnStop.Name = "btnStop";
             btnStop.Size = new Size(200, 32);
             btnStop.TabIndex = 3;
@@ -212,23 +212,11 @@ namespace TimelapseCapture
             btnSelectRegion.UseVisualStyleBackColor = true;
             btnSelectRegion.Click += btnSelectRegion_Click;
             // 
-            // btnShowRegion
-            // 
-            btnShowRegion.FlatStyle = FlatStyle.Flat;
-            btnShowRegion.ForeColor = Color.MediumPurple;
-            btnShowRegion.Location = new Point(130, 66);
-            btnShowRegion.Name = "btnShowRegion";
-            btnShowRegion.Size = new Size(110, 32);
-            btnShowRegion.TabIndex = 4;
-            btnShowRegion.Text = "👁 Show";
-            btnShowRegion.UseVisualStyleBackColor = true;
-            btnShowRegion.Click += btnShowRegion_Click;
-            // 
             // btnFullScreen
             // 
             btnFullScreen.FlatStyle = FlatStyle.Flat;
             btnFullScreen.ForeColor = Color.DeepSkyBlue;
-            btnFullScreen.Location = new Point(245, 66);
+            btnFullScreen.Location = new Point(131, 66);
             btnFullScreen.Name = "btnFullScreen";
             btnFullScreen.Size = new Size(140, 32);
             btnFullScreen.TabIndex = 5;
@@ -288,7 +276,7 @@ namespace TimelapseCapture
             // 
             btnDownloadFfmpeg.FlatStyle = FlatStyle.Flat;
             btnDownloadFfmpeg.ForeColor = Color.LimeGreen;
-            btnDownloadFfmpeg.Location = new Point(300, 33);
+            btnDownloadFfmpeg.Location = new Point(300, 28);
             btnDownloadFfmpeg.Name = "btnDownloadFfmpeg";
             btnDownloadFfmpeg.Size = new Size(125, 25);
             btnDownloadFfmpeg.TabIndex = 4;
@@ -312,13 +300,25 @@ namespace TimelapseCapture
             // 
             btnLoadSession.FlatStyle = FlatStyle.Flat;
             btnLoadSession.ForeColor = Color.DodgerBlue;
-            btnLoadSession.Location = new Point(300, 66);
+            btnLoadSession.Location = new Point(341, 24);
             btnLoadSession.Name = "btnLoadSession";
             btnLoadSession.Size = new Size(84, 32);
             btnLoadSession.TabIndex = 3;
             btnLoadSession.Text = "📂 Load";
             btnLoadSession.UseVisualStyleBackColor = true;
             btnLoadSession.Click += btnLoadSession_Click;
+            // 
+            // btnShowRegion
+            // 
+            btnShowRegion.FlatStyle = FlatStyle.Flat;
+            btnShowRegion.ForeColor = Color.MediumPurple;
+            btnShowRegion.Location = new Point(284, 66);
+            btnShowRegion.Name = "btnShowRegion";
+            btnShowRegion.Size = new Size(110, 32);
+            btnShowRegion.TabIndex = 4;
+            btnShowRegion.Text = "👁 Show";
+            btnShowRegion.UseVisualStyleBackColor = true;
+            btnShowRegion.Click += btnShowRegion_Click;
             // 
             // lblSessionNameText
             // 
@@ -459,7 +459,7 @@ namespace TimelapseCapture
             // 
             numQuality.BackColor = SystemColors.InactiveCaptionText;
             numQuality.ForeColor = SystemColors.ScrollBar;
-            numQuality.Location = new Point(355, 260);
+            numQuality.Location = new Point(355, 268);
             numQuality.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numQuality.Name = "numQuality";
             numQuality.Size = new Size(70, 23);
@@ -504,7 +504,7 @@ namespace TimelapseCapture
             // 
             // trkQuality
             // 
-            trkQuality.Location = new Point(15, 260);
+            trkQuality.Location = new Point(15, 268);
             trkQuality.Maximum = 100;
             trkQuality.Minimum = 1;
             trkQuality.Name = "trkQuality";
