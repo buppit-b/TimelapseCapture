@@ -276,7 +276,7 @@ namespace TimelapseCapture
             // 
             btnDownloadFfmpeg.FlatStyle = FlatStyle.Flat;
             btnDownloadFfmpeg.ForeColor = Color.LimeGreen;
-            btnDownloadFfmpeg.Location = new Point(300, 28);
+            btnDownloadFfmpeg.Location = new Point(287, 63);
             btnDownloadFfmpeg.Name = "btnDownloadFfmpeg";
             btnDownloadFfmpeg.Size = new Size(125, 25);
             btnDownloadFfmpeg.TabIndex = 4;

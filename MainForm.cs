@@ -157,11 +157,26 @@ namespace TimelapseCapture
             }
         }
 
+        // Track if FFmpeg download is in progress
+        private bool _isDownloadingFfmpeg = false;
+
         /// <summary>
         /// Download FFmpeg when user requests it.
+        /// Prevents multiple simultaneous downloads.
         /// </summary>
         private async void DownloadFfmpeg()
         {
+            // Prevent spam clicking
+            if (_isDownloadingFfmpeg)
+            {
+                MessageBox.Show(
+                    "FFmpeg download is already in progress.\n\nPlease wait for it to complete.",
+                    "Download In Progress",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
             if (!string.IsNullOrEmpty(_ffmpegPath) && File.Exists(_ffmpegPath))
             {
                 var result = MessageBox.Show(
@@ -174,10 +189,14 @@ namespace TimelapseCapture
                     return;
             }
 
+            _isDownloadingFfmpeg = true;
+            Logger.Log("FFmpeg", "Download started");
+
             if (lblStatus != null) lblStatus.Text = "Starting FFmpeg download...";
             var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
 
-            // Disable buttons during download
+            // Disable ALL buttons during download
+            if (btnDownloadFfmpeg != null) btnDownloadFfmpeg.Enabled = false;
             if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = false;
             if (btnEncode != null) btnEncode.Enabled = false;
 
@@ -228,6 +247,9 @@ namespace TimelapseCapture
             finally
             {
                 // Re-enable buttons
+                _isDownloadingFfmpeg = false;
+                Logger.Log("FFmpeg", "Download completed");
+                if (btnDownloadFfmpeg != null) btnDownloadFfmpeg.Enabled = true;
                 if (btnBrowseFfmpeg != null) btnBrowseFfmpeg.Enabled = true;
                 if (btnEncode != null) btnEncode.Enabled = true;
             }
@@ -256,17 +278,27 @@ namespace TimelapseCapture
                     if (numQuality != null && _activeSession.ImageFormat == "JPEG")
                         numQuality.Value = _activeSession.JpegQuality;
 
+                    // Update session name display
+                    if (txtSessionName != null)
+                        txtSessionName.Text = _activeSession.Name ?? "Session";
+
                     UpdateStatusDisplay();
                     UpdateSessionInfoPanel();
                 }
             }
-
-            // If no active session found, clear any stored region from settings
-            if (_activeSession == null && settings.Region.HasValue)
+            else
             {
-                captureRegion = Rectangle.Empty;
+                // If no active session found, clear any stored region from settings
+                if (settings.Region.HasValue)
+                {
+                    captureRegion = Rectangle.Empty;
+                    settings.Region = null;
+                    SaveSettings();
+                }
                 if (lblRegion != null)
                     lblRegion.Text = "No region selected";
+                if (txtSessionName != null)
+                    txtSessionName.Text = "No active session";
             }
         }
 
@@ -500,17 +532,30 @@ namespace TimelapseCapture
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
 
+            string sessionMessage = $"Session '{session.Name}' loaded!\n\n" +
+                $"Frames: {session.FramesCaptured}\n";
+
+            if (session.CaptureRegion.HasValue)
+            {
+                var r = session.CaptureRegion.Value;
+                sessionMessage += $"Region: {r.Width}×{r.Height} at ({r.X},{r.Y})\n";
+                sessionMessage += $"Location: {Path.GetFileName(sessionPath)}\n\n";
+                sessionMessage += "✅ Ready to continue capturing.";
+            }
+            else
+            {
+                sessionMessage += "Region: Not set\n";
+                sessionMessage += $"Location: {Path.GetFileName(sessionPath)}\n\n";
+                sessionMessage += "⚠️ Before capturing:\n";
+                sessionMessage += "1. Click 'Select' or 'Full Screen' to choose region\n";
+                sessionMessage += "2. Then press 'Start Capture' to begin";
+            }
+
             MessageBox.Show(
-                $"Session '{session.Name}' loaded!\n\n" +
-                $"Frames: {session.FramesCaptured}\n" +
-                (session.CaptureRegion.HasValue
-                    ? $"Region: {session.CaptureRegion.Value.Width}×{session.CaptureRegion.Value.Height}\n"
-                    : "Region: N/A\n") +
-                $"Location: {Path.GetFileName(sessionPath)}\n\n" +
-                $"Ready to continue capturing.",
+                sessionMessage,
                 "Session Loaded",
                 MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+                session.CaptureRegion.HasValue ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
         }
 
 
@@ -589,6 +634,10 @@ namespace TimelapseCapture
                             interval);  // Region NOT required!
 
                         _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+
+                        Logger.Log("Session", $"New session created: {_activeSession?.Name}");
+                        Logger.LogState("Session", "CaptureRegion", _activeSession?.CaptureRegion);
+                        Logger.LogState("Session", "FramesCaptured", _activeSession?.FramesCaptured);
 
                         // Update UI
                         if (txtSessionName != null)
@@ -993,15 +1042,25 @@ namespace TimelapseCapture
             // Update active session with new region
             if (_activeSession != null && _activeSessionFolder != null)
             {
+                Logger.Log("FullScreen", $"Updating session with region: {captureRegion}");
                 _activeSession.CaptureRegion = captureRegion;
                 _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
                 _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
                 SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                Logger.Log("FullScreen", "Session updated and saved");
+            }
+            else
+            {
+                Logger.Log("FullScreen", "No active session to update");
             }
 
             UpdateStatusDisplay();
             UpdateCaptureTimer();
+            UpdateSessionInfoPanel();
             UpdateRegionOverlay();
+            
+            Logger.LogState("MainForm", "captureRegion", captureRegion);
+            Logger.LogState("MainForm", "_activeSession.CaptureRegion", _activeSession?.CaptureRegion);
         }
 
         /// <summary>
@@ -1010,6 +1069,8 @@ namespace TimelapseCapture
         /// </summary>
         private void btnSelectRegion_Click(object? sender, EventArgs e)
         {
+            Logger.Log("RegionSelect", $"Button clicked - Session: {_activeSession?.Name ?? "None"}, Frames: {_activeSession?.FramesCaptured ?? 0}");
+
             if (IsCapturing)
             {
                 MessageBox.Show(
@@ -1020,23 +1081,34 @@ namespace TimelapseCapture
                 return;
             }
 
-            if (_activeSession != null && captureRegion != Rectangle.Empty)
+            // ONLY warn if session has frames captured - empty sessions can freely change region
+            if (_activeSession != null && _activeSession.FramesCaptured > 0)
             {
+                Logger.Log("RegionSelect", $"Warning user - session has {_activeSession.FramesCaptured} frames");
                 var result = MessageBox.Show(
-                    $"An active session exists with {_activeSession.FramesCaptured} frames.\n\n" +
-                    "Changing the region will require starting a new session.\n\n" +
+                    $"Session '{_activeSession.Name}' has {_activeSession.FramesCaptured} captured frames.\n\n" +
+                    "Changing the region requires starting a new session.\n\n" +
                     "Do you want to:\n" +
-                    "• YES: Close current session and start fresh\n" +
-                    "• NO: Keep current session and cancel region change",
-                    "Active Session Detected",
+                    "• YES: Close current session and select new region\n" +
+                    "• NO: Keep current session (cancel)",
+                    "Session Has Frames",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
-                if (result == DialogResult.No) return;
+                if (result == DialogResult.No)
+                {
+                    Logger.Log("RegionSelect", "User cancelled - keeping session");
+                    return;
+                }
 
+                Logger.Log("RegionSelect", "User confirmed - closing session");
                 if (_activeSessionFolder != null) SessionManager.MarkSessionInactive(_activeSessionFolder);
                 _activeSession = null;
                 _activeSessionFolder = null;
+            }
+            else
+            {
+                Logger.Log("RegionSelect", "No frames captured - allowing region change");
             }
 
             // Hide main form temporarily for clean region selection
@@ -1112,21 +1184,16 @@ namespace TimelapseCapture
             // Update active session with new region
             if (_activeSession != null && _activeSessionFolder != null)
             {
-                if (_activeSession.CaptureRegion.HasValue)
-                {
-                    captureRegion = _activeSession.CaptureRegion.Value;
-                    if (lblRegion != null)
-                        lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
-                }
-                else
-                {
-                    captureRegion = Rectangle.Empty;
-                    if (lblRegion != null)
-                        lblRegion.Text = "No region selected";
-                }
+                Logger.Log("RegionSelect", $"Updating session with region: {captureRegion}");
+                _activeSession.CaptureRegion = captureRegion;
                 _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
                 _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
                 SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                Logger.Log("RegionSelect", "Session updated and saved");
+            }
+            else
+            {
+                Logger.Log("RegionSelect", "No active session to update");
             }
 
             Show();
@@ -1134,6 +1201,9 @@ namespace TimelapseCapture
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
             UpdateRegionOverlay();
+            
+            Logger.LogState("MainForm", "captureRegion", captureRegion);
+            Logger.LogState("MainForm", "_activeSession.CaptureRegion", _activeSession?.CaptureRegion);
         }
 
         /// <summary>
@@ -1768,10 +1838,13 @@ namespace TimelapseCapture
                 lblSessionInfoQuality == null || lblSessionInfoInterval == null)
                 return;
 
+            Logger.Log("UI", $"UpdateSessionInfoPanel - Session: {_activeSession?.Name}, CaptureRegion: {_activeSession?.CaptureRegion}");
+
             if (_activeSession != null)
             {
                 // Show session settings
                 var region = _activeSession.CaptureRegion;
+                Logger.LogState("UI", "SessionInfoPanel.region", region);
                 string ratioInfo = region.HasValue ? AspectRatio.CalculateRatioString(region.Value.Width, region.Value.Height) : "N/A";
                 lblSessionInfoRegion.Text = region.HasValue ? $"📍 Region: {region.Value.Width}×{region.Value.Height} ({ratioInfo})" : "📍 Region: Not set";
                 lblSessionInfoRegion.ForeColor = Color.FromArgb(100, 200, 255); // Light blue
