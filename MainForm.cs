@@ -2240,8 +2240,7 @@ namespace TimelapseCapture
         #region FFmpeg & Encoding
 
         /// <summary>
-        /// Open the session folder (or output folder if encoding complete).
-        /// Smart detection: if videos exist, open output/, otherwise open frames/.
+        /// Open the session folder to access frames, videos, and session data.
         /// </summary>
         private void btnOpenFolder_Click(object? sender, EventArgs e)
         {
@@ -2249,31 +2248,41 @@ namespace TimelapseCapture
 
             if (_activeSessionFolder != null && Directory.Exists(_activeSessionFolder))
             {
-                // Check if output videos exist
-                string outputFolder = SessionManager.GetOutputFolder(_activeSessionFolder);
-                if (Directory.Exists(outputFolder) && Directory.GetFiles(outputFolder, "*.mp4").Length > 0)
-                {
-                    // Open output folder if videos exist
-                    folderToOpen = outputFolder;
-                }
-                else
-                {
-                    // Otherwise open frames folder
-                    string framesFolder = SessionManager.GetFramesFolder(_activeSessionFolder);
-                    folderToOpen = Directory.Exists(framesFolder) ? framesFolder : _activeSessionFolder;
-                }
+                // Open the session folder (contains frames/, output/, and session.json)
+                folderToOpen = _activeSessionFolder;
+                Logger.Log("UI", $"Opening session folder: {folderToOpen}");
             }
             else if (!string.IsNullOrEmpty(settings.SaveFolder) && Directory.Exists(settings.SaveFolder))
             {
-                folderToOpen = settings.SaveFolder;
+                // No active session - open the captures root folder
+                var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                folderToOpen = Directory.Exists(capturesRoot) ? capturesRoot : settings.SaveFolder;
+                Logger.Log("UI", $"Opening captures folder: {folderToOpen}");
             }
             else
             {
-                MessageBox.Show("No folder to open.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "No folder to open.\n\n" +
+                    "Please select an output folder or create a session first.",
+                    "No Folder Available",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
 
-            Process.Start(new ProcessStartInfo() { FileName = folderToOpen, UseShellExecute = true });
+            try
+            {
+                Process.Start(new ProcessStartInfo() { FileName = folderToOpen, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("UI", $"Error opening folder: {ex.Message}");
+                MessageBox.Show(
+                    $"Could not open folder:\n\n{folderToOpen}\n\nError: {ex.Message}",
+                    "Error Opening Folder",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         /// <summary>

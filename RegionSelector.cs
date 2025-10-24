@@ -140,18 +140,23 @@ namespace TimelapseCapture
                 drawing = false;
                 end = e.Location;
 
-                // Mouse coordinates are already in virtual screen space
-                // since the form covers SystemInformation.VirtualScreen
-                // We need to convert them to absolute screen coordinates
-                Point absStart = PointToScreen(start);
-                Point absEnd = PointToScreen(end);
+                // CRITICAL FIX: Mouse coordinates are already in form-relative coordinates.
+                // Since the form covers SystemInformation.VirtualScreen and is positioned there,
+                // we just need to add the form's offset to get absolute screen coordinates.
+                int formOffsetX = this.Bounds.X;
+                int formOffsetY = this.Bounds.Y;
 
-                int x = Math.Min(absStart.X, absEnd.X);
-                int y = Math.Min(absStart.Y, absEnd.Y);
-                int width = Math.Abs(absStart.X - absEnd.X);
-                int height = Math.Abs(absStart.Y - absEnd.Y);
+                int x = Math.Min(start.X, end.X) + formOffsetX;
+                int y = Math.Min(start.Y, end.Y) + formOffsetY;
+                int width = Math.Abs(start.X - end.X);
+                int height = Math.Abs(start.Y - end.Y);
 
                 var region = new Rectangle(x, y, width, height);
+
+                // Log for debugging multi-monitor setups
+                Logger.Log("RegionSelector", $"Selected region: {region}");
+                Logger.Log("RegionSelector", $"Form bounds: {this.Bounds}");
+                Logger.Log("RegionSelector", $"Virtual screen: {SystemInformation.VirtualScreen}");
 
                 // Apply aspect ratio constraint one final time
                 if (_lockedRatio != null && _lockedRatio.Width > 0)
