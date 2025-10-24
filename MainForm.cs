@@ -46,34 +46,162 @@ namespace TimelapseCapture
         private Rectangle captureRegion = Rectangle.Empty;
 
         /// <summary>
-        /// Set internal captureRegion from a nullable Rectangle (session/setting).
-        /// Ensures even dimensions (video encoding friendly), updates UI label,
-        /// and keeps settings.Region in sync.
+        /// Get the current capture region - session takes priority over settings.
+        /// </summary>
+        private Rectangle GetCurrentRegion()
+        {
+            // Session region takes priority
+            if (_activeSession != null && _activeSession.CaptureRegion.HasValue)
+                return _activeSession.CaptureRegion.Value;
+            
+            // Fall back to settings if no session
+            if (settings.Region.HasValue)
+                return settings.Region.Value;
+            
+            return Rectangle.Empty;
+        }
+
+        /// <summary>
+        /// Set the current capture region - synchronizes ALL state locations.
+        /// This is the ONLY way to change the region to ensure consistency.
+        /// </summary>
+        private void SetCurrentRegion(Rectangle region)
+        {
+            Logger.Log("Region", $"SetCurrentRegion called with: {region}");
+            
+            // Sanitize dimensions (must be even)
+            if ((region.Width & 1) == 1) region.Width = Math.Max(2, region.Width - 1);
+            if ((region.Height & 1) == 1) region.Height = Math.Max(2, region.Height - 1);
+            
+            // Update local runtime state
+            captureRegion = region;
+            
+            // Update session if exists
+            if (_activeSession != null)
+            {
+                _activeSession.CaptureRegion = region;
+                if (_activeSessionFolder != null)
+                {
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                    Logger.Log("Region", "Session updated with region");
+                }
+            }
+            
+            // Update settings
+            settings.Region = region;
+            SaveSettings();
+            
+            // Update UI
+            UpdateRegionDisplay();
+            UpdateSessionInfoPanel();
+            
+            // Log final state
+            Logger.LogState("Sync", "captureRegion", captureRegion);
+            Logger.LogState("Sync", "_activeSession.CaptureRegion", _activeSession?.CaptureRegion);
+            Logger.LogState("Sync", "settings.Region", settings.Region);
+        }
+
+        /// <summary>
+        /// Clear the current region from all state locations.
+        /// </summary>
+        private void ClearCurrentRegion()
+        {
+            Logger.Log("Region", "ClearCurrentRegion called");
+            
+            captureRegion = Rectangle.Empty;
+            
+            if (_activeSession != null)
+            {
+                _activeSession.CaptureRegion = null;
+                if (_activeSessionFolder != null)
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+            }
+            
+            settings.Region = null;
+            SaveSettings();
+            
+            UpdateRegionDisplay();
+            UpdateSessionInfoPanel();
+        }
+
+        /// <summary>
+        /// Update the region display label.
+        /// </summary>
+        private void UpdateRegionDisplay()
+        {
+            if (lblRegion == null) return;
+            
+            if (captureRegion.IsEmpty || captureRegion.Width == 0 || captureRegion.Height == 0)
+            {
+                lblRegion.Text = "No region selected";
+            }
+            else
+            {
+                string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+            }
+        }
+
+        /// <summary>
+        /// DEPRECATED: Use SetCurrentRegion() instead.
+        /// Left for backward compatibility during transition.
         /// </summary>
         private void SetCaptureRegionFromNullable(Rectangle? maybeRegion)
         {
             if (maybeRegion.HasValue)
+                SetCurrentRegion(maybeRegion.Value);
+            else
+                ClearCurrentRegion();
+        }
+
+        /// <summary>
+        /// Validate that all region state locations are synchronized.
+        /// Returns true if consistent, logs and returns false if desync detected.
+        /// </summary>
+        private bool ValidateRegionStateConsistency()
+        {
+            var sessionRegion = _activeSession?.CaptureRegion;
+            var settingsRegion = settings.Region;
+            var runtimeRegion = captureRegion;
+            
+            bool consistent = true;
+            
+            // If we have a session, runtime should match session
+            if (_activeSession != null)
             {
-                // Copy and sanitize (ensure even dimensions)
-                var r = maybeRegion.Value;
-                if ((r.Width & 1) == 1) r.Width = Math.Max(2, r.Width - 1);
-                if ((r.Height & 1) == 1) r.Height = Math.Max(2, r.Height - 1);
-
-                captureRegion = r;
-                try { settings.Region = captureRegion; } catch { /* defensive */ }
-
-                if (lblRegion != null)
+                if (sessionRegion.HasValue != !runtimeRegion.IsEmpty)
                 {
-                    string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
-                    lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+                    Logger.Log("DESYNC", $"Session has region: {sessionRegion.HasValue}, Runtime is empty: {runtimeRegion.IsEmpty}");
+                    consistent = false;
+                }
+                else if (sessionRegion.HasValue && sessionRegion.Value != runtimeRegion)
+                {
+                    Logger.Log("DESYNC", $"Session region {sessionRegion.Value} != Runtime region {runtimeRegion}");
+                    consistent = false;
                 }
             }
-            else
+            
+            // Settings should always match runtime (it's a cache)
+            if (settingsRegion.HasValue != !runtimeRegion.IsEmpty)
             {
-                captureRegion = Rectangle.Empty;
-                if (lblRegion != null)
-                    lblRegion.Text = "No region selected";
+                Logger.Log("DESYNC", $"Settings has region: {settingsRegion.HasValue}, Runtime is empty: {runtimeRegion.IsEmpty}");
+                consistent = false;
             }
+            else if (settingsRegion.HasValue && settingsRegion.Value != runtimeRegion)
+            {
+                Logger.Log("DESYNC", $"Settings region {settingsRegion.Value} != Runtime region {runtimeRegion}");
+                consistent = false;
+            }
+            
+            if (!consistent)
+            {
+                Logger.Log("DESYNC", "=== STATE DUMP ===");
+                Logger.LogState("Runtime", "captureRegion", runtimeRegion);
+                Logger.LogState("Session", "_activeSession.CaptureRegion", sessionRegion);
+                Logger.LogState("Settings", "settings.Region", settingsRegion);
+            }
+            
+            return consistent;
         }
 
         #endregion
@@ -989,15 +1117,8 @@ namespace TimelapseCapture
                 _lastAspectRatioIndex = cmbAspectRatio.SelectedIndex >= 0 ? cmbAspectRatio.SelectedIndex : _lastAspectRatioIndex;
             }
 
-            // Set capture region to this monitor
-            captureRegion = new Rectangle(bounds.X, bounds.Y, width, height);
-
-            // Calculate and display aspect ratio string
-            string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
-            if (lblRegion != null)
-            {
-                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
-            }
+            // Use centralized setter to update ALL state locations
+            SetCurrentRegion(new Rectangle(bounds.X, bounds.Y, width, height));
 
             // Indicate full screen monitor in UI
             if (lblFullScreenInfo != null)
@@ -1033,34 +1154,24 @@ namespace TimelapseCapture
                 cmbAspectRatio.Enabled = false;
             }
 
-            // Persist region while preserving the user's saved aspect-ratio preference
+            // Persist aspect ratio preference
             int preservedAspectIndex = _lastAspectRatioIndex;
-            settings.Region = captureRegion;
-            settings.AspectRatioIndex = preservedAspectIndex; // Preserve user's original choice
-            SettingsManager.Save(settings);
+            settings.AspectRatioIndex = preservedAspectIndex;
+            // Note: SetCurrentRegion() will handle saving settings
 
-            // Update active session with new region
+            // Update format/quality if session exists
             if (_activeSession != null && _activeSessionFolder != null)
             {
-                Logger.Log("FullScreen", $"Updating session with region: {captureRegion}");
-                _activeSession.CaptureRegion = captureRegion;
                 _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
                 _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
                 SessionManager.SaveSession(_activeSessionFolder, _activeSession);
-                Logger.Log("FullScreen", "Session updated and saved");
-            }
-            else
-            {
-                Logger.Log("FullScreen", "No active session to update");
             }
 
             UpdateStatusDisplay();
             UpdateCaptureTimer();
-            UpdateSessionInfoPanel();
             UpdateRegionOverlay();
             
-            Logger.LogState("MainForm", "captureRegion", captureRegion);
-            Logger.LogState("MainForm", "_activeSession.CaptureRegion", _activeSession?.CaptureRegion);
+            // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
 
         /// <summary>
@@ -1119,34 +1230,27 @@ namespace TimelapseCapture
             {
                 if (selector.ShowDialog() == DialogResult.OK)
                 {
-                    captureRegion = selector.SelectedRegion;
+                    var selectedRegion = selector.SelectedRegion;
 
-                    // Region is already validated and constrained by RegionSelector
-                    // Just verify it's valid
-                    if (!IsValidRegion(captureRegion))
+                    // Validate region
+                    if (!IsValidRegion(selectedRegion))
                     {
                         MessageBox.Show(
-                            $"Selected region has invalid dimensions: {captureRegion.Width}×{captureRegion.Height}\n\n" +
+                            $"Selected region has invalid dimensions: {selectedRegion.Width}×{selectedRegion.Height}\n\n" +
                             "This should not happen - please report this bug.",
                             "Invalid Region",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
-                        captureRegion = Rectangle.Empty;
+                        ClearCurrentRegion();
                     }
                     else
                     {
-                        // Calculate and display aspect ratio
-                        string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
-
-                        if (lblRegion != null)
-                            lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+                        // Use centralized setter to update ALL state locations
+                        SetCurrentRegion(selectedRegion);
 
                         // Clear full screen info since this is manual selection
                         if (lblFullScreenInfo != null)
                             lblFullScreenInfo.Text = "";
-
-                        settings.Region = captureRegion;
-                        SaveSettings();
 
                         if (cmbAspectRatio != null)
                         {
@@ -1181,29 +1285,20 @@ namespace TimelapseCapture
                 }
             }
 
-            // Update active session with new region
+            // Update format/quality if session exists
             if (_activeSession != null && _activeSessionFolder != null)
             {
-                Logger.Log("RegionSelect", $"Updating session with region: {captureRegion}");
-                _activeSession.CaptureRegion = captureRegion;
                 _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
                 _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
                 SessionManager.SaveSession(_activeSessionFolder, _activeSession);
-                Logger.Log("RegionSelect", "Session updated and saved");
-            }
-            else
-            {
-                Logger.Log("RegionSelect", "No active session to update");
             }
 
             Show();
             UpdateStatusDisplay();
             UpdateCaptureTimer();
-            UpdateSessionInfoPanel();
             UpdateRegionOverlay();
             
-            Logger.LogState("MainForm", "captureRegion", captureRegion);
-            Logger.LogState("MainForm", "_activeSession.CaptureRegion", _activeSession?.CaptureRegion);
+            // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
 
         /// <summary>
@@ -1507,6 +1602,15 @@ namespace TimelapseCapture
         /// </summary>
         private void StartCaptureSession()
         {
+            // Validate state consistency before starting
+            if (!ValidateRegionStateConsistency())
+            {
+                Logger.Log("Capture", "WARNING: State desync detected before capture start - attempting recovery");
+                // Try to recover by syncing from session
+                if (_activeSession?.CaptureRegion.HasValue == true)
+                    SetCurrentRegion(_activeSession.CaptureRegion.Value);
+            }
+
             // Get current settings
             int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
             var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
@@ -1837,6 +1941,9 @@ namespace TimelapseCapture
             if (lblSessionInfoRegion == null || lblSessionInfoFormat == null ||
                 lblSessionInfoQuality == null || lblSessionInfoInterval == null)
                 return;
+
+            // Validate state consistency
+            ValidateRegionStateConsistency();
 
             Logger.Log("UI", $"UpdateSessionInfoPanel - Session: {_activeSession?.Name}, CaptureRegion: {_activeSession?.CaptureRegion}");
 
