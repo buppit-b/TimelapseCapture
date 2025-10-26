@@ -829,7 +829,7 @@ namespace TimelapseCapture
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(785, 675);
+            ClientSize = new Size(785, 690);
             Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
             Controls.Add(grpReadiness);
