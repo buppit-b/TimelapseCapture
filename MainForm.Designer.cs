@@ -61,8 +61,17 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpCaptureSettings;
         private System.Windows.Forms.GroupBox grpSession;
         private System.Windows.Forms.GroupBox grpOutput;
+        private System.Windows.Forms.GroupBox grpReadiness;
         private System.Windows.Forms.GroupBox grpSessionInfo;
         private System.Windows.Forms.GroupBox grpEncodingSettings;
+
+        // === Readiness Panel Labels ===
+        private System.Windows.Forms.Label? lblReadiness1;
+        private System.Windows.Forms.Label? lblReadiness2;
+        private System.Windows.Forms.Label? lblReadiness3;
+        private System.Windows.Forms.Label? lblReadiness4;
+        private System.Windows.Forms.Label? lblReadiness5;
+        private System.Windows.Forms.Label? lblReadiness6;
 
         // === Session Info Panel Labels ===
         private System.Windows.Forms.Label lblSessionInfoRegion;
@@ -146,6 +155,13 @@ namespace TimelapseCapture
             grpCaptureSettings = new GroupBox();
             grpSession = new GroupBox();
             grpOutput = new GroupBox();
+            grpReadiness = new GroupBox();
+            lblReadiness1 = new Label();
+            lblReadiness2 = new Label();
+            lblReadiness3 = new Label();
+            lblReadiness4 = new Label();
+            lblReadiness5 = new Label();
+            lblReadiness6 = new Label();
             grpSessionInfo = new GroupBox();
             lblSessionInfoRegion = new Label();
             lblSessionInfoFormat = new Label();
@@ -166,6 +182,7 @@ namespace TimelapseCapture
             grpCaptureSettings.SuspendLayout();
             grpSession.SuspendLayout();
             grpOutput.SuspendLayout();
+            grpReadiness.SuspendLayout();
             grpSessionInfo.SuspendLayout();
             grpEncodingSettings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).BeginInit();
@@ -574,6 +591,88 @@ namespace TimelapseCapture
             grpOutput.TabStop = false;
             grpOutput.Text = "Output";
             // 
+            // grpReadiness
+            // 
+            grpReadiness.Controls.Add(lblReadiness1);
+            grpReadiness.Controls.Add(lblReadiness2);
+            grpReadiness.Controls.Add(lblReadiness3);
+            grpReadiness.Controls.Add(lblReadiness4);
+            grpReadiness.Controls.Add(lblReadiness5);
+            grpReadiness.Controls.Add(lblReadiness6);
+            grpReadiness.ForeColor = Color.LightGray;
+            grpReadiness.Location = new Point(490, 8);
+            grpReadiness.Name = "grpReadiness";
+            grpReadiness.Size = new Size(280, 140);
+            grpReadiness.TabIndex = 3;
+            grpReadiness.TabStop = false;
+            grpReadiness.Text = "⚡ READINESS";
+            // 
+            // lblReadiness1
+            // 
+            lblReadiness1.AutoSize = true;
+            lblReadiness1.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness1.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness1.Location = new Point(10, 25);
+            lblReadiness1.Name = "lblReadiness1";
+            lblReadiness1.Size = new Size(120, 13);
+            lblReadiness1.TabIndex = 0;
+            lblReadiness1.Text = "📁 Output: Not configured";
+            // 
+            // lblReadiness2
+            // 
+            lblReadiness2.AutoSize = true;
+            lblReadiness2.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness2.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness2.Location = new Point(10, 45);
+            lblReadiness2.Name = "lblReadiness2";
+            lblReadiness2.Size = new Size(120, 13);
+            lblReadiness2.TabIndex = 1;
+            lblReadiness2.Text = "🎬 FFmpeg: Not configured";
+            // 
+            // lblReadiness3
+            // 
+            lblReadiness3.AutoSize = true;
+            lblReadiness3.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness3.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness3.Location = new Point(10, 65);
+            lblReadiness3.Name = "lblReadiness3";
+            lblReadiness3.Size = new Size(120, 13);
+            lblReadiness3.TabIndex = 2;
+            lblReadiness3.Text = "📋 Session: Not created";
+            // 
+            // lblReadiness4
+            // 
+            lblReadiness4.AutoSize = true;
+            lblReadiness4.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness4.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness4.Location = new Point(10, 85);
+            lblReadiness4.Name = "lblReadiness4";
+            lblReadiness4.Size = new Size(120, 13);
+            lblReadiness4.TabIndex = 3;
+            lblReadiness4.Text = "🎯 Region: Not selected";
+            // 
+            // lblReadiness5
+            // 
+            lblReadiness5.AutoSize = true;
+            lblReadiness5.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness5.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness5.Location = new Point(10, 105);
+            lblReadiness5.Name = "lblReadiness5";
+            lblReadiness5.Size = new Size(110, 13);
+            lblReadiness5.TabIndex = 4;
+            lblReadiness5.Text = "▶️ Capture: Not ready";
+            // 
+            // lblReadiness6
+            // 
+            lblReadiness6.AutoSize = true;
+            lblReadiness6.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness6.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness6.Location = new Point(155, 25);
+            lblReadiness6.Name = "lblReadiness6";
+            lblReadiness6.Size = new Size(110, 13);
+            lblReadiness6.TabIndex = 5;
+            lblReadiness6.Text = "🎬 Encode: Not ready";
+            // 
             // grpSessionInfo
             // 
             grpSessionInfo.Controls.Add(lblSessionInfoRegion);
@@ -581,10 +680,10 @@ namespace TimelapseCapture
             grpSessionInfo.Controls.Add(lblSessionInfoQuality);
             grpSessionInfo.Controls.Add(lblSessionInfoInterval);
             grpSessionInfo.ForeColor = Color.LightGray;
-            grpSessionInfo.Location = new Point(490, 15);
+            grpSessionInfo.Location = new Point(490, 158);
             grpSessionInfo.Name = "grpSessionInfo";
-            grpSessionInfo.Size = new Size(280, 145);
-            grpSessionInfo.TabIndex = 3;
+            grpSessionInfo.Size = new Size(280, 140);
+            grpSessionInfo.TabIndex = 4;
             grpSessionInfo.TabStop = false;
             grpSessionInfo.Text = "📋 Session Settings (Locked)";
             // 
@@ -634,10 +733,10 @@ namespace TimelapseCapture
             grpEncodingSettings.Controls.Add(lblVideoCodecText);
             grpEncodingSettings.Controls.Add(cmbVideoCodec);
             grpEncodingSettings.ForeColor = Color.LightGray;
-            grpEncodingSettings.Location = new Point(490, 170);
+            grpEncodingSettings.Location = new Point(490, 308);
             grpEncodingSettings.Name = "grpEncodingSettings";
-            grpEncodingSettings.Size = new Size(280, 160);
-            grpEncodingSettings.TabIndex = 4;
+            grpEncodingSettings.Size = new Size(280, 167);
+            grpEncodingSettings.TabIndex = 5;
             grpEncodingSettings.TabStop = false;
             grpEncodingSettings.Text = "🎬 Encoding Settings";
             // 
@@ -733,6 +832,7 @@ namespace TimelapseCapture
             ClientSize = new Size(785, 675);
             Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
+            Controls.Add(grpReadiness);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
             Controls.Add(grpCaptureSettings);
@@ -754,6 +854,8 @@ namespace TimelapseCapture
             grpSession.PerformLayout();
             grpOutput.ResumeLayout(false);
             grpOutput.PerformLayout();
+            grpReadiness.ResumeLayout(false);
+            grpReadiness.PerformLayout();
             grpSessionInfo.ResumeLayout(false);
             grpEncodingSettings.ResumeLayout(false);
             grpEncodingSettings.PerformLayout();

@@ -204,6 +204,114 @@ namespace TimelapseCapture
             return consistent;
         }
 
+        /// <summary>
+        /// Get current readiness status for all prerequisites.
+        /// </summary>
+        private ReadinessCheck[] GetReadinessChecks()
+        {
+            bool hasOutputFolder = !string.IsNullOrEmpty(settings.SaveFolder);
+            bool hasFfmpeg = !string.IsNullOrEmpty(_ffmpegPath) && System.IO.File.Exists(_ffmpegPath);
+            bool hasSession = _activeSession != null;
+            bool hasRegion = !captureRegion.IsEmpty;
+            bool hasFrames = _activeSession?.FramesCaptured > 0;
+            
+            return new ReadinessCheck[]
+            {
+                // 1. Output Folder
+                new ReadinessCheck(
+                    "Output Folder",
+                    hasOutputFolder ? ReadinessStatus.Ready : ReadinessStatus.Warning,
+                    hasOutputFolder ? "Configured" : "Click 'Choose Folder'",
+                    "📁"
+                ),
+                
+                // 2. FFmpeg (optional)
+                new ReadinessCheck(
+                    "FFmpeg",
+                    hasFfmpeg ? ReadinessStatus.Ready : ReadinessStatus.Warning,
+                    hasFfmpeg ? "Available" : "Click 'Download FFmpeg'",
+                    "🎬"
+                ),
+                
+                // 3. Session
+                new ReadinessCheck(
+                    "Session",
+                    !hasOutputFolder ? ReadinessStatus.Locked :
+                    hasSession ? ReadinessStatus.Ready :
+                    ReadinessStatus.Warning,
+                    !hasOutputFolder ? "Needs output folder" :
+                    hasSession ? $"{_activeSession!.Name}" :
+                    "Click 'New' or 'Load'",
+                    "📋"
+                ),
+                
+                // 4. Region
+                new ReadinessCheck(
+                    "Capture Region",
+                    !hasSession ? ReadinessStatus.Locked :
+                    hasRegion ? ReadinessStatus.Ready :
+                    ReadinessStatus.Warning,
+                    !hasSession ? "Create session first" :
+                    hasRegion ? $"{captureRegion.Width}×{captureRegion.Height}" :
+                    "Click 'Select' or 'Full Screen'",
+                    "🎯"
+                ),
+                
+                // 5. Ready to Capture
+                new ReadinessCheck(
+                    "Capture",
+                    !hasSession || !hasRegion ? ReadinessStatus.Locked :
+                    IsCapturing ? ReadinessStatus.Ready :
+                    ReadinessStatus.Ready,
+                    !hasSession || !hasRegion ? "Prerequisites not met" :
+                    IsCapturing ? "In progress" :
+                    "Ready to start",
+                    "▶️"
+                ),
+                
+                // 6. Ready to Encode
+                new ReadinessCheck(
+                    "Encode",
+                    !hasFfmpeg ? ReadinessStatus.Locked :
+                    !hasFrames ? ReadinessStatus.Warning :
+                    ReadinessStatus.Ready,
+                    !hasFfmpeg ? "Install FFmpeg first" :
+                    !hasFrames ? "No frames yet" :
+                    $"{hasFrames} frames ready",
+                    "🎬"
+                )
+            };
+        }
+
+        /// <summary>
+        /// Update the readiness panel with current status.
+        /// </summary>
+        private void UpdateReadinessPanel()
+        {
+            if (lblReadiness1 == null) return; // Panel not created yet
+            
+            var checks = GetReadinessChecks();
+            
+            // Update readiness labels (we'll have 6 labels in the designer)
+            UpdateReadinessLabel(lblReadiness1, checks[0]);
+            UpdateReadinessLabel(lblReadiness2, checks[1]);
+            UpdateReadinessLabel(lblReadiness3, checks[2]);
+            UpdateReadinessLabel(lblReadiness4, checks[3]);
+            UpdateReadinessLabel(lblReadiness5, checks[4]);
+            UpdateReadinessLabel(lblReadiness6, checks[5]);
+        }
+
+        /// <summary>
+        /// Update a single readiness label with status.
+        /// </summary>
+        private void UpdateReadinessLabel(System.Windows.Forms.Label? label, ReadinessCheck check)
+        {
+            if (label == null) return;
+            
+            label.Text = check.GetDisplayText();
+            label.ForeColor = check.GetColor();
+        }
+
         #endregion
 
         #region Initialization
@@ -211,12 +319,40 @@ namespace TimelapseCapture
         public MainForm()
         {
             InitializeComponent();
+            
+            // Log DPI information for debugging
+            try
+            {
+                using (var g = this.CreateGraphics())
+                {
+                    float dpiX = g.DpiX;
+                    float dpiY = g.DpiY;
+                    Logger.Log("DPI", $"Form DPI: X={dpiX}, Y={dpiY}");
+                    Logger.Log("DPI", $"DPI Scaling: {dpiX / 96.0:F2}x (96 DPI = 100%)");
+                }
+                
+                var vs = SystemInformation.VirtualScreen;
+                Logger.Log("DPI", $"Virtual Screen: {vs.X}, {vs.Y}, {vs.Width}x{vs.Height}");
+                
+                // Log each screen
+                for (int i = 0; i < Screen.AllScreens.Length; i++)
+                {
+                    var screen = Screen.AllScreens[i];
+                    Logger.Log("DPI", $"Monitor {i + 1}: Bounds={screen.Bounds}, Primary={screen.Primary}, WorkingArea={screen.WorkingArea}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("DPI", $"Error logging DPI info: {ex.Message}");
+            }
+            
             ApplyModernStyling();
             LoadSettings();
             WireInitialValues();
             CheckForActiveSession();
             UpdateCaptureTimer();
             InitializeFfmpeg();
+            UpdateReadinessPanel(); // Initialize readiness display
 
             _uiUpdateTimer = new System.Windows.Forms.Timer();
             _uiUpdateTimer.Interval = Constants.UI_UPDATE_INTERVAL_MS;
@@ -287,6 +423,18 @@ namespace TimelapseCapture
 
         // Track if FFmpeg download is in progress
         private bool _isDownloadingFfmpeg = false;
+        
+        // Operation locks for spam protection
+        private bool _isCreatingSession = false;
+        private bool _isLoadingSession = false;
+        private bool _isSelectingRegion = false;
+        
+        /// <summary>
+        /// Check if any operation is currently in progress.
+        /// </summary>
+        private bool IsOperationInProgress => 
+            _isCreatingSession || _isLoadingSession || _isSelectingRegion || 
+            _isEncoding || _isDownloadingFfmpeg || IsCapturing;
 
         /// <summary>
         /// Download FFmpeg when user requests it.
@@ -360,6 +508,8 @@ namespace TimelapseCapture
                         "Download Complete",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
+                    
+                    UpdateReadinessPanel();
                 }
                 else
                 {
@@ -412,6 +562,7 @@ namespace TimelapseCapture
 
                     UpdateStatusDisplay();
                     UpdateSessionInfoPanel();
+                    UpdateReadinessPanel();
                 }
             }
             else
@@ -427,6 +578,8 @@ namespace TimelapseCapture
                     lblRegion.Text = "No region selected";
                 if (txtSessionName != null)
                     txtSessionName.Text = "No active session";
+                
+                UpdateReadinessPanel();
             }
         }
 
@@ -659,6 +812,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
+            UpdateReadinessPanel();
 
             string sessionMessage = $"Session '{session.Name}' loaded!\n\n" +
                 $"Frames: {session.FramesCaptured}\n";
@@ -774,6 +928,7 @@ namespace TimelapseCapture
                         UpdateStatusDisplay();
                         UpdateCaptureTimer();
                         UpdateSessionInfoPanel();
+                        UpdateReadinessPanel();
 
                         // Show success message
                         string message = $"✅ New session '{_activeSession?.Name ?? sessionName}' created!\n\n";
@@ -1170,6 +1325,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateRegionOverlay();
+            UpdateReadinessPanel();
             
             // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
@@ -1297,6 +1453,7 @@ namespace TimelapseCapture
             UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateRegionOverlay();
+            UpdateReadinessPanel();
             
             // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
@@ -1388,6 +1545,7 @@ namespace TimelapseCapture
                     if (lblFolder != null) lblFolder.Text = "Save to: " + settings.SaveFolder;
                     SaveSettings();
                     CheckForActiveSession();
+                    UpdateReadinessPanel();
                 }
             }
         }
@@ -1634,6 +1792,7 @@ namespace TimelapseCapture
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
             UpdateRegionOverlay();
+            UpdateReadinessPanel();
         }
 
         /// <summary>
@@ -1658,6 +1817,7 @@ namespace TimelapseCapture
             UpdateCaptureTimer();
             UpdateSessionInfoPanel();
             UpdateRegionOverlay();
+            UpdateReadinessPanel();
         }
 
         /// <summary>
@@ -1915,17 +2075,100 @@ namespace TimelapseCapture
             });
         }
 
+        #region Win32 API for Screen Capture
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hwnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        private static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest,
+            int width, int height, IntPtr hdcSrc, int xSrc, int ySrc, int rop);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
+        [System.Runtime.InteropServices.DllImport("SHCore.dll", SetLastError = true)]
+        private static extern int SetProcessDpiAwareness(int dpiAwareness);
+
+        private const int SRCCOPY = 0x00CC0020;
+        private const int PROCESS_SYSTEM_DPI_AWARE = 1;
+        private const int PROCESS_PER_MONITOR_DPI_AWARE = 2;
+
+        #endregion
+
         /// <summary>
-        /// Capture the screen region as a bitmap.
+        /// Capture the screen region as a bitmap using BitBlt (multi-monitor safe).
+        /// Graphics.CopyFromScreen has issues with multi-monitor setups - BitBlt is more reliable.
         /// </summary>
         private Bitmap CaptureScreen()
         {
-            var bmp = new Bitmap(captureRegion.Width, captureRegion.Height);
-            using (var g = Graphics.FromImage(bmp))
+            // Comprehensive logging for multi-monitor debugging
+            var virtualScreen = SystemInformation.VirtualScreen;
+            Logger.Log("Capture", "=== CAPTURE FRAME ===");
+            Logger.Log("Capture", $"Virtual Screen: X={virtualScreen.X}, Y={virtualScreen.Y}, W={virtualScreen.Width}, H={virtualScreen.Height}");
+            Logger.Log("Capture", $"Capture Region: X={captureRegion.X}, Y={captureRegion.Y}, W={captureRegion.Width}, H={captureRegion.Height}");
+            Logger.Log("Capture", $"Region Location: {captureRegion.Location}");
+            Logger.Log("Capture", $"Region Size: {captureRegion.Size}");
+
+            // Get screen DC (desktop window handle)
+            IntPtr hdcScreen = GetDC(IntPtr.Zero);
+            Logger.Log("Capture", $"Screen DC handle: {hdcScreen}");
+
+            try
             {
-                g.CopyFromScreen(captureRegion.Location, Point.Empty, captureRegion.Size);
+                // Create bitmap to hold the captured region
+                Bitmap bmp = new Bitmap(captureRegion.Width, captureRegion.Height);
+                Logger.Log("Capture", $"Created bitmap: {bmp.Width}x{bmp.Height}");
+
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    IntPtr hdcBitmap = g.GetHdc();
+                    Logger.Log("Capture", $"Bitmap DC handle: {hdcBitmap}");
+
+                    try
+                    {
+                        // Use BitBlt instead of CopyFromScreen for proper multi-monitor support
+                        // This handles virtual screen coordinates correctly, including:
+                        // - Monitors positioned left/right/above/below
+                        // - Different DPI scaling between monitors
+                        // - Negative coordinates (monitors to the left of primary)
+                        Logger.Log("Capture", $"Calling BitBlt with:");
+                        Logger.Log("Capture", $"  Source: hdcScreen={hdcScreen}, x={captureRegion.X}, y={captureRegion.Y}");
+                        Logger.Log("Capture", $"  Dest: hdcBitmap={hdcBitmap}, x=0, y=0");
+                        Logger.Log("Capture", $"  Size: w={captureRegion.Width}, h={captureRegion.Height}");
+                        
+                        bool success = BitBlt(
+                            hdcBitmap, 0, 0,
+                            captureRegion.Width, captureRegion.Height,
+                            hdcScreen,
+                            captureRegion.X, captureRegion.Y,
+                            SRCCOPY
+                        );
+
+                        Logger.Log("Capture", $"BitBlt returned: {success}");
+                        
+                        if (!success)
+                        {
+                            int error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+                            Logger.Log("Capture", $"WARNING: BitBlt failed with error code: {error}");
+                        }
+                    }
+                    finally
+                    {
+                        g.ReleaseHdc(hdcBitmap);
+                    }
+                }
+
+                Logger.Log("Capture", "====================");
+                return bmp;
             }
-            return bmp;
+            finally
+            {
+                ReleaseDC(IntPtr.Zero, hdcScreen);
+            }
         }
 
         #endregion
