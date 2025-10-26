@@ -45,6 +45,9 @@ namespace TimelapseCapture
 
         private Rectangle captureRegion = Rectangle.Empty;
 
+        // Thread synchronization lock for capture state
+        private readonly object _captureLock = new object();
+
         /// <summary>
         /// Get the current capture region - session takes priority over settings.
         /// </summary>
@@ -754,6 +757,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Load a session from a path.
+        /// Thread-safe: Locks to prevent conflicts with capture thread.
         /// </summary>
         private void LoadSessionFromPath(string? sessionPath)
         {
@@ -789,9 +793,12 @@ namespace TimelapseCapture
             session.Active = true;
             SessionManager.SaveSession(sessionPath, session);
 
-            // Load into UI
-            _activeSessionFolder = sessionPath;
-            _activeSession = session;
+            // Load into UI - lock to prevent race with capture thread
+            lock (_captureLock)
+            {
+                _activeSessionFolder = sessionPath;
+                _activeSession = session;
+            }
             SetCaptureRegionFromNullable(session.CaptureRegion);
 
             if (numInterval != null) numInterval.Value = session.IntervalSeconds;
@@ -844,6 +851,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Handle New Session button click.
         /// Creates session WITHOUT requiring region first.
+        /// Thread-safe: Locks when modifying session state.
         /// </summary>
         private void btnNewSession_Click(object? sender, EventArgs e)
         {
@@ -902,20 +910,24 @@ namespace TimelapseCapture
 
                     try
                     {
-                        // Mark old session as inactive first
-                        if (_activeSessionFolder != null)
-                            SessionManager.MarkSessionInactive(_activeSessionFolder);
+                        // Lock to prevent race with capture thread
+                        lock (_captureLock)
+                        {
+                            // Mark old session as inactive first
+                            if (_activeSessionFolder != null)
+                                SessionManager.MarkSessionInactive(_activeSessionFolder);
 
-                        // Create session WITHOUT region (optional parameters)
-                        var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
-                        int interval = (int)(numInterval?.Value ?? 5);
+                            // Create session WITHOUT region (optional parameters)
+                            var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
+                            int interval = (int)(numInterval?.Value ?? 5);
 
-                        _activeSessionFolder = SessionManager.CreateNamedSession(
-                            capturesRoot,
-                            sessionName,
-                            interval);  // Region NOT required!
+                            _activeSessionFolder = SessionManager.CreateNamedSession(
+                                capturesRoot,
+                                sessionName,
+                                interval);  // Region NOT required!
 
-                        _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                            _activeSession = SessionManager.LoadSession(_activeSessionFolder);
+                        }
 
                         Logger.Log("Session", $"New session created: {_activeSession?.Name}");
                         Logger.LogState("Session", "CaptureRegion", _activeSession?.CaptureRegion);
@@ -1802,22 +1814,30 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Stop capture and unlock UI.
+        /// Thread-safe: Waits for any in-progress capture to complete.
         /// </summary>
         private void StopCapture()
         {
+            // Dispose timer first to prevent new captures
             if (_captureTimer != null)
             {
                 _captureTimer.Dispose();
                 _captureTimer = null;
             }
 
-            LockCaptureUI(false);
-            UpdateStatusDisplay();
-            SaveSettings();
-            UpdateCaptureTimer();
-            UpdateSessionInfoPanel();
-            UpdateRegionOverlay();
-            UpdateReadinessPanel();
+            // CRITICAL: Wait for any in-progress capture to complete
+            // This prevents disposing session while capture thread is using it
+            lock (_captureLock)
+            {
+                // Lock acquired - safe to update UI now
+                LockCaptureUI(false);
+                UpdateStatusDisplay();
+                SaveSettings();
+                UpdateCaptureTimer();
+                UpdateSessionInfoPanel();
+                UpdateRegionOverlay();
+                UpdateReadinessPanel();
+            }
         }
 
         /// <summary>
@@ -1844,38 +1864,44 @@ namespace TimelapseCapture
         /// Capture a single frame (called by timer).
         /// Tracks actual elapsed time and updates real-time counter.
         /// Enhanced with comprehensive error handling and safety checks.
+        /// Thread-safe: Uses lock to prevent race conditions.
         /// </summary>
         private void CaptureFrame(object? state)
         {
-            if (_activeSession == null || _captureTimer == null) return;
+            // CRITICAL: Lock to prevent race conditions
+            // Timer thread and UI thread both access _activeSession
+            lock (_captureLock)
+            {
+                if (_activeSession == null || _captureTimer == null) return;
 
-            try
-            {
-                if (!PerformSafetyChecks())
-                    return;
+                try
+                {
+                    if (!PerformSafetyChecks())
+                        return;
 
-                UpdateCaptureTiming();
-                SaveCapturedFrame();
-                UpdateSessionAfterCapture();
-                ResetErrorCounter();
-                UpdateUIAfterCapture();
-            }
-            catch (IOException ioEx)
-            {
-                HandleCaptureError(ioEx, "I/O Error", "I/O error during capture");
-            }
-            catch (UnauthorizedAccessException uaEx)
-            {
-                HandlePermissionError(uaEx);
-            }
-            catch (OutOfMemoryException memEx)
-            {
-                HandleMemoryError(memEx);
-            }
-            catch (Exception ex)
-            {
-                HandleUnexpectedError(ex);
-            }
+                    UpdateCaptureTiming();
+                    SaveCapturedFrame();
+                    UpdateSessionAfterCapture();
+                    ResetErrorCounter();
+                    UpdateUIAfterCapture();
+                }
+                catch (IOException ioEx)
+                {
+                    HandleCaptureError(ioEx, "I/O Error", "I/O error during capture");
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    HandlePermissionError(uaEx);
+                }
+                catch (OutOfMemoryException memEx)
+                {
+                    HandleMemoryError(memEx);
+                }
+                catch (Exception ex)
+                {
+                    HandleUnexpectedError(ex);
+                }
+            } // end lock
         }
 
         /// <summary>
