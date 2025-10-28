@@ -47,6 +47,11 @@ namespace TimelapseCapture
 
         // Thread synchronization lock for capture state
         private readonly object _captureLock = new object();
+        
+        // ✅ FIX Issue #4: Settings save debouncing to prevent disk spam
+        private System.Windows.Forms.Timer? _settingsSaveTimer;
+        private bool _settingsPendingSave = false;
+        private readonly object _settingsSaveLock = new object();
 
         /// <summary>
         /// Get the current capture region - session takes priority over settings.
@@ -66,8 +71,19 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Set the current capture region - synchronizes ALL state locations.
-        /// This is the ONLY way to change the region to ensure consistency.
+        /// ⚠️ CRITICAL: This is the ONLY way to change the region to ensure consistency.
+        /// 
+        /// This method is the single source of truth for region updates. It:
+        /// 1. Validates and sanitizes dimensions (ensures even width/height for video encoding)
+        /// 2. Updates runtime state (captureRegion)
+        /// 3. Syncs to session (if exists)
+        /// 4. Syncs to settings (persistent storage)
+        /// 5. Updates all UI displays
+        /// 6. Logs state changes for debugging
+        /// 
+        /// DO NOT bypass this method with direct captureRegion assignments!
         /// </summary>
+        /// <param name="region">The new capture region</param>
         private void SetCurrentRegion(Rectangle region)
         {
             Logger.Log("Region", $"SetCurrentRegion called with: {region}");
@@ -105,7 +121,14 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Clear the current region from all state locations.
+        /// Clear the current capture region from all state locations.
+        /// ⚠️ CRITICAL: This is the ONLY way to clear the region to ensure consistency.
+        /// 
+        /// This method ensures all state locations are synchronized when clearing:
+        /// 1. Runtime state (captureRegion = Empty)
+        /// 2. Session (if exists, sets CaptureRegion = null)
+        /// 3. Settings (persistent storage, sets Region = null)
+        /// 4. UI displays
         /// </summary>
         private void ClearCurrentRegion()
         {
@@ -146,8 +169,8 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// DEPRECATED: Use SetCurrentRegion() instead.
-        /// Left for backward compatibility during transition.
+        /// Helper to set region from nullable Rectangle (common in session loading).
+        /// Ensures consistent handling of null vs empty cases.
         /// </summary>
         private void SetCaptureRegionFromNullable(Rectangle? maybeRegion)
         {
@@ -368,6 +391,9 @@ namespace TimelapseCapture
             // Register keyboard shortcuts
             this.KeyPreview = true;
             this.KeyDown += MainForm_KeyDown;
+            
+            // ✅ FIX Issue #4: Initialize settings save debounce timer
+            InitializeSettingsSaveTimer();
         }
 
         /// <summary>
@@ -391,6 +417,34 @@ namespace TimelapseCapture
                 e.Handled = true;
                 ToggleRegionOverlay();
             }
+        }
+        
+        /// <summary>
+        /// Initialize the settings save debounce timer.
+        /// ✅ FIX Issue #4: Prevents excessive disk writes during rapid state changes.
+        /// 
+        /// Timer configuration:
+        /// - Interval: 3 seconds (balances responsiveness vs. spam prevention)
+        /// - AutoReset: false (one-shot timer, re-armed on each request)
+        /// - Thread: UI thread (safe for settings access)
+        /// </summary>
+        private void InitializeSettingsSaveTimer()
+        {
+            _settingsSaveTimer = new System.Windows.Forms.Timer();
+            _settingsSaveTimer.Interval = 3000; // 3 seconds debounce
+            _settingsSaveTimer.Tick += (s, e) =>
+            {
+                lock (_settingsSaveLock)
+                {
+                    if (_settingsPendingSave)
+                    {
+                        SettingsManager.Save(settings);
+                        _settingsPendingSave = false;
+                        Logger.Log("Settings", "Debounced save completed");
+                    }
+                    _settingsSaveTimer?.Stop();
+                }
+            };
         }
 
         /// <summary>
@@ -501,7 +555,7 @@ namespace TimelapseCapture
                 if (!string.IsNullOrEmpty(_ffmpegPath))
                 {
                     settings.FfmpegPath = _ffmpegPath;
-                    SaveSettings();
+                    SaveSettingsImmediate(); // ✅ Bypass debounce for FFmpeg config
                     if (lblStatus != null) lblStatus.Text = "✅ FFmpeg ready!";
                     if (txtFfmpegPath != null) txtFfmpegPath.Text = _ffmpegPath;
 
@@ -551,6 +605,20 @@ namespace TimelapseCapture
                 _activeSession = SessionManager.LoadSession(_activeSessionFolder);
                 if (_activeSession != null)
                 {
+                    // ✅ NEW: Validate and repair session on startup
+                    if (!ValidateAndRepairSession(_activeSession, _activeSessionFolder))
+                    {
+                        // Session is corrupt and user declined repair
+                        // Mark as inactive and clear state
+                        SessionManager.MarkSessionInactive(_activeSessionFolder);
+                        _activeSession = null;
+                        _activeSessionFolder = null;
+                        if (txtSessionName != null)
+                            txtSessionName.Text = "No active session";
+                        UpdateReadinessPanel();
+                        return;
+                    }
+
                     // Use helper to safely set captureRegion from nullable session value
                     SetCaptureRegionFromNullable(_activeSession.CaptureRegion);
 
@@ -573,9 +641,8 @@ namespace TimelapseCapture
                 // If no active session found, clear any stored region from settings
                 if (settings.Region.HasValue)
                 {
-                    captureRegion = Rectangle.Empty;
-                    settings.Region = null;
-                    SaveSettings();
+                    // FIXED: Use centralized clear method instead of direct assignment
+                    ClearCurrentRegion();
                 }
                 if (lblRegion != null)
                     lblRegion.Text = "No region selected";
@@ -615,25 +682,9 @@ namespace TimelapseCapture
                 var r = settings.Region.Value;
                 if (r.Width > 0 && r.Height > 0)
                 {
-                    bool wasFixed = false;
-                    // Ensure even dimensions for video encoding compatibility
-                    if ((r.Width & 1) == 1)
-                    {
-                        r.Width = Math.Max(2, r.Width - 1);
-                        wasFixed = true;
-                    }
-                    if ((r.Height & 1) == 1)
-                    {
-                        r.Height = Math.Max(2, r.Height - 1);
-                        wasFixed = true;
-                    }
-                    captureRegion = r;
-                    if (wasFixed)
-                    {
-                        settings.Region = r;
-                        SaveSettings();
-                    }
-                    if (lblRegion != null) lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} at ({captureRegion.X},{captureRegion.Y})";
+                    // FIXED: Use centralized setter which handles validation and sync
+                    // This ensures even dimensions and updates all state locations
+                    SetCurrentRegion(r);
                 }
             }
 
@@ -756,6 +807,82 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// Validate loaded session for corruption and attempt repair.
+        /// Returns true if session is valid or successfully repaired.
+        /// </summary>
+        private bool ValidateAndRepairSession(SessionInfo session, string sessionPath)
+        {
+            // Check for invalid state: frames without region
+            if (session.FramesCaptured > 0 && !session.CaptureRegion.HasValue)
+            {
+                Logger.Log("CORRUPTION", $"Session has {session.FramesCaptured} frames but NO region!");
+                
+                // Attempt to infer region from first frame
+                var frameFiles = SessionManager.GetFrameFiles(sessionPath);
+                if (frameFiles.Length > 0)
+                {
+                    try
+                    {
+                        using (var img = Image.FromFile(frameFiles[0]))
+                        {
+                            var inferredRegion = new Rectangle(0, 0, img.Width, img.Height);
+                            
+                            var result = MessageBox.Show(
+                                $"⚠️ Session Corruption Detected!\n\n" +
+                                $"This session has {session.FramesCaptured} captured frames but no saved region.\n\n" +
+                                $"Detected frame size: {img.Width}×{img.Height}\n\n" +
+                                $"Would you like to repair this session?\n\n" +
+                                $"• YES: Set region to {img.Width}×{img.Height} (inferred from frames)\n" +
+                                $"• NO: Session will remain unusable",
+                                "Corrupt Session Detected",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Warning);
+                            
+                            if (result == DialogResult.Yes)
+                            {
+                                // Repair: Set region from frame dimensions
+                                session.CaptureRegion = inferredRegion;
+                                SessionManager.SaveSession(sessionPath, session);
+                                Logger.Log("REPAIR", $"Session repaired with region: {inferredRegion}");
+                                
+                                MessageBox.Show(
+                                    $"✅ Session Repaired!\n\n" +
+                                    $"Region set to: {img.Width}×{img.Height}\n" +
+                                    $"Location: Screen position unknown (set to 0,0)\n\n" +
+                                    $"You can now continue using this session.",
+                                    "Repair Successful",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Information);
+                                
+                                return true;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("REPAIR", $"Failed to infer region from frames: {ex.Message}");
+                    }
+                }
+                
+                // Repair failed or user declined
+                MessageBox.Show(
+                    $"⚠️ Corrupt Session Cannot Be Used\n\n" +
+                    $"This session has {session.FramesCaptured} frames but no region information.\n\n" +
+                    $"You cannot capture more frames with this session.\n\n" +
+                    $"Options:\n" +
+                    $"• Create a new session\n" +
+                    $"• The existing frames can still be encoded if dimensions are even",
+                    "Session Unusable",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                
+                return false;
+            }
+            
+            return true;  // Session is valid
+        }
+
+        /// <summary>
         /// Load a session from a path.
         /// Thread-safe: Locks to prevent conflicts with capture thread.
         /// </summary>
@@ -779,6 +906,14 @@ namespace TimelapseCapture
                     "Load Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+                return;
+            }
+
+            // ✅ NEW: Validate and repair if needed
+            if (!ValidateAndRepairSession(session, sessionPath))
+            {
+                // Session is corrupt and cannot be repaired
+                // Don't load it
                 return;
             }
 
@@ -979,6 +1114,10 @@ namespace TimelapseCapture
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                     }
+                    
+                    // ✅ FIX Issue #7: Reset error counter on successful session creation
+                    // New session = fresh start, previous errors no longer relevant
+                    _consecutiveCaptureErrors = 0;
                 }
             }
         }
@@ -990,22 +1129,69 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Save current settings to persistent storage.
+        /// ✅ FIX Issue #4: Now uses debouncing to prevent disk spam.
+        /// 
+        /// This method marks settings as "dirty" and schedules a delayed save.
+        /// Multiple rapid calls will only result in one disk write.
+        /// 
+        /// Critical saves (app close, capture start) bypass debounce via SaveSettingsImmediate().
         /// </summary>
         private void SaveSettings()
         {
+            // Update in-memory settings
             settings.Region = captureRegion;
             settings.IntervalSeconds = (int)(numInterval?.Value ?? 5);
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
             settings.FfmpegPath = _ffmpegPath;
 
-            // Only save aspect-ratio preference if the user can actively set it (not while we are temporarily in full-screen mode)
+            // Only save aspect-ratio preference if the user can actively set it
             if (cmbAspectRatio != null && cmbAspectRatio.Enabled)
             {
                 settings.AspectRatioIndex = cmbAspectRatio.SelectedIndex;
             }
 
-            SettingsManager.Save(settings);
+            // Schedule debounced save
+            lock (_settingsSaveLock)
+            {
+                _settingsPendingSave = true;
+                _settingsSaveTimer?.Stop();
+                _settingsSaveTimer?.Start();
+            }
+        }
+        
+        /// <summary>
+        /// Save settings immediately without debouncing.
+        /// ✅ FIX Issue #4: Use for critical operations that need guaranteed persistence.
+        /// 
+        /// Called when:
+        /// - App is closing
+        /// - Capture session starting
+        /// - FFmpeg path configured
+        /// - Any operation where data loss would be catastrophic
+        /// </summary>
+        private void SaveSettingsImmediate()
+        {
+            // Update in-memory settings
+            settings.Region = captureRegion;
+            settings.IntervalSeconds = (int)(numInterval?.Value ?? 5);
+            settings.Format = cmbFormat?.SelectedItem?.ToString();
+            settings.JpegQuality = (int)(numQuality?.Value ?? 90);
+            settings.FfmpegPath = _ffmpegPath;
+
+            if (cmbAspectRatio != null && cmbAspectRatio.Enabled)
+            {
+                settings.AspectRatioIndex = cmbAspectRatio.SelectedIndex;
+            }
+
+            // Save immediately
+            lock (_settingsSaveLock)
+            {
+                _settingsSaveTimer?.Stop();
+                _settingsPendingSave = false;
+                SettingsManager.Save(settings);
+                Logger.Log("Settings", "Immediate save completed");
+            }
         }
 
         /// <summary>
@@ -1555,9 +1741,13 @@ namespace TimelapseCapture
                 {
                     settings.SaveFolder = fbd.SelectedPath;
                     if (lblFolder != null) lblFolder.Text = "Save to: " + settings.SaveFolder;
-                    SaveSettings();
+                    SaveSettingsImmediate(); // ✅ Bypass debounce for folder selection
                     CheckForActiveSession();
                     UpdateReadinessPanel();
+                    
+                    // ✅ FIX Issue #7: Reset error counter when user changes settings
+                    // User may be fixing the cause of previous errors
+                    _consecutiveCaptureErrors = 0;
                 }
             }
         }
@@ -1769,6 +1959,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Starts the capture session with current settings.
+        /// Resets error counter for fresh start.
         /// </summary>
         private void StartCaptureSession()
         {
@@ -1786,14 +1977,17 @@ namespace TimelapseCapture
             var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
             var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
 
-            // Update settings and save
+            // Update settings and save immediately (critical operation)
             settings.IntervalSeconds = intervalSec;
             settings.Format = format;
             settings.JpegQuality = quality;
-            SaveSettings();
+            SaveSettingsImmediate(); // ✅ Bypass debounce for capture start
 
             // Lock UI and start capture timer
             LockCaptureUI(true);
+            
+            // ✅ FIX Issue #7: Reset error counter on capture start
+            // User may have fixed issues since last error
             _consecutiveCaptureErrors = 0;
 
             var intervalMs = intervalSec * 1000;
@@ -1832,7 +2026,7 @@ namespace TimelapseCapture
                 // Lock acquired - safe to update UI now
                 LockCaptureUI(false);
                 UpdateStatusDisplay();
-                SaveSettings();
+                SaveSettingsImmediate(); // ✅ Bypass debounce when stopping capture
                 UpdateCaptureTimer();
                 UpdateSessionInfoPanel();
                 UpdateRegionOverlay();
@@ -2575,7 +2769,7 @@ namespace TimelapseCapture
                     _ffmpegPath = ofd.FileName;
                     if (txtFfmpegPath != null) txtFfmpegPath.Text = _ffmpegPath;
                     settings.FfmpegPath = _ffmpegPath;
-                    SaveSettings();
+                    SaveSettingsImmediate(); // ✅ Bypass debounce for FFmpeg path
                 }
             }
         }
@@ -2885,17 +3079,141 @@ namespace TimelapseCapture
         #endregion
 
         #region Form Lifecycle
+        
         /// <summary>
-        /// Dispose UI update timer and region overlay.
+        /// Properly dispose of all managed resources.
+        /// ✅ FIX Issue #6: Implement proper disposal pattern to prevent memory leaks.
+        /// 
+        /// Disposal order matters:
+        /// 1. Stop timers first (prevents new captures/updates)
+        /// 2. Dispose overlay (UI resource)
+        /// 3. Dispose components (designer-generated)
+        /// 4. Call base dispose
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Logger.Log("Lifecycle", "MainForm disposing - cleaning up resources");
+                
+                // 1. Stop and dispose timers first
+                if (_captureTimer != null)
+                {
+                    try
+                    {
+                        _captureTimer.Dispose();
+                        Logger.Log("Lifecycle", "Capture timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing capture timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _captureTimer = null;
+                    }
+                }
+                
+                if (_uiUpdateTimer != null)
+                {
+                    try
+                    {
+                        _uiUpdateTimer.Stop();
+                        _uiUpdateTimer.Dispose();
+                        Logger.Log("Lifecycle", "UI update timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing UI timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _uiUpdateTimer = null;
+                    }
+                }
+                
+                // 1.5. Dispose settings save timer
+                if (_settingsSaveTimer != null)
+                {
+                    try
+                    {
+                        _settingsSaveTimer.Stop();
+                        _settingsSaveTimer.Dispose();
+                        Logger.Log("Lifecycle", "Settings save timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing settings timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _settingsSaveTimer = null;
+                    }
+                }
+                
+                // 2. Dispose region overlay
+                if (_regionOverlay != null)
+                {
+                    try
+                    {
+                        _regionOverlay.Hide();
+                        _regionOverlay.Dispose();
+                        Logger.Log("Lifecycle", "Region overlay disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing overlay: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _regionOverlay = null;
+                    }
+                }
+                
+                // 3. Dispose components (designer-generated controls)
+                try
+                {
+                    components?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("Lifecycle", $"Error disposing components: {ex.Message}");
+                }
+                
+                Logger.Log("Lifecycle", "MainForm disposal complete");
+            }
+            
+            // Always call base dispose
+            base.Dispose(disposing);
+        }
+        
+        /// <summary>
+        /// Handle form closing event - mark session inactive.
+        /// Resource disposal handled by Dispose() override.
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            _captureTimer?.Dispose();
-            _uiUpdateTimer?.Dispose();
-            _regionOverlay?.Dispose();
-
+            Logger.Log("Lifecycle", "MainForm closing - marking session inactive");
+            
+            // ✅ FIX Issue #4: Save settings immediately before closing
+            // Ensures any pending changes are persisted
+            SaveSettingsImmediate();
+            
+            // Mark active session inactive (if exists)
             if (_activeSessionFolder != null)
-                SessionManager.MarkSessionInactive(_activeSessionFolder);
+            {
+                try
+                {
+                    SessionManager.MarkSessionInactive(_activeSessionFolder);
+                    Logger.Log("Lifecycle", $"Session marked inactive: {_activeSessionFolder}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("Lifecycle", $"Error marking session inactive: {ex.Message}");
+                }
+            }
+            
+            // Resource disposal happens in Dispose() method automatically
         }
 
         #endregion
