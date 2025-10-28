@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace TimelapseCapture
@@ -103,13 +104,104 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Clean up any resources being used.
+        /// ✅ FIX Issue #6: Enhanced disposal with proper resource cleanup order.
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                Logger.Log("Lifecycle", "MainForm disposing - cleaning up resources");
+                
+                // 1. Stop and dispose timers first (prevents new work)
+                if (_captureTimer != null)
+                {
+                    try
+                    {
+                        _captureTimer.Dispose();
+                        Logger.Log("Lifecycle", "Capture timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing capture timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _captureTimer = null;
+                    }
+                }
+                
+                if (_uiUpdateTimer != null)
+                {
+                    try
+                    {
+                        _uiUpdateTimer.Stop();
+                        _uiUpdateTimer.Dispose();
+                        Logger.Log("Lifecycle", "UI update timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing UI timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _uiUpdateTimer = null;
+                    }
+                }
+                
+                // 1.5. Dispose settings save timer (Issue #4)
+                if (_settingsSaveTimer != null)
+                {
+                    try
+                    {
+                        _settingsSaveTimer.Stop();
+                        _settingsSaveTimer.Dispose();
+                        Logger.Log("Lifecycle", "Settings save timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing settings timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _settingsSaveTimer = null;
+                    }
+                }
+                
+                // 2. Dispose region overlay (UI resource)
+                if (_regionOverlay != null)
+                {
+                    try
+                    {
+                        _regionOverlay.Hide();
+                        _regionOverlay.Dispose();
+                        Logger.Log("Lifecycle", "Region overlay disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing overlay: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _regionOverlay = null;
+                    }
+                }
+                
+                // 3. Dispose components (designer-generated controls)
+                if (components != null)
+                {
+                    try
+                    {
+                        components.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing components: {ex.Message}");
+                    }
+                }
+                
+                Logger.Log("Lifecycle", "MainForm disposal complete");
             }
+            
             base.Dispose(disposing);
         }
 

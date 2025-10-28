@@ -3081,115 +3081,8 @@ namespace TimelapseCapture
         #region Form Lifecycle
         
         /// <summary>
-        /// Properly dispose of all managed resources.
-        /// ✅ FIX Issue #6: Implement proper disposal pattern to prevent memory leaks.
-        /// 
-        /// Disposal order matters:
-        /// 1. Stop timers first (prevents new captures/updates)
-        /// 2. Dispose overlay (UI resource)
-        /// 3. Dispose components (designer-generated)
-        /// 4. Call base dispose
-        /// </summary>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                Logger.Log("Lifecycle", "MainForm disposing - cleaning up resources");
-                
-                // 1. Stop and dispose timers first
-                if (_captureTimer != null)
-                {
-                    try
-                    {
-                        _captureTimer.Dispose();
-                        Logger.Log("Lifecycle", "Capture timer disposed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Log("Lifecycle", $"Error disposing capture timer: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _captureTimer = null;
-                    }
-                }
-                
-                if (_uiUpdateTimer != null)
-                {
-                    try
-                    {
-                        _uiUpdateTimer.Stop();
-                        _uiUpdateTimer.Dispose();
-                        Logger.Log("Lifecycle", "UI update timer disposed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Log("Lifecycle", $"Error disposing UI timer: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _uiUpdateTimer = null;
-                    }
-                }
-                
-                // 1.5. Dispose settings save timer
-                if (_settingsSaveTimer != null)
-                {
-                    try
-                    {
-                        _settingsSaveTimer.Stop();
-                        _settingsSaveTimer.Dispose();
-                        Logger.Log("Lifecycle", "Settings save timer disposed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Log("Lifecycle", $"Error disposing settings timer: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _settingsSaveTimer = null;
-                    }
-                }
-                
-                // 2. Dispose region overlay
-                if (_regionOverlay != null)
-                {
-                    try
-                    {
-                        _regionOverlay.Hide();
-                        _regionOverlay.Dispose();
-                        Logger.Log("Lifecycle", "Region overlay disposed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Log("Lifecycle", $"Error disposing overlay: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _regionOverlay = null;
-                    }
-                }
-                
-                // 3. Dispose components (designer-generated controls)
-                try
-                {
-                    components?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log("Lifecycle", $"Error disposing components: {ex.Message}");
-                }
-                
-                Logger.Log("Lifecycle", "MainForm disposal complete");
-            }
-            
-            // Always call base dispose
-            base.Dispose(disposing);
-        }
-        
-        /// <summary>
-        /// Handle form closing event - mark session inactive.
-        /// Resource disposal handled by Dispose() override.
+        /// Handle form closing event - mark session inactive and save settings.
+        /// Resource disposal handled by Dispose() override in Designer.cs.
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -3213,7 +3106,7 @@ namespace TimelapseCapture
                 }
             }
             
-            // Resource disposal happens in Dispose() method automatically
+            // Resource disposal happens in Dispose() method automatically (in Designer.cs)
         }
 
         #endregion
