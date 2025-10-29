@@ -23,7 +23,10 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Validates that a region is not empty and has valid dimensions.
+        /// ✅ FIX Issue #3: Method deprecated - nullable checks preferred.
+        /// Kept for backward compatibility but consider removing in future.
         /// </summary>
+        [Obsolete("Use nullable Rectangle? checks instead: region.HasValue")]
         public static bool IsRegionSelected(Rectangle region)
         {
             return region.Width > 0 && region.Height > 0;

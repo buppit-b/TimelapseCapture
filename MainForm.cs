@@ -43,7 +43,7 @@ namespace TimelapseCapture
         private RegionOverlay? _regionOverlay;
         private bool _isOverlayVisible = false;
 
-        private Rectangle captureRegion = Rectangle.Empty;
+        private Rectangle? captureRegion = null;
 
         // Thread synchronization lock for capture state
         private readonly object _captureLock = new object();
@@ -55,8 +55,9 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Get the current capture region - session takes priority over settings.
+        /// ✅ FIX Issue #3: Now returns nullable to match consistent state representation.
         /// </summary>
-        private Rectangle GetCurrentRegion()
+        private Rectangle? GetCurrentRegion()
         {
             // Session region takes priority
             if (_activeSession != null && _activeSession.CaptureRegion.HasValue)
@@ -66,12 +67,14 @@ namespace TimelapseCapture
             if (settings.Region.HasValue)
                 return settings.Region.Value;
             
-            return Rectangle.Empty;
+            return null;
         }
 
         /// <summary>
         /// Set the current capture region - synchronizes ALL state locations.
         /// ⚠️ CRITICAL: This is the ONLY way to change the region to ensure consistency.
+        /// 
+        /// ✅ FIX Issue #3: Now uses consistent nullable representation across all state.
         /// 
         /// This method is the single source of truth for region updates. It:
         /// 1. Validates and sanitizes dimensions (ensures even width/height for video encoding)
@@ -92,7 +95,7 @@ namespace TimelapseCapture
             if ((region.Width & 1) == 1) region.Width = Math.Max(2, region.Width - 1);
             if ((region.Height & 1) == 1) region.Height = Math.Max(2, region.Height - 1);
             
-            // Update local runtime state
+            // ✅ FIX Issue #3: Update runtime state with nullable value
             captureRegion = region;
             
             // Update session if exists
@@ -124,8 +127,10 @@ namespace TimelapseCapture
         /// Clear the current capture region from all state locations.
         /// ⚠️ CRITICAL: This is the ONLY way to clear the region to ensure consistency.
         /// 
+        /// ✅ FIX Issue #3: Now uses null consistently instead of Rectangle.Empty.
+        /// 
         /// This method ensures all state locations are synchronized when clearing:
-        /// 1. Runtime state (captureRegion = Empty)
+        /// 1. Runtime state (captureRegion = null)
         /// 2. Session (if exists, sets CaptureRegion = null)
         /// 3. Settings (persistent storage, sets Region = null)
         /// 4. UI displays
@@ -134,7 +139,8 @@ namespace TimelapseCapture
         {
             Logger.Log("Region", "ClearCurrentRegion called");
             
-            captureRegion = Rectangle.Empty;
+            // ✅ FIX Issue #3: Use null instead of Rectangle.Empty
+            captureRegion = null;
             
             if (_activeSession != null)
             {
@@ -152,19 +158,21 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Update the region display label.
+        /// ✅ FIX Issue #3: Now handles nullable captureRegion properly.
         /// </summary>
         private void UpdateRegionDisplay()
         {
             if (lblRegion == null) return;
             
-            if (captureRegion.IsEmpty || captureRegion.Width == 0 || captureRegion.Height == 0)
+            if (!captureRegion.HasValue || captureRegion.Value.Width == 0 || captureRegion.Value.Height == 0)
             {
                 lblRegion.Text = "No region selected";
             }
             else
             {
-                string ratioInfo = AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
-                lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+                var region = captureRegion.Value;
+                string ratioInfo = AspectRatio.CalculateRatioString(region.Width, region.Height);
+                lblRegion.Text = $"Region: {region.Width}×{region.Height} ({ratioInfo}) at ({region.X},{region.Y})";
             }
         }
 
@@ -183,6 +191,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Validate that all region state locations are synchronized.
         /// Returns true if consistent, logs and returns false if desync detected.
+        /// ✅ FIX Issue #3: Now compares nullable values consistently.
         /// </summary>
         private bool ValidateRegionStateConsistency()
         {
@@ -195,27 +204,27 @@ namespace TimelapseCapture
             // If we have a session, runtime should match session
             if (_activeSession != null)
             {
-                if (sessionRegion.HasValue != !runtimeRegion.IsEmpty)
+                if (sessionRegion.HasValue != runtimeRegion.HasValue)
                 {
-                    Logger.Log("DESYNC", $"Session has region: {sessionRegion.HasValue}, Runtime is empty: {runtimeRegion.IsEmpty}");
+                    Logger.Log("DESYNC", $"Session has region: {sessionRegion.HasValue}, Runtime has region: {runtimeRegion.HasValue}");
                     consistent = false;
                 }
-                else if (sessionRegion.HasValue && sessionRegion.Value != runtimeRegion)
+                else if (sessionRegion.HasValue && runtimeRegion.HasValue && sessionRegion.Value != runtimeRegion.Value)
                 {
-                    Logger.Log("DESYNC", $"Session region {sessionRegion.Value} != Runtime region {runtimeRegion}");
+                    Logger.Log("DESYNC", $"Session region {sessionRegion.Value} != Runtime region {runtimeRegion.Value}");
                     consistent = false;
                 }
             }
             
             // Settings should always match runtime (it's a cache)
-            if (settingsRegion.HasValue != !runtimeRegion.IsEmpty)
+            if (settingsRegion.HasValue != runtimeRegion.HasValue)
             {
-                Logger.Log("DESYNC", $"Settings has region: {settingsRegion.HasValue}, Runtime is empty: {runtimeRegion.IsEmpty}");
+                Logger.Log("DESYNC", $"Settings has region: {settingsRegion.HasValue}, Runtime has region: {runtimeRegion.HasValue}");
                 consistent = false;
             }
-            else if (settingsRegion.HasValue && settingsRegion.Value != runtimeRegion)
+            else if (settingsRegion.HasValue && runtimeRegion.HasValue && settingsRegion.Value != runtimeRegion.Value)
             {
-                Logger.Log("DESYNC", $"Settings region {settingsRegion.Value} != Runtime region {runtimeRegion}");
+                Logger.Log("DESYNC", $"Settings region {settingsRegion.Value} != Runtime region {runtimeRegion.Value}");
                 consistent = false;
             }
             
@@ -238,7 +247,7 @@ namespace TimelapseCapture
             bool hasOutputFolder = !string.IsNullOrEmpty(settings.SaveFolder);
             bool hasFfmpeg = !string.IsNullOrEmpty(_ffmpegPath) && System.IO.File.Exists(_ffmpegPath);
             bool hasSession = _activeSession != null;
-            bool hasRegion = !captureRegion.IsEmpty;
+            bool hasRegion = captureRegion.HasValue; // ✅ FIX Issue #3
             bool hasFrames = _activeSession?.FramesCaptured > 0;
             
             return new ReadinessCheck[]
@@ -278,7 +287,7 @@ namespace TimelapseCapture
                     hasRegion ? ReadinessStatus.Ready :
                     ReadinessStatus.Warning,
                     !hasSession ? "Create session first" :
-                    hasRegion ? $"{captureRegion.Width}×{captureRegion.Height}" :
+                    hasRegion ? $"{captureRegion.Value.Width}×{captureRegion.Value.Height}" : // ✅ FIX Issue #3
                     "Click 'Select' or 'Full Screen'",
                     "🎯"
                 ),
@@ -641,7 +650,7 @@ namespace TimelapseCapture
                 // If no active session found, clear any stored region from settings
                 if (settings.Region.HasValue)
                 {
-                    // FIXED: Use centralized clear method instead of direct assignment
+                    // ✅ FIX Issue #3: Use centralized clear method
                     ClearCurrentRegion();
                 }
                 if (lblRegion != null)
@@ -941,13 +950,19 @@ namespace TimelapseCapture
             if (numQuality != null && session.ImageFormat == "JPEG")
                 numQuality.Value = session.JpegQuality;
 
-            string ratioInfo = captureRegion.IsEmpty ? "N/A" : AspectRatio.CalculateRatioString(captureRegion.Width, captureRegion.Height);
+            // ✅ FIX Issue #3: Handle nullable region
             if (lblRegion != null)
             {
-                if (captureRegion.IsEmpty)
+                if (!captureRegion.HasValue)
+                {
                     lblRegion.Text = "No region selected";
+                }
                 else
-                    lblRegion.Text = $"Region: {captureRegion.Width}×{captureRegion.Height} ({ratioInfo}) at ({captureRegion.X},{captureRegion.Y})";
+                {
+                    var region = captureRegion.Value;
+                    string ratioInfo = AspectRatio.CalculateRatioString(region.Width, region.Height);
+                    lblRegion.Text = $"Region: {region.Width}×{region.Height} ({ratioInfo}) at ({region.X},{region.Y})";
+                }
             }
 
             SaveSettings();
@@ -1089,7 +1104,8 @@ namespace TimelapseCapture
                         message += "Session folder: " + Path.GetFileName(_activeSessionFolder) + "\n\n";
 
                         // Updated instruction
-                        if (captureRegion.IsEmpty)
+                        // ✅ FIX Issue #3: Handle nullable region
+                        if (!captureRegion.HasValue)
                         {
                             message += "📋 Next steps:\n";
                             message += "1. Click 'Select' or 'Full Screen' to choose capture region\n";
@@ -1240,7 +1256,8 @@ namespace TimelapseCapture
             }
 
             // Check if region is set
-            if (captureRegion.IsEmpty || captureRegion.Width == 0 || captureRegion.Height == 0)
+            // ✅ FIX Issue #3: Handle nullable region
+            if (!captureRegion.HasValue || captureRegion.Value.Width == 0 || captureRegion.Value.Height == 0)
             {
                 MessageBox.Show(
                     "No region selected.\n\n" +
@@ -1257,15 +1274,17 @@ namespace TimelapseCapture
             _regionOverlay = new RegionOverlay();
 
             // Position overlay to cover only the capture region (plus border)
+            // ✅ FIX Issue #3: Handle nullable region
+            var region = captureRegion.Value;
             int borderSize = 50; // Extra space for info box and brackets
             _regionOverlay.Bounds = new Rectangle(
-                captureRegion.X - borderSize,
-                captureRegion.Y - borderSize,
-                captureRegion.Width + (borderSize * 2),
-                captureRegion.Height + (borderSize * 2)
+                region.X - borderSize,
+                region.Y - borderSize,
+                region.Width + (borderSize * 2),
+                region.Height + (borderSize * 2)
             );
 
-            _regionOverlay.CaptureRegion = captureRegion;
+            _regionOverlay.CaptureRegion = region;
             _regionOverlay.IsActiveCapture = IsCapturing;
             _regionOverlay.Show();
 
@@ -1310,7 +1329,8 @@ namespace TimelapseCapture
         private void UpdateRegionOverlay()
         {
             // If overlay is visible, recreate it with new settings
-            if (_isOverlayVisible && !captureRegion.IsEmpty)
+            // ✅ FIX Issue #3: Handle nullable region
+            if (_isOverlayVisible && captureRegion.HasValue)
             {
                 // Hide current
                 if (_regionOverlay != null)
@@ -1327,15 +1347,16 @@ namespace TimelapseCapture
                 // Create new with updated settings
                 _regionOverlay = new RegionOverlay();
 
+                var region = captureRegion.Value;
                 int borderSize = 50;
                 _regionOverlay.Bounds = new Rectangle(
-                    captureRegion.X - borderSize,
-                    captureRegion.Y - borderSize,
-                    captureRegion.Width + (borderSize * 2),
-                    captureRegion.Height + (borderSize * 2)
+                    region.X - borderSize,
+                    region.Y - borderSize,
+                    region.Width + (borderSize * 2),
+                    region.Height + (borderSize * 2)
                 );
 
-                _regionOverlay.CaptureRegion = captureRegion;
+                _regionOverlay.CaptureRegion = region;
                 _regionOverlay.IsActiveCapture = IsCapturing;
                 _regionOverlay.Show();
             }
@@ -1884,21 +1905,22 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Validates all prerequisites for starting capture.
+        /// ✅ FIX Issue #3: Now handles nullable region properly.
         /// </summary>
         private bool ValidateStartCapturePrerequisites()
         {
             // Validate region selection
-            if (!ValidationHelper.IsRegionSelected(captureRegion))
+            if (!captureRegion.HasValue)
             {
                 UIHelper.ShowWarning(Constants.MSG_NO_REGION_SELECTED, "Missing Region");
                 return false;
             }
 
             // Validate region dimensions
-            if (!ValidationHelper.IsValidRegion(captureRegion))
+            if (!ValidationHelper.IsValidRegion(captureRegion.Value))
             {
                 UIHelper.ShowError(
-                    string.Format(Constants.MSG_INVALID_REGION, captureRegion.Width, captureRegion.Height),
+                    string.Format(Constants.MSG_INVALID_REGION, captureRegion.Value.Width, captureRegion.Value.Height),
                     "Invalid Region");
                 return false;
             }
@@ -1930,7 +1952,8 @@ namespace TimelapseCapture
             var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
 
             // Validate session settings match
-            if (!SessionManager.ValidateSessionSettings(_activeSession!, captureRegion, format, quality))
+            // ✅ FIX Issue #3: Pass nullable value properly
+            if (!SessionManager.ValidateSessionSettings(_activeSession!, captureRegion.Value, format, quality))
             {
                 return HandleSessionSettingsMismatch(sender, e, intervalSec, format, quality);
             }
@@ -1943,7 +1966,7 @@ namespace TimelapseCapture
         /// </summary>
         private bool HandleSessionSettingsMismatch(object? sender, EventArgs e, int intervalSec, string format, int quality)
         {
-            string mismatchMessage = ValidationHelper.BuildSettingsMismatchMessage(_activeSession!, captureRegion, format, quality);
+            string mismatchMessage = ValidationHelper.BuildSettingsMismatchMessage(_activeSession!, captureRegion.Value, format, quality); // ✅ FIX Issue #3
             
             var result = UIHelper.ShowQuestion(mismatchMessage, "Settings Mismatch");
 
@@ -2325,13 +2348,22 @@ namespace TimelapseCapture
         /// </summary>
         private Bitmap CaptureScreen()
         {
+            // ✅ FIX Issue #3: captureRegion should always have value during capture,
+            // but check for safety
+            if (!captureRegion.HasValue)
+            {
+                throw new InvalidOperationException("Capture region not set");
+            }
+
+            var region = captureRegion.Value;
+
             // Comprehensive logging for multi-monitor debugging
             var virtualScreen = SystemInformation.VirtualScreen;
             Logger.Log("Capture", "=== CAPTURE FRAME ===");
             Logger.Log("Capture", $"Virtual Screen: X={virtualScreen.X}, Y={virtualScreen.Y}, W={virtualScreen.Width}, H={virtualScreen.Height}");
-            Logger.Log("Capture", $"Capture Region: X={captureRegion.X}, Y={captureRegion.Y}, W={captureRegion.Width}, H={captureRegion.Height}");
-            Logger.Log("Capture", $"Region Location: {captureRegion.Location}");
-            Logger.Log("Capture", $"Region Size: {captureRegion.Size}");
+            Logger.Log("Capture", $"Capture Region: X={region.X}, Y={region.Y}, W={region.Width}, H={region.Height}");
+            Logger.Log("Capture", $"Region Location: {region.Location}");
+            Logger.Log("Capture", $"Region Size: {region.Size}");
 
             // Get screen DC (desktop window handle)
             IntPtr hdcScreen = GetDC(IntPtr.Zero);
@@ -2340,7 +2372,7 @@ namespace TimelapseCapture
             try
             {
                 // Create bitmap to hold the captured region
-                Bitmap bmp = new Bitmap(captureRegion.Width, captureRegion.Height);
+                Bitmap bmp = new Bitmap(region.Width, region.Height);
                 Logger.Log("Capture", $"Created bitmap: {bmp.Width}x{bmp.Height}");
 
                 using (Graphics g = Graphics.FromImage(bmp))
@@ -2356,15 +2388,15 @@ namespace TimelapseCapture
                         // - Different DPI scaling between monitors
                         // - Negative coordinates (monitors to the left of primary)
                         Logger.Log("Capture", $"Calling BitBlt with:");
-                        Logger.Log("Capture", $"  Source: hdcScreen={hdcScreen}, x={captureRegion.X}, y={captureRegion.Y}");
+                        Logger.Log("Capture", $"  Source: hdcScreen={hdcScreen}, x={region.X}, y={region.Y}");
                         Logger.Log("Capture", $"  Dest: hdcBitmap={hdcBitmap}, x=0, y=0");
-                        Logger.Log("Capture", $"  Size: w={captureRegion.Width}, h={captureRegion.Height}");
+                        Logger.Log("Capture", $"  Size: w={region.Width}, h={region.Height}");
                         
                         bool success = BitBlt(
                             hdcBitmap, 0, 0,
-                            captureRegion.Width, captureRegion.Height,
+                            region.Width, region.Height,
                             hdcScreen,
-                            captureRegion.X, captureRegion.Y,
+                            region.X, region.Y,
                             SRCCOPY
                         );
 
@@ -2821,7 +2853,8 @@ namespace TimelapseCapture
             }
 
             // Check region validity
-            if (!ValidationHelper.IsValidRegion(captureRegion))
+            // ✅ FIX Issue #3: Handle nullable region
+            if (!captureRegion.HasValue || !ValidationHelper.IsValidRegion(captureRegion.Value))
             {
                 UIHelper.ShowError("Invalid capture region dimensions.\n\nPlease select a new region before encoding.", "Invalid Region");
                 return false;
