@@ -48,3 +48,4 @@ namespace TimelapseCapture
         public const string STATUS_ENCODING_FAILED = "❌ Encoding failed";
     }
 }
+

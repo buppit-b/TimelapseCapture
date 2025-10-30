@@ -315,9 +315,9 @@ namespace TimelapseCapture
             btnSelectRegion.ForeColor = Color.OrangeRed;
             btnSelectRegion.Location = new Point(15, 66);
             btnSelectRegion.Name = "btnSelectRegion";
-            btnSelectRegion.Size = new Size(110, 32);
+            btnSelectRegion.Size = new Size(130, 32);
             btnSelectRegion.TabIndex = 3;
-            btnSelectRegion.Text = "📐 Select";
+            btnSelectRegion.Text = "📐 Select Region";
             btnSelectRegion.UseVisualStyleBackColor = true;
             btnSelectRegion.Click += btnSelectRegion_Click;
             // 
@@ -325,9 +325,9 @@ namespace TimelapseCapture
             // 
             btnFullScreen.FlatStyle = FlatStyle.Flat;
             btnFullScreen.ForeColor = Color.DeepSkyBlue;
-            btnFullScreen.Location = new Point(131, 66);
+            btnFullScreen.Location = new Point(154, 66);
             btnFullScreen.Name = "btnFullScreen";
-            btnFullScreen.Size = new Size(140, 32);
+            btnFullScreen.Size = new Size(137, 32);
             btnFullScreen.TabIndex = 5;
             btnFullScreen.Text = "🖥️ Full Screen ▼";
             btnFullScreen.UseVisualStyleBackColor = true;
@@ -397,9 +397,9 @@ namespace TimelapseCapture
             // 
             btnNewSession.FlatStyle = FlatStyle.Flat;
             btnNewSession.ForeColor = Color.FromArgb(0, 200, 100);
-            btnNewSession.Location = new Point(300, 24);
+            btnNewSession.Location = new Point(299, 27);
             btnNewSession.Name = "btnNewSession";
-            btnNewSession.Size = new Size(84, 32);
+            btnNewSession.Size = new Size(58, 32);
             btnNewSession.TabIndex = 2;
             btnNewSession.Text = "🆕 New";
             btnNewSession.UseVisualStyleBackColor = true;
@@ -409,9 +409,9 @@ namespace TimelapseCapture
             // 
             btnLoadSession.FlatStyle = FlatStyle.Flat;
             btnLoadSession.ForeColor = Color.DodgerBlue;
-            btnLoadSession.Location = new Point(341, 24);
+            btnLoadSession.Location = new Point(367, 26);
             btnLoadSession.Name = "btnLoadSession";
-            btnLoadSession.Size = new Size(84, 32);
+            btnLoadSession.Size = new Size(64, 32);
             btnLoadSession.TabIndex = 3;
             btnLoadSession.Text = "📂 Load";
             btnLoadSession.UseVisualStyleBackColor = true;
@@ -421,9 +421,9 @@ namespace TimelapseCapture
             // 
             btnShowRegion.FlatStyle = FlatStyle.Flat;
             btnShowRegion.ForeColor = Color.MediumPurple;
-            btnShowRegion.Location = new Point(284, 66);
+            btnShowRegion.Location = new Point(301, 66);
             btnShowRegion.Name = "btnShowRegion";
-            btnShowRegion.Size = new Size(110, 32);
+            btnShowRegion.Size = new Size(130, 32);
             btnShowRegion.TabIndex = 4;
             btnShowRegion.Text = "👁 Show";
             btnShowRegion.UseVisualStyleBackColor = true;
@@ -487,7 +487,7 @@ namespace TimelapseCapture
             // 
             lblEstimate.Location = new Point(15, 50);
             lblEstimate.Name = "lblEstimate";
-            lblEstimate.Size = new Size(430, 42);
+            lblEstimate.Size = new Size(424, 42);
             lblEstimate.TabIndex = 1;
             lblEstimate.Text = "No frames captured yet";
             // 
@@ -658,7 +658,7 @@ namespace TimelapseCapture
             grpSession.Controls.Add(btnStart);
             grpSession.Controls.Add(btnStop);
             grpSession.ForeColor = Color.LightGray;
-            grpSession.Location = new Point(15, 340);
+            grpSession.Location = new Point(20, 533);
             grpSession.Name = "grpSession";
             grpSession.Size = new Size(445, 135);
             grpSession.TabIndex = 1;
@@ -676,7 +676,7 @@ namespace TimelapseCapture
             grpOutput.Controls.Add(btnEncode);
             grpOutput.Controls.Add(btnOpenFolder);
             grpOutput.ForeColor = Color.LightGray;
-            grpOutput.Location = new Point(15, 485);
+            grpOutput.Location = new Point(20, 342);
             grpOutput.Name = "grpOutput";
             grpOutput.Size = new Size(440, 175);
             grpOutput.TabIndex = 2;
@@ -697,7 +697,7 @@ namespace TimelapseCapture
             grpReadiness.Size = new Size(280, 140);
             grpReadiness.TabIndex = 3;
             grpReadiness.TabStop = false;
-            grpReadiness.Text = "⚡ READINESS";
+            grpReadiness.Text = "Status";
             // 
             // lblReadiness1
             // 
@@ -706,7 +706,7 @@ namespace TimelapseCapture
             lblReadiness1.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness1.Location = new Point(10, 25);
             lblReadiness1.Name = "lblReadiness1";
-            lblReadiness1.Size = new Size(120, 13);
+            lblReadiness1.Size = new Size(145, 13);
             lblReadiness1.TabIndex = 0;
             lblReadiness1.Text = "📁 Output: Not configured";
             // 
@@ -717,7 +717,7 @@ namespace TimelapseCapture
             lblReadiness2.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness2.Location = new Point(10, 45);
             lblReadiness2.Name = "lblReadiness2";
-            lblReadiness2.Size = new Size(120, 13);
+            lblReadiness2.Size = new Size(148, 13);
             lblReadiness2.TabIndex = 1;
             lblReadiness2.Text = "🎬 FFmpeg: Not configured";
             // 
@@ -728,7 +728,7 @@ namespace TimelapseCapture
             lblReadiness3.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness3.Location = new Point(10, 65);
             lblReadiness3.Name = "lblReadiness3";
-            lblReadiness3.Size = new Size(120, 13);
+            lblReadiness3.Size = new Size(125, 13);
             lblReadiness3.TabIndex = 2;
             lblReadiness3.Text = "📋 Session: Not created";
             // 
@@ -739,7 +739,7 @@ namespace TimelapseCapture
             lblReadiness4.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness4.Location = new Point(10, 85);
             lblReadiness4.Name = "lblReadiness4";
-            lblReadiness4.Size = new Size(120, 13);
+            lblReadiness4.Size = new Size(129, 13);
             lblReadiness4.TabIndex = 3;
             lblReadiness4.Text = "🎯 Region: Not selected";
             // 
@@ -750,7 +750,7 @@ namespace TimelapseCapture
             lblReadiness5.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness5.Location = new Point(10, 105);
             lblReadiness5.Name = "lblReadiness5";
-            lblReadiness5.Size = new Size(110, 13);
+            lblReadiness5.Size = new Size(116, 13);
             lblReadiness5.TabIndex = 4;
             lblReadiness5.Text = "▶️ Capture: Not ready";
             // 
@@ -761,7 +761,7 @@ namespace TimelapseCapture
             lblReadiness6.ForeColor = Color.FromArgb(180, 180, 180);
             lblReadiness6.Location = new Point(155, 25);
             lblReadiness6.Name = "lblReadiness6";
-            lblReadiness6.Size = new Size(110, 13);
+            lblReadiness6.Size = new Size(116, 13);
             lblReadiness6.TabIndex = 5;
             lblReadiness6.Text = "🎬 Encode: Not ready";
             // 
