@@ -140,18 +140,40 @@ namespace TimelapseCapture
                 drawing = false;
                 end = e.Location;
 
-                // Mouse coordinates are already in virtual screen space
-                // since the form covers SystemInformation.VirtualScreen
-                // We need to convert them to absolute screen coordinates
-                Point absStart = PointToScreen(start);
-                Point absEnd = PointToScreen(end);
-
-                int x = Math.Min(absStart.X, absEnd.X);
-                int y = Math.Min(absStart.Y, absEnd.Y);
-                int width = Math.Abs(absStart.X - absEnd.X);
-                int height = Math.Abs(absStart.Y - absEnd.Y);
+                // === COMPREHENSIVE MULTI-MONITOR DEBUGGING ===
+                var virtualScreen = SystemInformation.VirtualScreen;
+                var formBounds = this.Bounds;
+                
+                Logger.Log("RegionSelector", "=== MOUSE UP - REGION SELECTION ===");
+                Logger.Log("RegionSelector", $"Virtual Screen: X={virtualScreen.X}, Y={virtualScreen.Y}, W={virtualScreen.Width}, H={virtualScreen.Height}");
+                Logger.Log("RegionSelector", $"Form Bounds: X={formBounds.X}, Y={formBounds.Y}, W={formBounds.Width}, H={formBounds.Height}");
+                Logger.Log("RegionSelector", $"Form Client Size: W={this.ClientSize.Width}, H={this.ClientSize.Height}");
+                Logger.Log("RegionSelector", $"Mouse start (form-relative): X={start.X}, Y={start.Y}");
+                Logger.Log("RegionSelector", $"Mouse end (form-relative): X={end.X}, Y={end.Y}");
+                
+                // CRITICAL FIX FOR MULTI-MONITOR:
+                // The form covers the VirtualScreen, which may have negative X/Y origins.
+                // Mouse events (e.Location) are relative to the FORM's client area (which starts at 0,0).
+                // To get screen coordinates, we must add the form's location (which IS the VirtualScreen origin).
+                // Example: VirtualScreen.X = -2560, mouse clicks at form coords (2960, 200)
+                //          Screen coords = -2560 + 2960 = 400 (correct position on primary monitor)
+                
+                Point startScreen = new Point(start.X + this.Left, start.Y + this.Top);
+                Point endScreen = new Point(end.X + this.Left, end.Y + this.Top);
+                
+                Logger.Log("RegionSelector", $"Mouse start (screen-absolute): X={startScreen.X}, Y={startScreen.Y}");
+                Logger.Log("RegionSelector", $"Mouse end (screen-absolute): X={endScreen.X}, Y={endScreen.Y}");
+                
+                int x = Math.Min(startScreen.X, endScreen.X);
+                int y = Math.Min(startScreen.Y, endScreen.Y);
+                int width = Math.Abs(startScreen.X - endScreen.X);
+                int height = Math.Abs(startScreen.Y - endScreen.Y);
 
                 var region = new Rectangle(x, y, width, height);
+
+                // Log final calculated region
+                Logger.Log("RegionSelector", $"FINAL REGION: X={region.X}, Y={region.Y}, W={region.Width}, H={region.Height}");
+                Logger.Log("RegionSelector", "=======================================");
 
                 // Apply aspect ratio constraint one final time
                 if (_lockedRatio != null && _lockedRatio.Width > 0)

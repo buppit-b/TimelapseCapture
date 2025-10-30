@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace TimelapseCapture
@@ -61,8 +62,17 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpCaptureSettings;
         private System.Windows.Forms.GroupBox grpSession;
         private System.Windows.Forms.GroupBox grpOutput;
+        private System.Windows.Forms.GroupBox grpReadiness;
         private System.Windows.Forms.GroupBox grpSessionInfo;
         private System.Windows.Forms.GroupBox grpEncodingSettings;
+
+        // === Readiness Panel Labels ===
+        private System.Windows.Forms.Label? lblReadiness1;
+        private System.Windows.Forms.Label? lblReadiness2;
+        private System.Windows.Forms.Label? lblReadiness3;
+        private System.Windows.Forms.Label? lblReadiness4;
+        private System.Windows.Forms.Label? lblReadiness5;
+        private System.Windows.Forms.Label? lblReadiness6;
 
         // === Session Info Panel Labels ===
         private System.Windows.Forms.Label lblSessionInfoRegion;
@@ -94,13 +104,104 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Clean up any resources being used.
+        /// ✅ FIX Issue #6: Enhanced disposal with proper resource cleanup order.
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                Logger.Log("Lifecycle", "MainForm disposing - cleaning up resources");
+                
+                // 1. Stop and dispose timers first (prevents new work)
+                if (_captureTimer != null)
+                {
+                    try
+                    {
+                        _captureTimer.Dispose();
+                        Logger.Log("Lifecycle", "Capture timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing capture timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _captureTimer = null;
+                    }
+                }
+                
+                if (_uiUpdateTimer != null)
+                {
+                    try
+                    {
+                        _uiUpdateTimer.Stop();
+                        _uiUpdateTimer.Dispose();
+                        Logger.Log("Lifecycle", "UI update timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing UI timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _uiUpdateTimer = null;
+                    }
+                }
+                
+                // 1.5. Dispose settings save timer (Issue #4)
+                if (_settingsSaveTimer != null)
+                {
+                    try
+                    {
+                        _settingsSaveTimer.Stop();
+                        _settingsSaveTimer.Dispose();
+                        Logger.Log("Lifecycle", "Settings save timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing settings timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _settingsSaveTimer = null;
+                    }
+                }
+                
+                // 2. Dispose region overlay (UI resource)
+                if (_regionOverlay != null)
+                {
+                    try
+                    {
+                        _regionOverlay.Hide();
+                        _regionOverlay.Dispose();
+                        Logger.Log("Lifecycle", "Region overlay disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing overlay: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _regionOverlay = null;
+                    }
+                }
+                
+                // 3. Dispose components (designer-generated controls)
+                if (components != null)
+                {
+                    try
+                    {
+                        components.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing components: {ex.Message}");
+                    }
+                }
+                
+                Logger.Log("Lifecycle", "MainForm disposal complete");
             }
+            
             base.Dispose(disposing);
         }
 
@@ -146,6 +247,13 @@ namespace TimelapseCapture
             grpCaptureSettings = new GroupBox();
             grpSession = new GroupBox();
             grpOutput = new GroupBox();
+            grpReadiness = new GroupBox();
+            lblReadiness1 = new Label();
+            lblReadiness2 = new Label();
+            lblReadiness3 = new Label();
+            lblReadiness4 = new Label();
+            lblReadiness5 = new Label();
+            lblReadiness6 = new Label();
             grpSessionInfo = new GroupBox();
             lblSessionInfoRegion = new Label();
             lblSessionInfoFormat = new Label();
@@ -166,6 +274,7 @@ namespace TimelapseCapture
             grpCaptureSettings.SuspendLayout();
             grpSession.SuspendLayout();
             grpOutput.SuspendLayout();
+            grpReadiness.SuspendLayout();
             grpSessionInfo.SuspendLayout();
             grpEncodingSettings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).BeginInit();
@@ -206,9 +315,9 @@ namespace TimelapseCapture
             btnSelectRegion.ForeColor = Color.OrangeRed;
             btnSelectRegion.Location = new Point(15, 66);
             btnSelectRegion.Name = "btnSelectRegion";
-            btnSelectRegion.Size = new Size(110, 32);
+            btnSelectRegion.Size = new Size(130, 32);
             btnSelectRegion.TabIndex = 3;
-            btnSelectRegion.Text = "📐 Select";
+            btnSelectRegion.Text = "📐 Select Region";
             btnSelectRegion.UseVisualStyleBackColor = true;
             btnSelectRegion.Click += btnSelectRegion_Click;
             // 
@@ -216,9 +325,9 @@ namespace TimelapseCapture
             // 
             btnFullScreen.FlatStyle = FlatStyle.Flat;
             btnFullScreen.ForeColor = Color.DeepSkyBlue;
-            btnFullScreen.Location = new Point(131, 66);
+            btnFullScreen.Location = new Point(154, 66);
             btnFullScreen.Name = "btnFullScreen";
-            btnFullScreen.Size = new Size(140, 32);
+            btnFullScreen.Size = new Size(137, 32);
             btnFullScreen.TabIndex = 5;
             btnFullScreen.Text = "🖥️ Full Screen ▼";
             btnFullScreen.UseVisualStyleBackColor = true;
@@ -288,9 +397,9 @@ namespace TimelapseCapture
             // 
             btnNewSession.FlatStyle = FlatStyle.Flat;
             btnNewSession.ForeColor = Color.FromArgb(0, 200, 100);
-            btnNewSession.Location = new Point(300, 24);
+            btnNewSession.Location = new Point(299, 27);
             btnNewSession.Name = "btnNewSession";
-            btnNewSession.Size = new Size(84, 32);
+            btnNewSession.Size = new Size(58, 32);
             btnNewSession.TabIndex = 2;
             btnNewSession.Text = "🆕 New";
             btnNewSession.UseVisualStyleBackColor = true;
@@ -300,9 +409,9 @@ namespace TimelapseCapture
             // 
             btnLoadSession.FlatStyle = FlatStyle.Flat;
             btnLoadSession.ForeColor = Color.DodgerBlue;
-            btnLoadSession.Location = new Point(341, 24);
+            btnLoadSession.Location = new Point(367, 26);
             btnLoadSession.Name = "btnLoadSession";
-            btnLoadSession.Size = new Size(84, 32);
+            btnLoadSession.Size = new Size(64, 32);
             btnLoadSession.TabIndex = 3;
             btnLoadSession.Text = "📂 Load";
             btnLoadSession.UseVisualStyleBackColor = true;
@@ -312,9 +421,9 @@ namespace TimelapseCapture
             // 
             btnShowRegion.FlatStyle = FlatStyle.Flat;
             btnShowRegion.ForeColor = Color.MediumPurple;
-            btnShowRegion.Location = new Point(284, 66);
+            btnShowRegion.Location = new Point(301, 66);
             btnShowRegion.Name = "btnShowRegion";
-            btnShowRegion.Size = new Size(110, 32);
+            btnShowRegion.Size = new Size(130, 32);
             btnShowRegion.TabIndex = 4;
             btnShowRegion.Text = "👁 Show";
             btnShowRegion.UseVisualStyleBackColor = true;
@@ -378,7 +487,7 @@ namespace TimelapseCapture
             // 
             lblEstimate.Location = new Point(15, 50);
             lblEstimate.Name = "lblEstimate";
-            lblEstimate.Size = new Size(430, 42);
+            lblEstimate.Size = new Size(424, 42);
             lblEstimate.TabIndex = 1;
             lblEstimate.Text = "No frames captured yet";
             // 
@@ -549,7 +658,7 @@ namespace TimelapseCapture
             grpSession.Controls.Add(btnStart);
             grpSession.Controls.Add(btnStop);
             grpSession.ForeColor = Color.LightGray;
-            grpSession.Location = new Point(15, 340);
+            grpSession.Location = new Point(20, 533);
             grpSession.Name = "grpSession";
             grpSession.Size = new Size(445, 135);
             grpSession.TabIndex = 1;
@@ -567,12 +676,94 @@ namespace TimelapseCapture
             grpOutput.Controls.Add(btnEncode);
             grpOutput.Controls.Add(btnOpenFolder);
             grpOutput.ForeColor = Color.LightGray;
-            grpOutput.Location = new Point(15, 485);
+            grpOutput.Location = new Point(20, 342);
             grpOutput.Name = "grpOutput";
             grpOutput.Size = new Size(440, 175);
             grpOutput.TabIndex = 2;
             grpOutput.TabStop = false;
             grpOutput.Text = "Output";
+            // 
+            // grpReadiness
+            // 
+            grpReadiness.Controls.Add(lblReadiness1);
+            grpReadiness.Controls.Add(lblReadiness2);
+            grpReadiness.Controls.Add(lblReadiness3);
+            grpReadiness.Controls.Add(lblReadiness4);
+            grpReadiness.Controls.Add(lblReadiness5);
+            grpReadiness.Controls.Add(lblReadiness6);
+            grpReadiness.ForeColor = Color.LightGray;
+            grpReadiness.Location = new Point(490, 8);
+            grpReadiness.Name = "grpReadiness";
+            grpReadiness.Size = new Size(280, 140);
+            grpReadiness.TabIndex = 3;
+            grpReadiness.TabStop = false;
+            grpReadiness.Text = "Status";
+            // 
+            // lblReadiness1
+            // 
+            lblReadiness1.AutoSize = true;
+            lblReadiness1.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness1.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness1.Location = new Point(10, 25);
+            lblReadiness1.Name = "lblReadiness1";
+            lblReadiness1.Size = new Size(145, 13);
+            lblReadiness1.TabIndex = 0;
+            lblReadiness1.Text = "📁 Output: Not configured";
+            // 
+            // lblReadiness2
+            // 
+            lblReadiness2.AutoSize = true;
+            lblReadiness2.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness2.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness2.Location = new Point(10, 45);
+            lblReadiness2.Name = "lblReadiness2";
+            lblReadiness2.Size = new Size(148, 13);
+            lblReadiness2.TabIndex = 1;
+            lblReadiness2.Text = "🎬 FFmpeg: Not configured";
+            // 
+            // lblReadiness3
+            // 
+            lblReadiness3.AutoSize = true;
+            lblReadiness3.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness3.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness3.Location = new Point(10, 65);
+            lblReadiness3.Name = "lblReadiness3";
+            lblReadiness3.Size = new Size(125, 13);
+            lblReadiness3.TabIndex = 2;
+            lblReadiness3.Text = "📋 Session: Not created";
+            // 
+            // lblReadiness4
+            // 
+            lblReadiness4.AutoSize = true;
+            lblReadiness4.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness4.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness4.Location = new Point(10, 85);
+            lblReadiness4.Name = "lblReadiness4";
+            lblReadiness4.Size = new Size(129, 13);
+            lblReadiness4.TabIndex = 3;
+            lblReadiness4.Text = "🎯 Region: Not selected";
+            // 
+            // lblReadiness5
+            // 
+            lblReadiness5.AutoSize = true;
+            lblReadiness5.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness5.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness5.Location = new Point(10, 105);
+            lblReadiness5.Name = "lblReadiness5";
+            lblReadiness5.Size = new Size(116, 13);
+            lblReadiness5.TabIndex = 4;
+            lblReadiness5.Text = "▶️ Capture: Not ready";
+            // 
+            // lblReadiness6
+            // 
+            lblReadiness6.AutoSize = true;
+            lblReadiness6.Font = new Font("Segoe UI", 8.25F);
+            lblReadiness6.ForeColor = Color.FromArgb(180, 180, 180);
+            lblReadiness6.Location = new Point(155, 25);
+            lblReadiness6.Name = "lblReadiness6";
+            lblReadiness6.Size = new Size(116, 13);
+            lblReadiness6.TabIndex = 5;
+            lblReadiness6.Text = "🎬 Encode: Not ready";
             // 
             // grpSessionInfo
             // 
@@ -581,10 +772,10 @@ namespace TimelapseCapture
             grpSessionInfo.Controls.Add(lblSessionInfoQuality);
             grpSessionInfo.Controls.Add(lblSessionInfoInterval);
             grpSessionInfo.ForeColor = Color.LightGray;
-            grpSessionInfo.Location = new Point(490, 15);
+            grpSessionInfo.Location = new Point(490, 158);
             grpSessionInfo.Name = "grpSessionInfo";
-            grpSessionInfo.Size = new Size(280, 145);
-            grpSessionInfo.TabIndex = 3;
+            grpSessionInfo.Size = new Size(280, 140);
+            grpSessionInfo.TabIndex = 4;
             grpSessionInfo.TabStop = false;
             grpSessionInfo.Text = "📋 Session Settings (Locked)";
             // 
@@ -634,10 +825,10 @@ namespace TimelapseCapture
             grpEncodingSettings.Controls.Add(lblVideoCodecText);
             grpEncodingSettings.Controls.Add(cmbVideoCodec);
             grpEncodingSettings.ForeColor = Color.LightGray;
-            grpEncodingSettings.Location = new Point(490, 170);
+            grpEncodingSettings.Location = new Point(490, 308);
             grpEncodingSettings.Name = "grpEncodingSettings";
-            grpEncodingSettings.Size = new Size(280, 160);
-            grpEncodingSettings.TabIndex = 4;
+            grpEncodingSettings.Size = new Size(280, 167);
+            grpEncodingSettings.TabIndex = 5;
             grpEncodingSettings.TabStop = false;
             grpEncodingSettings.Text = "🎬 Encoding Settings";
             // 
@@ -730,9 +921,10 @@ namespace TimelapseCapture
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(785, 675);
+            ClientSize = new Size(785, 690);
             Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
+            Controls.Add(grpReadiness);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
             Controls.Add(grpCaptureSettings);
@@ -754,6 +946,8 @@ namespace TimelapseCapture
             grpSession.PerformLayout();
             grpOutput.ResumeLayout(false);
             grpOutput.PerformLayout();
+            grpReadiness.ResumeLayout(false);
+            grpReadiness.PerformLayout();
             grpSessionInfo.ResumeLayout(false);
             grpEncodingSettings.ResumeLayout(false);
             grpEncodingSettings.PerformLayout();

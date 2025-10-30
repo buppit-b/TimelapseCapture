@@ -24,9 +24,12 @@ namespace TimelapseCapture
         /// <summary>
         /// Validates that a region is not empty and has valid dimensions.
         /// </summary>
-        public static bool IsRegionSelected(Rectangle region)
+        /// <remarks>
+        /// Method deprecated and is fully removed. Use nullable Rectangle? and HasValue for region presence checks instead.
+        /// </remarks>
+        public static bool IsRegionSelected(Rectangle? region)
         {
-            return region.Width > 0 && region.Height > 0;
+            return region.HasValue && region.Value.Width > 0 && region.Value.Height > 0;
         }
 
         /// <summary>
@@ -141,3 +144,4 @@ namespace TimelapseCapture
         }
     }
 }
+
