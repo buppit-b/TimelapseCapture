@@ -287,7 +287,7 @@ namespace TimelapseCapture
                     hasRegion ? ReadinessStatus.Ready :
                     ReadinessStatus.Warning,
                     !hasSession ? "Create session first" :
-                    hasRegion ? $"{captureRegion.Value.Width}×{captureRegion.Value.Height}" : // ✅ FIX Issue #3
+                    hasRegion && captureRegion.HasValue ? $"{captureRegion.Value.Width}×{captureRegion.Value.Height}" :
                     "Click 'Select' or 'Full Screen'",
                     "🎯"
                 ),
@@ -1945,7 +1945,6 @@ namespace TimelapseCapture
                 UIHelper.ShowInfo(Constants.MSG_NO_SESSION, "Create Session First");
                 return false;
             }
-
             // Get current settings
             int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
             var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
@@ -1953,7 +1952,15 @@ namespace TimelapseCapture
 
             // Validate session settings match
             // ✅ FIX Issue #3: Pass nullable value properly
-            if (!SessionManager.ValidateSessionSettings(_activeSession!, captureRegion.Value, format, quality))
+            if (_activeSession != null && captureRegion.HasValue) // FIX: avoid CS8629
+            {
+                if (!SessionManager.ValidateSessionSettings(_activeSession, captureRegion.Value, format, quality))
+                {
+                    return HandleSessionSettingsMismatch(sender, e, intervalSec, format, quality);
+                }
+            }
+            // If we can't validate (session or region null), continue as not matching
+            else
             {
                 return HandleSessionSettingsMismatch(sender, e, intervalSec, format, quality);
             }
@@ -1966,17 +1973,22 @@ namespace TimelapseCapture
         /// </summary>
         private bool HandleSessionSettingsMismatch(object? sender, EventArgs e, int intervalSec, string format, int quality)
         {
-            string mismatchMessage = ValidationHelper.BuildSettingsMismatchMessage(_activeSession!, captureRegion.Value, format, quality); // ✅ FIX Issue #3
-            
+            // Defensive: Ensure _activeSession and captureRegion are non-null
+            if (_activeSession == null || !captureRegion.HasValue)
+            {
+                UIHelper.ShowError("Session or region missing when handling settings mismatch.", "Internal Error");
+                return false;
+            }
+            string mismatchMessage = ValidationHelper.BuildSettingsMismatchMessage(_activeSession, captureRegion.Value, format, quality);
             var result = UIHelper.ShowQuestion(mismatchMessage, "Settings Mismatch");
 
             if (result == DialogResult.Yes)
             {
-                SessionManager.MarkSessionInactive(_activeSessionFolder!);
+                if (_activeSessionFolder != null)
+                    SessionManager.MarkSessionInactive(_activeSessionFolder);
                 btnNewSession_Click(sender, e);
                 return ValidationHelper.HasActiveSession(_activeSession);
             }
-
             return false;
         }
 

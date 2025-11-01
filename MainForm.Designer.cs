@@ -67,12 +67,12 @@ namespace TimelapseCapture
         private System.Windows.Forms.GroupBox grpEncodingSettings;
 
         // === Readiness Panel Labels ===
-        private System.Windows.Forms.Label? lblReadiness1;
-        private System.Windows.Forms.Label? lblReadiness2;
-        private System.Windows.Forms.Label? lblReadiness3;
-        private System.Windows.Forms.Label? lblReadiness4;
-        private System.Windows.Forms.Label? lblReadiness5;
-        private System.Windows.Forms.Label? lblReadiness6;
+        private System.Windows.Forms.Label lblReadiness1;
+        private System.Windows.Forms.Label lblReadiness2;
+        private System.Windows.Forms.Label lblReadiness3;
+        private System.Windows.Forms.Label lblReadiness4;
+        private System.Windows.Forms.Label lblReadiness5;
+        private System.Windows.Forms.Label lblReadiness6;
 
         // === Session Info Panel Labels ===
         private System.Windows.Forms.Label lblSessionInfoRegion;
