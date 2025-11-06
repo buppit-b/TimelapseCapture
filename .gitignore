@@ -41,3 +41,6 @@ timelapse/
 
 #claude mess
 claude/
+
+# Internal documentation
+PROJECT.md

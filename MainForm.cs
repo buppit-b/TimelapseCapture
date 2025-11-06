@@ -391,7 +391,10 @@ namespace TimelapseCapture
 
             _uiUpdateTimer = new System.Windows.Forms.Timer();
             _uiUpdateTimer.Interval = Constants.UI_UPDATE_INTERVAL_MS;
-            _uiUpdateTimer.Tick += (s, e) => UpdateCaptureTimer();
+            _uiUpdateTimer.Tick += (s, e) => {
+                UpdateCaptureTimer();
+                UpdateResourceMonitoring();
+            };
             _uiUpdateTimer.Start();
 
             // Initialize region overlay
@@ -683,7 +686,12 @@ namespace TimelapseCapture
 
             if (cmbFormat != null) cmbFormat.SelectedItem = settings.Format ?? "JPEG";
             if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
-            if (numDesiredSec != null) numDesiredSec.Value = 30;
+            if (numDesiredSec != null) 
+            {
+                numDesiredSec.Value = 30;
+                numDesiredSec.Visible = true; // Ensure visible
+                numDesiredSec.ValueChanged += numDesiredSec_ValueChanged; // Wire up event handler
+            }
 
             // Load and validate saved region
             if (settings.Region.HasValue && _activeSession == null)
@@ -1396,6 +1404,16 @@ namespace TimelapseCapture
         #region UI Event Handlers
 
         /// <summary>
+        /// Handle desired video length change.
+        /// Updates the planning estimate in real-time.
+        /// </summary>
+        private void numDesiredSec_ValueChanged(object? sender, EventArgs e)
+        {
+            // Update planning estimate immediately
+            UpdateCaptureTimer();
+        }
+
+        /// <summary>
         /// Handle full screen button click.
         /// Shows context menu with all available monitors.
         /// </summary>
@@ -1775,6 +1793,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Handle interval value change - update estimates and validate if session active.
+        /// ✅ FIX: Now properly saves interval changes to active session.
         /// </summary>
         private void numInterval_ValueChanged(object? sender, EventArgs e)
         {
@@ -1809,23 +1828,47 @@ namespace TimelapseCapture
                     }
                     else
                     {
-                        // User accepted - mark that interval has changed
-                        // (We'll track this in the session)
+                        // User accepted - update session and mark interval as changed
+                        _activeSession.IntervalSeconds = newInterval;
+                        _activeSession.IntervalChanged = true;
+                        if (_activeSessionFolder != null)
+                            SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                        UpdateSessionInfoPanel();
+                        SaveSettings();
+                        Logger.Log("Settings", $"Interval updated in session: {newInterval}s");
                     }
                 }
+            }
+            else if (_activeSession != null && _activeSession.FramesCaptured == 0)
+            {
+                // Session exists but no frames yet - safe to update
+                int newInterval = (int)(numInterval?.Value ?? 5);
+                _activeSession.IntervalSeconds = newInterval;
+                if (_activeSessionFolder != null)
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                UpdateSessionInfoPanel();
+                SaveSettings();
+                Logger.Log("Settings", $"Interval updated in new session: {newInterval}s");
+            }
+            else
+            {
+                // No session - just update settings
+                SaveSettings();
             }
         }
 
         /// <summary>
         /// Handle format dropdown change.
         /// Validates against active session and updates quality control visibility.
+        /// ✅ FIX: Now properly saves format changes to active session when safe.
         /// </summary>
         private void cmbFormat_SelectedIndexChanged(object? sender, EventArgs e)
         {
+            var newFormat = cmbFormat?.SelectedItem?.ToString();
+            
             // Only validate if there's an active session with frames
             if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
             {
-                var newFormat = cmbFormat?.SelectedItem?.ToString();
                 if (newFormat != _activeSession.ImageFormat)
                 {
                     MessageBox.Show(
@@ -1838,8 +1881,18 @@ namespace TimelapseCapture
                     return;
                 }
             }
+            else if (_activeSession != null && _activeSession.FramesCaptured == 0 && newFormat != null)
+            {
+                // Session exists but no frames yet - safe to update
+                _activeSession.ImageFormat = newFormat;
+                if (_activeSessionFolder != null)
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                UpdateSessionInfoPanel();
+                Logger.Log("Settings", $"Format updated in new session: {newFormat}");
+            }
 
             UpdateQualityControls();
+            SaveSettings();
         }
 
         /// <summary>
@@ -1857,6 +1910,7 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Handle quality numeric control change - sync with trackbar.
+        /// ✅ FIX: Now properly saves quality changes to active session.
         /// </summary>
         private void numQuality_ValueChanged(object? sender, EventArgs e)
         {
@@ -1866,6 +1920,19 @@ namespace TimelapseCapture
                 if (lblQuality != null)
                     lblQuality.Text = $"JPEG Quality: {(int)numQuality.Value}";
             }
+            
+            // Update active session if exists and no frames captured yet
+            if (_activeSession != null && _activeSession.FramesCaptured == 0)
+            {
+                int newQuality = (int)(numQuality?.Value ?? 90);
+                _activeSession.JpegQuality = newQuality;
+                if (_activeSessionFolder != null)
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                UpdateSessionInfoPanel();
+                Logger.Log("Settings", $"Quality updated in session: {newQuality}");
+            }
+            
+            SaveSettings();
         }
 
         /// <summary>
@@ -2025,7 +2092,10 @@ namespace TimelapseCapture
             // User may have fixed issues since last error
             _consecutiveCaptureErrors = 0;
 
-            var intervalMs = intervalSec * 1000;
+            // ✅ NEW: Support sub-second intervals
+            // Convert decimal seconds to milliseconds for timer
+            double intervalSeconds = (double)(numInterval?.Value ?? 5.0m);
+            int intervalMs = (int)(intervalSeconds * 1000);
             _captureTimer = new System.Threading.Timer(CaptureFrame, null, 0, intervalMs);
             
             // Update UI
@@ -2479,7 +2549,11 @@ namespace TimelapseCapture
                     lblSessionInfoQuality.Visible = true;
                 }
 
-                lblSessionInfoInterval.Text = $"⏱ Interval: {_activeSession.IntervalSeconds}s";
+                // Show actual decimal interval if it differs from stored integer
+                decimal actualInterval = numInterval?.Value ?? _activeSession.IntervalSeconds;
+                lblSessionInfoInterval.Text = actualInterval % 1 == 0 
+                    ? $"⏱ Interval: {actualInterval:F0}s"
+                    : $"⏱ Interval: {actualInterval:F1}s";
                 lblSessionInfoInterval.ForeColor = Color.FromArgb(100, 200, 255);
 
                 // Change panel title based on state
@@ -2660,6 +2734,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Update the real-time capture counter display.
         /// Called by timer every 500ms.
+        /// ✅ NEW: Uses dynamic desired video length from numDesiredSec control.
         /// </summary>
         private void UpdateCaptureTimer()
         {
@@ -2670,17 +2745,20 @@ namespace TimelapseCapture
                 // No active session or no frames yet
                 if (!IsCapturing)
                 {
-                    // Show planning mode
+                    // Show planning mode - use user-specified desired video length
                     int desiredSec = (int)(numDesiredSec?.Value ?? 30);
-                    int interval = (int)(numInterval?.Value ?? 5);
+                    double interval = (double)(numInterval?.Value ?? 5.0m); // Support decimal intervals
                     int neededFrames = desiredSec * _targetFrameRate; // Use dynamic FPS
                     double captureTimeSeconds = neededFrames * interval;
 
                     string captureTimeDisplay = FormatElapsedTime(captureTimeSeconds);
 
+                    // Format interval display
+                    string intervalDisplay = interval % 1 == 0 ? $"{interval:F0}s" : $"{interval:F1}s";
+
                     lblEstimate.Text =
                         $"Planning: {neededFrames} frames needed for {desiredSec}s video @ {_targetFrameRate}fps\n" +
-                        $"Estimated capture time: {captureTimeDisplay} @ {interval}s intervals";
+                        $"Estimated capture time: {captureTimeDisplay} @ {intervalDisplay} intervals";
                 }
                 else
                 {
@@ -2740,6 +2818,98 @@ namespace TimelapseCapture
                     $"⏹  {timeDisplay}  |  {frames} frames{warningIcon}\n" +
                     videoLengthDisplay;
             }
+        }
+
+        /// <summary>
+        /// Update resource monitoring display (storage and memory).
+        /// Called by UI update timer every 500ms.
+        /// </summary>
+        private void UpdateResourceMonitoring()
+        {
+            if (lblStorageInfo == null || lblResourceInfo == null) return;
+
+            try
+            {
+                // Get current settings once to avoid scope conflicts
+                string currentFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
+                int currentQuality = (int)(numQuality?.Value ?? 90);
+                decimal currentInterval = numInterval?.Value ?? 5;
+                int desiredSec = (int)(numDesiredSec?.Value ?? 30);
+
+                // Update storage information
+                if (_activeSession != null && captureRegion.HasValue)
+                {
+                    var region = captureRegion.Value;
+                    int currentFrames = (int)_activeSession.FramesCaptured;
+                    int projectedFrames = desiredSec * _targetFrameRate;
+                    
+                    string storageInfo = SystemMonitor.GetStorageInfoString(
+                        _activeSessionFolder,
+                        region.Width,
+                        region.Height,
+                        currentFormat,
+                        currentQuality,
+                        currentFrames,
+                        Math.Max(currentFrames, projectedFrames)
+                    );
+                    
+                    UIHelper.SafeSetText(lblStorageInfo, storageInfo);
+                }
+                else if (captureRegion.HasValue)
+                {
+                    // Show planning info even without session
+                    var region = captureRegion.Value;
+                    int projectedFrames = desiredSec * _targetFrameRate;
+                    
+                    string storageInfo = SystemMonitor.GetStorageInfoString(
+                        settings.SaveFolder ?? string.Empty,
+                        region.Width,
+                        region.Height,
+                        currentFormat,
+                        currentQuality,
+                        0,
+                        projectedFrames
+                    );
+                    
+                    UIHelper.SafeSetText(lblStorageInfo, storageInfo);
+                }
+                else
+                {
+                    UIHelper.SafeSetText(lblStorageInfo, "Select region to see storage estimates");
+                }
+
+                // Update resource usage
+                string resourceInfo = SystemMonitor.GetResourcesInfoString();
+                
+                UIHelper.SafeSetText(lblResourceInfo, resourceInfo);
+            }
+            catch (Exception ex)
+            {
+                // Silently fail - resource monitoring is not critical
+                System.Diagnostics.Debug.WriteLine($"Resource monitoring error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle CRF (quality) value change.
+        /// Updates the label to show quality description.
+        /// </summary>
+        private void numCrf_ValueChanged(object? sender, EventArgs e)
+        {
+            if (numCrf == null || lblCrfText == null) return;
+
+            int crf = (int)numCrf.Value;
+            string description = crf switch
+            {
+                <= 18 => "(Visually Lossless)",
+                <= 20 => "(Excellent)",
+                <= 23 => "(Balanced)",
+                <= 28 => "(Good)",
+                <= 35 => "(Acceptable)",
+                _ => "(Low Quality)"
+            };
+
+            lblCrfText.Text = $"Quality (CRF): {crf} {description}";
         }
 
         #endregion
@@ -3041,7 +3211,8 @@ namespace TimelapseCapture
         /// </summary>
         private string BuildFfmpegArguments(string fileListPath, string outputPath, string preset)
         {
-            return $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {_targetFrameRate} -c:v libx264 -preset {preset} -crf 23 \"{outputPath}\"";
+            int crf = (int)(numCrf?.Value ?? 23);
+            return $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {_targetFrameRate} -c:v libx264 -preset {preset} -crf {crf} \"{outputPath}\"";
         }
 
         /// <summary>

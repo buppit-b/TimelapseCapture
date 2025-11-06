@@ -41,6 +41,7 @@ namespace TimelapseCapture
         private System.Windows.Forms.Label lblFormatText;
         private System.Windows.Forms.Label lblFfmpegText;
         private System.Windows.Forms.Label lblAspectRatioText;
+        private System.Windows.Forms.Label lblDesiredVideoLength;
 
         // === Text Boxes ===
         private System.Windows.Forms.TextBox txtSessionName;
@@ -80,6 +81,11 @@ namespace TimelapseCapture
         private System.Windows.Forms.Label lblSessionInfoQuality;
         private System.Windows.Forms.Label lblSessionInfoInterval;
         
+        // === Resource Monitoring Labels ===
+        private System.Windows.Forms.GroupBox grpResources;
+        private System.Windows.Forms.Label lblStorageInfo;
+        private System.Windows.Forms.Label lblResourceInfo;
+        
         // === Encoding Settings Controls ===
         private System.Windows.Forms.Label lblFrameRateText;
         private System.Windows.Forms.ComboBox cmbFrameRate;
@@ -88,6 +94,8 @@ namespace TimelapseCapture
         private System.Windows.Forms.ComboBox cmbEncodingPreset;
         private System.Windows.Forms.Label lblVideoCodecText;
         private System.Windows.Forms.ComboBox cmbVideoCodec;
+        private System.Windows.Forms.Label lblCrfText;
+        private System.Windows.Forms.NumericUpDown numCrf;
 
         #endregion
 
@@ -236,6 +244,7 @@ namespace TimelapseCapture
             lblFormatText = new Label();
             lblFfmpegText = new Label();
             lblAspectRatioText = new Label();
+            lblDesiredVideoLength = new Label();
             txtSessionName = new TextBox();
             txtFfmpegPath = new TextBox();
             numInterval = new NumericUpDown();
@@ -267,6 +276,11 @@ namespace TimelapseCapture
             cmbEncodingPreset = new ComboBox();
             lblVideoCodecText = new Label();
             cmbVideoCodec = new ComboBox();
+            lblCrfText = new Label();
+            numCrf = new NumericUpDown();
+            grpResources = new GroupBox();
+            lblStorageInfo = new Label();
+            lblResourceInfo = new Label();
             ((System.ComponentModel.ISupportInitialize)numInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numQuality).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).BeginInit();
@@ -278,6 +292,8 @@ namespace TimelapseCapture
             grpSessionInfo.SuspendLayout();
             grpEncodingSettings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numCrf).BeginInit();
+            grpResources.SuspendLayout();
             SuspendLayout();
             // 
             // btnStart
@@ -442,7 +458,7 @@ namespace TimelapseCapture
             // 
             lblRegion.Location = new Point(15, 111);
             lblRegion.Name = "lblRegion";
-            lblRegion.Size = new Size(430, 25);
+            lblRegion.Size = new Size(416, 25);
             lblRegion.TabIndex = 5;
             lblRegion.Text = "No region selected";
             // 
@@ -450,7 +466,7 @@ namespace TimelapseCapture
             // 
             lblFullScreenInfo.Location = new Point(287, 66);
             lblFullScreenInfo.Name = "lblFullScreenInfo";
-            lblFullScreenInfo.Size = new Size(158, 32);
+            lblFullScreenInfo.Size = new Size(157, 32);
             lblFullScreenInfo.TabIndex = 6;
             lblFullScreenInfo.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -527,6 +543,16 @@ namespace TimelapseCapture
             lblAspectRatioText.TabIndex = 6;
             lblAspectRatioText.Text = "Aspect Ratio:";
             // 
+            // lblDesiredVideoLength
+            // 
+            lblDesiredVideoLength.AutoSize = true;
+            lblDesiredVideoLength.ForeColor = Color.FromArgb(150, 150, 150);
+            lblDesiredVideoLength.Location = new Point(294, 53);
+            lblDesiredVideoLength.Name = "lblDesiredVideoLength";
+            lblDesiredVideoLength.Size = new Size(60, 15);
+            lblDesiredVideoLength.TabIndex = 5;
+            lblDesiredVideoLength.Text = "length (s):";
+            // 
             // txtSessionName
             // 
             txtSessionName.BackColor = SystemColors.InactiveCaptionText;
@@ -554,10 +580,12 @@ namespace TimelapseCapture
             // 
             numInterval.BackColor = SystemColors.InactiveCaptionText;
             numInterval.BorderStyle = BorderStyle.FixedSingle;
+            numInterval.DecimalPlaces = 1;
             numInterval.ForeColor = SystemColors.ScrollBar;
+            numInterval.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
             numInterval.Location = new Point(124, 192);
             numInterval.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
-            numInterval.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numInterval.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
             numInterval.Name = "numInterval";
             numInterval.Size = new Size(80, 23);
             numInterval.TabIndex = 9;
@@ -578,11 +606,16 @@ namespace TimelapseCapture
             // 
             // numDesiredSec
             // 
-            numDesiredSec.Location = new Point(0, 0);
+            numDesiredSec.BackColor = SystemColors.InactiveCaptionText;
+            numDesiredSec.BorderStyle = BorderStyle.FixedSingle;
+            numDesiredSec.ForeColor = SystemColors.ScrollBar;
+            numDesiredSec.Location = new Point(360, 48);
+            numDesiredSec.Maximum = new decimal(new int[] { 600, 0, 0, 0 });
+            numDesiredSec.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numDesiredSec.Name = "numDesiredSec";
-            numDesiredSec.Size = new Size(0, 23);
-            numDesiredSec.TabIndex = 0;
-            numDesiredSec.Visible = false;
+            numDesiredSec.Size = new Size(70, 23);
+            numDesiredSec.TabIndex = 4;
+            numDesiredSec.Value = new decimal(new int[] { 30, 0, 0, 0 });
             // 
             // cmbFormat
             // 
@@ -653,6 +686,8 @@ namespace TimelapseCapture
             // 
             // grpSession
             // 
+            grpSession.Controls.Add(lblDesiredVideoLength);
+            grpSession.Controls.Add(numDesiredSec);
             grpSession.Controls.Add(lblStatus);
             grpSession.Controls.Add(lblEstimate);
             grpSession.Controls.Add(btnStart);
@@ -822,6 +857,8 @@ namespace TimelapseCapture
             grpEncodingSettings.Controls.Add(numCustomFrameRate);
             grpEncodingSettings.Controls.Add(lblEncodingPresetText);
             grpEncodingSettings.Controls.Add(cmbEncodingPreset);
+            grpEncodingSettings.Controls.Add(lblCrfText);
+            grpEncodingSettings.Controls.Add(numCrf);
             grpEncodingSettings.Controls.Add(lblVideoCodecText);
             grpEncodingSettings.Controls.Add(cmbVideoCodec);
             grpEncodingSettings.ForeColor = Color.LightGray;
@@ -892,13 +929,36 @@ namespace TimelapseCapture
             cmbEncodingPreset.Size = new Size(260, 23);
             cmbEncodingPreset.TabIndex = 4;
             // 
+            // lblCrfText
+            // 
+            lblCrfText.AutoSize = true;
+            lblCrfText.Location = new Point(10, 131);
+            lblCrfText.Name = "lblCrfText";
+            lblCrfText.Size = new Size(158, 15);
+            lblCrfText.TabIndex = 5;
+            lblCrfText.Text = "Quality (CRF): 23 (Balanced)";
+            // 
+            // numCrf
+            // 
+            numCrf.BackColor = SystemColors.InactiveCaptionText;
+            numCrf.BorderStyle = BorderStyle.FixedSingle;
+            numCrf.ForeColor = SystemColors.ScrollBar;
+            numCrf.Location = new Point(180, 129);
+            numCrf.Maximum = new decimal(new int[] { 51, 0, 0, 0 });
+            numCrf.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            numCrf.Name = "numCrf";
+            numCrf.Size = new Size(90, 23);
+            numCrf.TabIndex = 6;
+            numCrf.Value = new decimal(new int[] { 23, 0, 0, 0 });
+            numCrf.ValueChanged += numCrf_ValueChanged;
+            // 
             // lblVideoCodecText
             // 
             lblVideoCodecText.AutoSize = true;
-            lblVideoCodecText.Location = new Point(10, 131);
+            lblVideoCodecText.Location = new Point(10, 200);
             lblVideoCodecText.Name = "lblVideoCodecText";
             lblVideoCodecText.Size = new Size(44, 15);
-            lblVideoCodecText.TabIndex = 5;
+            lblVideoCodecText.TabIndex = 7;
             lblVideoCodecText.Text = "Codec:";
             lblVideoCodecText.Visible = false;
             // 
@@ -910,11 +970,41 @@ namespace TimelapseCapture
             cmbVideoCodec.ForeColor = SystemColors.ScrollBar;
             cmbVideoCodec.FormattingEnabled = true;
             cmbVideoCodec.Items.AddRange(new object[] { "H.264 (Best compatibility)", "H.265 (Smaller files)" });
-            cmbVideoCodec.Location = new Point(65, 128);
+            cmbVideoCodec.Location = new Point(65, 197);
             cmbVideoCodec.Name = "cmbVideoCodec";
             cmbVideoCodec.Size = new Size(205, 23);
-            cmbVideoCodec.TabIndex = 6;
+            cmbVideoCodec.TabIndex = 8;
             cmbVideoCodec.Visible = false;
+            // 
+            // grpResources
+            // 
+            grpResources.Controls.Add(lblStorageInfo);
+            grpResources.Controls.Add(lblResourceInfo);
+            grpResources.ForeColor = Color.LightGray;
+            grpResources.Location = new Point(490, 485);
+            grpResources.Name = "grpResources";
+            grpResources.Size = new Size(280, 183);
+            grpResources.TabIndex = 6;
+            grpResources.TabStop = false;
+            grpResources.Text = "💾 Resources";
+            // 
+            // lblStorageInfo
+            // 
+            lblStorageInfo.ForeColor = Color.FromArgb(180, 180, 180);
+            lblStorageInfo.Location = new Point(10, 25);
+            lblStorageInfo.Name = "lblStorageInfo";
+            lblStorageInfo.Size = new Size(260, 100);
+            lblStorageInfo.TabIndex = 0;
+            lblStorageInfo.Text = "No storage data";
+            // 
+            // lblResourceInfo
+            // 
+            lblResourceInfo.ForeColor = Color.FromArgb(180, 180, 180);
+            lblResourceInfo.Location = new Point(10, 135);
+            lblResourceInfo.Name = "lblResourceInfo";
+            lblResourceInfo.Size = new Size(260, 40);
+            lblResourceInfo.TabIndex = 1;
+            lblResourceInfo.Text = "No resource data";
             // 
             // MainForm
             // 
@@ -922,6 +1012,7 @@ namespace TimelapseCapture
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
             ClientSize = new Size(785, 690);
+            Controls.Add(grpResources);
             Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
             Controls.Add(grpReadiness);
@@ -952,6 +1043,8 @@ namespace TimelapseCapture
             grpEncodingSettings.ResumeLayout(false);
             grpEncodingSettings.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numCrf).EndInit();
+            grpResources.ResumeLayout(false);
             ResumeLayout(false);
         }
 
