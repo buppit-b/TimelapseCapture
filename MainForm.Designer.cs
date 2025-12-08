@@ -96,6 +96,19 @@ namespace TimelapseCapture
         private System.Windows.Forms.ComboBox cmbVideoCodec;
         private System.Windows.Forms.Label lblCrfText;
         private System.Windows.Forms.NumericUpDown numCrf;
+        
+        // === Smart Interval Controls ===
+        private System.Windows.Forms.GroupBox grpSmartInterval;
+        private System.Windows.Forms.CheckBox chkSmartInterval;
+        private System.Windows.Forms.NumericUpDown numActiveInterval;
+        private System.Windows.Forms.NumericUpDown numIdleThreshold;
+        private System.Windows.Forms.Label lblActiveIntervalText;
+        private System.Windows.Forms.Label lblIdleThresholdText;
+        private System.Windows.Forms.RadioButton rbSlowIdle;
+        private System.Windows.Forms.RadioButton rbSkipIdle;
+        private System.Windows.Forms.Label lblActivityStatus;
+        private System.Windows.Forms.ComboBox cmbSmartPreset;
+        private System.Windows.Forms.Label lblSmartPresetText;
 
         #endregion
 
@@ -172,6 +185,44 @@ namespace TimelapseCapture
                     finally
                     {
                         _settingsSaveTimer = null;
+                    }
+                }
+                
+                // ✅ NEW: Dispose activity update timer
+                if (_activityUpdateTimer != null)
+                {
+                    try
+                    {
+                        _activityUpdateTimer.Stop();
+                        _activityUpdateTimer.Dispose();
+                        Logger.Log("Lifecycle", "Activity update timer disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing activity update timer: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _activityUpdateTimer = null;
+                    }
+                }
+                
+                // ✅ NEW: Dispose activity monitor
+                if (_activityMonitor != null)
+                {
+                    try
+                    {
+                        _activityMonitor.Stop();
+                        _activityMonitor.Dispose();
+                        Logger.Log("Lifecycle", "Activity monitor disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("Lifecycle", $"Error disposing activity monitor: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _activityMonitor = null;
                     }
                 }
                 
@@ -274,13 +325,24 @@ namespace TimelapseCapture
             numCustomFrameRate = new NumericUpDown();
             lblEncodingPresetText = new Label();
             cmbEncodingPreset = new ComboBox();
-            lblVideoCodecText = new Label();
-            cmbVideoCodec = new ComboBox();
             lblCrfText = new Label();
             numCrf = new NumericUpDown();
+            lblVideoCodecText = new Label();
+            cmbVideoCodec = new ComboBox();
             grpResources = new GroupBox();
             lblStorageInfo = new Label();
             lblResourceInfo = new Label();
+            grpSmartInterval = new GroupBox();
+            chkSmartInterval = new CheckBox();
+            lblSmartPresetText = new Label();
+            cmbSmartPreset = new ComboBox();
+            lblActiveIntervalText = new Label();
+            numActiveInterval = new NumericUpDown();
+            lblIdleThresholdText = new Label();
+            numIdleThreshold = new NumericUpDown();
+            rbSlowIdle = new RadioButton();
+            rbSkipIdle = new RadioButton();
+            lblActivityStatus = new Label();
             ((System.ComponentModel.ISupportInitialize)numInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numQuality).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).BeginInit();
@@ -294,6 +356,9 @@ namespace TimelapseCapture
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numCrf).BeginInit();
             grpResources.SuspendLayout();
+            grpSmartInterval.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numActiveInterval).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numIdleThreshold).BeginInit();
             SuspendLayout();
             // 
             // btnStart
@@ -464,7 +529,7 @@ namespace TimelapseCapture
             // 
             // lblFullScreenInfo
             // 
-            lblFullScreenInfo.Location = new Point(287, 66);
+            lblFullScreenInfo.Location = new Point(268, 142);
             lblFullScreenInfo.Name = "lblFullScreenInfo";
             lblFullScreenInfo.Size = new Size(157, 32);
             lblFullScreenInfo.TabIndex = 6;
@@ -693,7 +758,7 @@ namespace TimelapseCapture
             grpSession.Controls.Add(btnStart);
             grpSession.Controls.Add(btnStop);
             grpSession.ForeColor = Color.LightGray;
-            grpSession.Location = new Point(20, 533);
+            grpSession.Location = new Point(20, 713);
             grpSession.Name = "grpSession";
             grpSession.Size = new Size(445, 135);
             grpSession.TabIndex = 1;
@@ -711,7 +776,7 @@ namespace TimelapseCapture
             grpOutput.Controls.Add(btnEncode);
             grpOutput.Controls.Add(btnOpenFolder);
             grpOutput.ForeColor = Color.LightGray;
-            grpOutput.Location = new Point(20, 342);
+            grpOutput.Location = new Point(20, 533);
             grpOutput.Name = "grpOutput";
             grpOutput.Size = new Size(440, 175);
             grpOutput.TabIndex = 2;
@@ -934,7 +999,7 @@ namespace TimelapseCapture
             lblCrfText.AutoSize = true;
             lblCrfText.Location = new Point(10, 131);
             lblCrfText.Name = "lblCrfText";
-            lblCrfText.Size = new Size(158, 15);
+            lblCrfText.Size = new Size(154, 15);
             lblCrfText.TabIndex = 5;
             lblCrfText.Text = "Quality (CRF): 23 (Balanced)";
             // 
@@ -945,7 +1010,6 @@ namespace TimelapseCapture
             numCrf.ForeColor = SystemColors.ScrollBar;
             numCrf.Location = new Point(180, 129);
             numCrf.Maximum = new decimal(new int[] { 51, 0, 0, 0 });
-            numCrf.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
             numCrf.Name = "numCrf";
             numCrf.Size = new Size(90, 23);
             numCrf.TabIndex = 6;
@@ -1006,18 +1070,160 @@ namespace TimelapseCapture
             lblResourceInfo.TabIndex = 1;
             lblResourceInfo.Text = "No resource data";
             // 
+            // grpSmartInterval
+            // 
+            grpSmartInterval.Controls.Add(chkSmartInterval);
+            grpSmartInterval.Controls.Add(lblSmartPresetText);
+            grpSmartInterval.Controls.Add(cmbSmartPreset);
+            grpSmartInterval.Controls.Add(lblActiveIntervalText);
+            grpSmartInterval.Controls.Add(numActiveInterval);
+            grpSmartInterval.Controls.Add(lblIdleThresholdText);
+            grpSmartInterval.Controls.Add(numIdleThreshold);
+            grpSmartInterval.Controls.Add(rbSlowIdle);
+            grpSmartInterval.Controls.Add(rbSkipIdle);
+            grpSmartInterval.Controls.Add(lblActivityStatus);
+            grpSmartInterval.ForeColor = Color.LightGray;
+            grpSmartInterval.Location = new Point(15, 340);
+            grpSmartInterval.Name = "grpSmartInterval";
+            grpSmartInterval.Size = new Size(445, 185);
+            grpSmartInterval.TabIndex = 7;
+            grpSmartInterval.TabStop = false;
+            grpSmartInterval.Text = "⚡ Smart Interval (Beta)";
+            // 
+            // chkSmartInterval
+            // 
+            chkSmartInterval.AutoSize = true;
+            chkSmartInterval.Location = new Point(15, 25);
+            chkSmartInterval.Name = "chkSmartInterval";
+            chkSmartInterval.Size = new Size(155, 19);
+            chkSmartInterval.TabIndex = 0;
+            chkSmartInterval.Text = "Enable Smart Capture";
+            chkSmartInterval.UseVisualStyleBackColor = true;
+            chkSmartInterval.CheckedChanged += chkSmartInterval_CheckedChanged;
+            // 
+            // lblSmartPresetText
+            // 
+            lblSmartPresetText.AutoSize = true;
+            lblSmartPresetText.Location = new Point(15, 55);
+            lblSmartPresetText.Name = "lblSmartPresetText";
+            lblSmartPresetText.Size = new Size(42, 15);
+            lblSmartPresetText.TabIndex = 1;
+            lblSmartPresetText.Text = "Preset:";
+            // 
+            // cmbSmartPreset
+            // 
+            cmbSmartPreset.BackColor = SystemColors.InactiveCaptionText;
+            cmbSmartPreset.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbSmartPreset.FlatStyle = FlatStyle.Popup;
+            cmbSmartPreset.ForeColor = SystemColors.ScrollBar;
+            cmbSmartPreset.FormattingEnabled = true;
+            cmbSmartPreset.Items.AddRange(new object[] { "Custom", "Painting/Drawing (Active: 2s, Idle: 10s)", "3D Modeling (Active: 3s, Idle: 15s)", "Coding (Active: 5s, Idle: 30s, Skip)", "Tutorial (Active: 1s, Idle: Skip)" });
+            cmbSmartPreset.Location = new Point(70, 52);
+            cmbSmartPreset.Name = "cmbSmartPreset";
+            cmbSmartPreset.Size = new Size(300, 23);
+            cmbSmartPreset.TabIndex = 2;
+            cmbSmartPreset.Enabled = false;
+            cmbSmartPreset.SelectedIndexChanged += cmbSmartPreset_SelectedIndexChanged;
+            // 
+            // lblActiveIntervalText
+            // 
+            lblActiveIntervalText.AutoSize = true;
+            lblActiveIntervalText.Location = new Point(15, 90);
+            lblActiveIntervalText.Name = "lblActiveIntervalText";
+            lblActiveIntervalText.Size = new Size(125, 15);
+            lblActiveIntervalText.TabIndex = 3;
+            lblActiveIntervalText.Text = "Active Interval (faster):";
+            // 
+            // numActiveInterval
+            // 
+            numActiveInterval.BackColor = SystemColors.InactiveCaptionText;
+            numActiveInterval.BorderStyle = BorderStyle.FixedSingle;
+            numActiveInterval.DecimalPlaces = 1;
+            numActiveInterval.ForeColor = SystemColors.ScrollBar;
+            numActiveInterval.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            numActiveInterval.Location = new Point(150, 87);
+            numActiveInterval.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
+            numActiveInterval.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
+            numActiveInterval.Name = "numActiveInterval";
+            numActiveInterval.Size = new Size(80, 23);
+            numActiveInterval.TabIndex = 4;
+            numActiveInterval.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            numActiveInterval.Enabled = false;
+            numActiveInterval.ValueChanged += numActiveInterval_ValueChanged;
+            // 
+            // lblIdleThresholdText
+            // 
+            lblIdleThresholdText.AutoSize = true;
+            lblIdleThresholdText.Location = new Point(250, 90);
+            lblIdleThresholdText.Name = "lblIdleThresholdText";
+            lblIdleThresholdText.Size = new Size(90, 15);
+            lblIdleThresholdText.TabIndex = 5;
+            lblIdleThresholdText.Text = "Idle after (sec):";
+            // 
+            // numIdleThreshold
+            // 
+            numIdleThreshold.BackColor = SystemColors.InactiveCaptionText;
+            numIdleThreshold.BorderStyle = BorderStyle.FixedSingle;
+            numIdleThreshold.ForeColor = SystemColors.ScrollBar;
+            numIdleThreshold.Location = new Point(350, 87);
+            numIdleThreshold.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
+            numIdleThreshold.Minimum = new decimal(new int[] { 5, 0, 0, 0 });
+            numIdleThreshold.Name = "numIdleThreshold";
+            numIdleThreshold.Size = new Size(80, 23);
+            numIdleThreshold.TabIndex = 6;
+            numIdleThreshold.Value = new decimal(new int[] { 30, 0, 0, 0 });
+            numIdleThreshold.Enabled = false;
+            numIdleThreshold.ValueChanged += numIdleThreshold_ValueChanged;
+            // 
+            // rbSlowIdle
+            // 
+            rbSlowIdle.AutoSize = true;
+            rbSlowIdle.Checked = true;
+            rbSlowIdle.Location = new Point(15, 125);
+            rbSlowIdle.Name = "rbSlowIdle";
+            rbSlowIdle.Size = new Size(180, 19);
+            rbSlowIdle.TabIndex = 7;
+            rbSlowIdle.TabStop = true;
+            rbSlowIdle.Text = "Slow down during idle";
+            rbSlowIdle.UseVisualStyleBackColor = true;
+            rbSlowIdle.Enabled = false;
+            rbSlowIdle.CheckedChanged += rbSlowIdle_CheckedChanged;
+            // 
+            // rbSkipIdle
+            // 
+            rbSkipIdle.AutoSize = true;
+            rbSkipIdle.Location = new Point(220, 125);
+            rbSkipIdle.Name = "rbSkipIdle";
+            rbSkipIdle.Size = new Size(180, 19);
+            rbSkipIdle.TabIndex = 8;
+            rbSkipIdle.Text = "Skip frames when idle";
+            rbSkipIdle.UseVisualStyleBackColor = true;
+            rbSkipIdle.Enabled = false;
+            rbSkipIdle.CheckedChanged += rbSkipIdle_CheckedChanged;
+            // 
+            // lblActivityStatus
+            // 
+            lblActivityStatus.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblActivityStatus.Location = new Point(15, 155);
+            lblActivityStatus.Name = "lblActivityStatus";
+            lblActivityStatus.Size = new Size(415, 20);
+            lblActivityStatus.TabIndex = 9;
+            lblActivityStatus.Text = "⚪ Smart interval not enabled";
+            lblActivityStatus.ForeColor = Color.FromArgb(150, 150, 150);
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(20, 20, 20);
-            ClientSize = new Size(785, 690);
+            ClientSize = new Size(785, 870);
             Controls.Add(grpResources);
             Controls.Add(grpEncodingSettings);
             Controls.Add(grpSessionInfo);
             Controls.Add(grpReadiness);
             Controls.Add(grpOutput);
             Controls.Add(grpSession);
+            Controls.Add(grpSmartInterval);
             Controls.Add(grpCaptureSettings);
             Font = new Font("Segoe UI", 9F);
             ForeColor = Color.FromArgb(200, 200, 200);
@@ -1045,6 +1251,10 @@ namespace TimelapseCapture
             ((System.ComponentModel.ISupportInitialize)numCustomFrameRate).EndInit();
             ((System.ComponentModel.ISupportInitialize)numCrf).EndInit();
             grpResources.ResumeLayout(false);
+            grpSmartInterval.ResumeLayout(false);
+            grpSmartInterval.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numActiveInterval).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numIdleThreshold).EndInit();
             ResumeLayout(false);
         }
 

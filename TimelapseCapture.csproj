@@ -5,4 +5,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude test project files from main project compilation -->
+    <Compile Remove="TimelapseCapture.Tests\**" />
+    <EmbeddedResource Remove="TimelapseCapture.Tests\**" />
+    <None Remove="TimelapseCapture.Tests\**" />
+  </ItemGroup>
 </Project>

@@ -48,6 +48,16 @@ namespace TimelapseCapture
         // Thread synchronization lock for capture state
         private readonly object _captureLock = new object();
         
+        // Activity monitoring for smart intervals
+        private ActivityMonitor? _activityMonitor;
+        private bool _smartIntervalEnabled = false;
+        private decimal _activeIntervalSeconds = 2.0m; // Faster during work
+        private int _idleThresholdSeconds = 30;
+        private bool _skipIdleFrames = false; // false = slow down, true = skip
+
+        // Smart interval timer update
+        private System.Windows.Forms.Timer? _activityUpdateTimer;
+        
         // ✅ FIX Issue #4: Settings save debouncing to prevent disk spam
         private System.Windows.Forms.Timer? _settingsSaveTimer;
         private bool _settingsPendingSave = false;
@@ -399,6 +409,9 @@ namespace TimelapseCapture
 
             // Initialize region overlay
             InitializeRegionOverlay();
+            
+            // Initialize activity monitor
+            InitializeActivityMonitor();
 
             // Register keyboard shortcuts
             this.KeyPreview = true;
@@ -416,6 +429,93 @@ namespace TimelapseCapture
             _regionOverlay = new RegionOverlay();
             _regionOverlay.Hide();
             UpdateRegionOverlayButton();
+        }
+        
+        /// <summary>
+        /// Initialize the activity monitoring system for smart intervals.
+        /// </summary>
+        private void InitializeActivityMonitor()
+        {
+            try
+            {
+                _activityMonitor = new ActivityMonitor();
+                _activityMonitor.IdleThresholdSeconds = _idleThresholdSeconds;
+                _activityMonitor.TrackMouseMovement = true;
+                
+                // Wire up events
+                _activityMonitor.ActivityDetected += (s, e) =>
+                {
+                    Logger.Log("Activity", "User became active (transition from idle)");
+                    UpdateActivityStatusUI();
+                };
+                
+                _activityMonitor.IdleDetected += (s, e) =>
+                {
+                    Logger.Log("Activity", "User became idle");
+                    UpdateActivityStatusUI();
+                };
+                
+                // Start periodic UI updates for activity status (every 2 seconds)
+                _activityUpdateTimer = new System.Windows.Forms.Timer();
+                _activityUpdateTimer.Interval = 2000;
+                _activityUpdateTimer.Tick += (s, e) =>
+                {
+                    if (_smartIntervalEnabled && _activityMonitor != null)
+                    {
+                        UpdateActivityStatusUI();
+                        _activityMonitor.CheckForIdleTransition();
+                    }
+                };
+                _activityUpdateTimer.Start();
+                
+                Logger.Log("ActivityMonitor", "Initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("ActivityMonitor", $"Failed to initialize: {ex.Message}");
+                MessageBox.Show(
+                    $"Failed to initialize activity monitoring:\n\n{ex.Message}\n\n" +
+                    "Smart interval features will be disabled.",
+                    "Activity Monitor Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Update the activity status label with current state.
+        /// </summary>
+        private void UpdateActivityStatusUI()
+        {
+            if (lblActivityStatus == null || _activityMonitor == null) return;
+            
+            if (!_smartIntervalEnabled)
+            {
+                UIHelper.SafeSetText(lblActivityStatus, "⚪ Smart interval not enabled");
+                UIHelper.SafeSetColor(lblActivityStatus, Color.FromArgb(150, 150, 150));
+                return;
+            }
+            
+            if (!_activityMonitor.IsEnabled)
+            {
+                UIHelper.SafeSetText(lblActivityStatus, "⏸️ Monitoring paused (not capturing)");
+                UIHelper.SafeSetColor(lblActivityStatus, Color.FromArgb(200, 150, 50));
+                return;
+            }
+            
+            string statusText = _activityMonitor.GetActivityStatusString();
+            
+            // Color based on status
+            Color statusColor = Color.Gray;
+            if (statusText.StartsWith("🟢"))
+                statusColor = Color.FromArgb(0, 200, 100);
+            else if (statusText.StartsWith("🟡"))
+                statusColor = Color.FromArgb(255, 200, 0);
+            else if (statusText.StartsWith("🔴"))
+                statusColor = Color.FromArgb(220, 50, 50);
+            
+            UIHelper.SafeSetText(lblActivityStatus, statusText);
+            UIHelper.SafeSetColor(lblActivityStatus, statusColor);
         }
 
         /// <summary>
@@ -634,7 +734,26 @@ namespace TimelapseCapture
                     // Use helper to safely set captureRegion from nullable session value
                     SetCaptureRegionFromNullable(_activeSession.CaptureRegion);
 
-                    if (numInterval != null) numInterval.Value = _activeSession.IntervalSeconds;
+                    // Set interval with safety check for minimum value
+                    if (numInterval != null)
+                    {
+                        int sessionInterval = _activeSession.IntervalSeconds;
+                        // Ensure value is within valid range
+                        if (sessionInterval < numInterval.Minimum)
+                        {
+                            Logger.Log("WARNING", $"Session interval {sessionInterval} is below minimum {numInterval.Minimum}, using minimum");
+                            numInterval.Value = numInterval.Minimum;
+                        }
+                        else if (sessionInterval > numInterval.Maximum)
+                        {
+                            Logger.Log("WARNING", $"Session interval {sessionInterval} is above maximum {numInterval.Maximum}, using maximum");
+                            numInterval.Value = numInterval.Maximum;
+                        }
+                        else
+                        {
+                            numInterval.Value = sessionInterval;
+                        }
+                    }
                     if (cmbFormat != null) cmbFormat.SelectedItem = _activeSession.ImageFormat ?? "JPEG";
                     if (numQuality != null && _activeSession.ImageFormat == "JPEG")
                         numQuality.Value = _activeSession.JpegQuality;
@@ -642,6 +761,29 @@ namespace TimelapseCapture
                     // Update session name display
                     if (txtSessionName != null)
                         txtSessionName.Text = _activeSession.Name ?? "Session";
+                    
+                    // ✅ NEW: Load smart interval settings from session
+                    _smartIntervalEnabled = _activeSession.SmartIntervalEnabled;
+                    _activeIntervalSeconds = _activeSession.ActiveIntervalSeconds;
+                    _idleThresholdSeconds = _activeSession.IdleThresholdSeconds;
+                    _skipIdleFrames = _activeSession.SkipIdleFrames;
+
+                    if (chkSmartInterval != null)
+                        chkSmartInterval.Checked = _smartIntervalEnabled;
+
+                    if (numActiveInterval != null)
+                        numActiveInterval.Value = _activeIntervalSeconds;
+
+                    if (numIdleThreshold != null)
+                        numIdleThreshold.Value = _idleThresholdSeconds;
+
+                    if (rbSlowIdle != null && rbSkipIdle != null)
+                    {
+                        if (_skipIdleFrames)
+                            rbSkipIdle.Checked = true;
+                        else
+                            rbSlowIdle.Checked = true;
+                    }
 
                     UpdateStatusDisplay();
                     UpdateSessionInfoPanel();
@@ -749,6 +891,32 @@ namespace TimelapseCapture
             {
                 cmbEncodingPreset.SelectedIndex = 2; // Default to Medium
             }
+            
+            // ✅ NEW: Load smart interval settings
+            if (chkSmartInterval != null)
+                chkSmartInterval.Checked = settings.SmartIntervalEnabled;
+            
+            _smartIntervalEnabled = settings.SmartIntervalEnabled;
+            _activeIntervalSeconds = settings.ActiveIntervalSeconds;
+            _idleThresholdSeconds = settings.IdleThresholdSeconds;
+            _skipIdleFrames = settings.SkipIdleFrames;
+            
+            if (numActiveInterval != null)
+                numActiveInterval.Value = _activeIntervalSeconds;
+            
+            if (numIdleThreshold != null)
+                numIdleThreshold.Value = _idleThresholdSeconds;
+            
+            if (rbSlowIdle != null && rbSkipIdle != null)
+            {
+                if (_skipIdleFrames)
+                    rbSkipIdle.Checked = true;
+                else
+                    rbSlowIdle.Checked = true;
+            }
+            
+            if (cmbSmartPreset != null)
+                cmbSmartPreset.SelectedIndex = 0; // Default to Custom
         }
 
         #endregion
@@ -1162,9 +1330,9 @@ namespace TimelapseCapture
         /// </summary>
         private void SaveSettings()
         {
-            // Update in-memory settings
+            // Update in-memory settings - cast decimal interval to int for storage
             settings.Region = captureRegion;
-            settings.IntervalSeconds = (int)(numInterval?.Value ?? 5);
+            settings.IntervalSeconds = numInterval != null ? (int)numInterval.Value : 5;
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
             settings.FfmpegPath = _ffmpegPath;
@@ -1174,6 +1342,12 @@ namespace TimelapseCapture
             {
                 settings.AspectRatioIndex = cmbAspectRatio.SelectedIndex;
             }
+            
+            // ✅ NEW: Smart interval settings
+            settings.SmartIntervalEnabled = _smartIntervalEnabled;
+            settings.ActiveIntervalSeconds = _activeIntervalSeconds;
+            settings.IdleThresholdSeconds = _idleThresholdSeconds;
+            settings.SkipIdleFrames = _skipIdleFrames;
 
             // Schedule debounced save
             lock (_settingsSaveLock)
@@ -1196,9 +1370,9 @@ namespace TimelapseCapture
         /// </summary>
         private void SaveSettingsImmediate()
         {
-            // Update in-memory settings
+            // Update in-memory settings - cast decimal interval to int for storage
             settings.Region = captureRegion;
-            settings.IntervalSeconds = (int)(numInterval?.Value ?? 5);
+            settings.IntervalSeconds = numInterval != null ? (int)numInterval.Value : 5;
             settings.Format = cmbFormat?.SelectedItem?.ToString();
             settings.JpegQuality = (int)(numQuality?.Value ?? 90);
             settings.FfmpegPath = _ffmpegPath;
@@ -1207,6 +1381,12 @@ namespace TimelapseCapture
             {
                 settings.AspectRatioIndex = cmbAspectRatio.SelectedIndex;
             }
+            
+            // ✅ NEW: Smart interval settings
+            settings.SmartIntervalEnabled = _smartIntervalEnabled;
+            settings.ActiveIntervalSeconds = _activeIntervalSeconds;
+            settings.IdleThresholdSeconds = _idleThresholdSeconds;
+            settings.SkipIdleFrames = _skipIdleFrames;
 
             // Save immediately
             lock (_settingsSaveLock)
@@ -1803,14 +1983,23 @@ namespace TimelapseCapture
             // If there's an active session with frames, warn about changing interval
             if (_activeSession != null && _activeSession.FramesCaptured > 0 && !IsCapturing)
             {
-                int currentInterval = _activeSession.IntervalSeconds;
-                int newInterval = (int)(numInterval?.Value ?? 5);
+                decimal currentInterval = _activeSession.IntervalSeconds;
+                decimal newInterval = numInterval?.Value ?? 5;
 
                 if (currentInterval != newInterval)
                 {
+                    // Format interval display with decimal precision if needed
+                    // Format interval display - specify decimal place for clarity
+                    string currentIntervalStr = currentInterval % 1 == 0 ? $"{currentInterval:F0}" : $"{currentInterval:F1}";
+                    string newIntervalStr = newInterval % 1 == 0 ? $"{newInterval:F0}" : $"{newInterval:F1}";
+                    
+                    // Use proper singular/plural for "second(s)"
+                    string currentUnit = currentInterval == 1m ? "second" : "seconds";
+                    string newUnit = newInterval == 1m ? "second" : "seconds";
+                    
                     var result = MessageBox.Show(
-                        $"This session was captured at {currentInterval} second intervals.\n\n" +
-                        $"Changing to {newInterval} seconds will affect:\n" +
+                        $"This session was captured at {currentIntervalStr} {currentUnit} intervals.\n\n" +
+                        $"Changing to {newIntervalStr} {newUnit} will affect:\n" +
                         $"• Time calculations (will be inaccurate)\n" +
                         $"• Video playback speed consistency\n\n" +
                         $"Recommended: Start a new session for different intervals.\n\n" +
@@ -1822,14 +2011,25 @@ namespace TimelapseCapture
                     if (result == DialogResult.No)
                     {
                         // Revert to original interval
+                        // CRITICAL: Prevent ArgumentOutOfRangeException by ensuring value is within min/max
+                        // Also prevents setting to 0 which would cause immediate exception
                         if (numInterval != null)
-                            numInterval.Value = currentInterval;
+                        {
+                            decimal revertValue = Math.Max(numInterval.Minimum, Math.Min(numInterval.Maximum, currentInterval));
+                            // Additional safety: ensure we never set to exactly 0 (edge case protection)
+                            if (revertValue <= 0)
+                            {
+                                Logger.Log("WARNING", $"Attempted to revert to invalid interval: {currentInterval}, using minimum instead");
+                                revertValue = numInterval.Minimum;
+                            }
+                            numInterval.Value = revertValue;
+                        }
                         return;
                     }
                     else
                     {
                         // User accepted - update session and mark interval as changed
-                        _activeSession.IntervalSeconds = newInterval;
+                        _activeSession.IntervalSeconds = (int)newInterval;
                         _activeSession.IntervalChanged = true;
                         if (_activeSessionFolder != null)
                             SessionManager.SaveSession(_activeSessionFolder, _activeSession);
@@ -1842,8 +2042,8 @@ namespace TimelapseCapture
             else if (_activeSession != null && _activeSession.FramesCaptured == 0)
             {
                 // Session exists but no frames yet - safe to update
-                int newInterval = (int)(numInterval?.Value ?? 5);
-                _activeSession.IntervalSeconds = newInterval;
+                decimal newInterval = numInterval?.Value ?? 5;
+                _activeSession.IntervalSeconds = (int)newInterval;
                 if (_activeSessionFolder != null)
                     SessionManager.SaveSession(_activeSessionFolder, _activeSession);
                 UpdateSessionInfoPanel();
@@ -2013,9 +2213,9 @@ namespace TimelapseCapture
                 return false;
             }
             // Get current settings
-            int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
+            int intervalSec = numInterval != null ? (int)numInterval.Value : 5;
             var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
-            var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
+            var quality = (int)(numQuality?.Value ?? 90);
 
             // Validate session settings match
             // ✅ FIX Issue #3: Pass nullable value properly
@@ -2075,9 +2275,9 @@ namespace TimelapseCapture
             }
 
             // Get current settings
-            int intervalSec = (int)(numInterval?.Value ?? Constants.DEFAULT_INTERVAL_SECONDS);
+            int intervalSec = numInterval != null ? (int)numInterval.Value : 5;
             var format = cmbFormat?.SelectedItem?.ToString() ?? Constants.DEFAULT_IMAGE_FORMAT;
-            var quality = (int)(numQuality?.Value ?? Constants.DEFAULT_JPEG_QUALITY);
+            var quality = (int)(numQuality?.Value ?? 90);
 
             // Update settings and save immediately (critical operation)
             settings.IntervalSeconds = intervalSec;
@@ -2091,12 +2291,56 @@ namespace TimelapseCapture
             // ✅ FIX Issue #7: Reset error counter on capture start
             // User may have fixed issues since last error
             _consecutiveCaptureErrors = 0;
+            
+            // ✅ NEW: Start activity monitor if smart interval enabled
+            if (_smartIntervalEnabled && _activityMonitor != null)
+            {
+                try
+                {
+                    _activityMonitor.Start();
+                    _activityMonitor.IsEnabled = true;
+                    Logger.Log("ActivityMonitor", "Started for smart interval capture");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("ActivityMonitor", $"Failed to start: {ex.Message}");
+                    MessageBox.Show(
+                        $"Failed to start activity monitoring:\n\n{ex.Message}\n\n" +
+                        "Smart interval will be disabled for this session.",
+                        "Activity Monitor Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    _smartIntervalEnabled = false;
+                    if (chkSmartInterval != null)
+                        chkSmartInterval.Checked = false;
+                }
+            }
+            
+            // Determine initial interval
+            double initialInterval;
+            if (_smartIntervalEnabled && _activityMonitor != null && _activityMonitor.IsCurrentlyActive())
+            {
+                // Start with active interval if user is currently active
+                initialInterval = (double)_activeIntervalSeconds;
+            }
+            else
+            {
+                // Start with base interval
+                initialInterval = (double)(numInterval?.Value ?? 5.0m);
+            }
 
-            // ✅ NEW: Support sub-second intervals
-            // Convert decimal seconds to milliseconds for timer
-            double intervalSeconds = (double)(numInterval?.Value ?? 5.0m);
-            int intervalMs = (int)(intervalSeconds * 1000);
+            int intervalMs = (int)(initialInterval * 1000);
             _captureTimer = new System.Threading.Timer(CaptureFrame, null, 0, intervalMs);
+            
+            // ✅ NEW: Update session with smart interval settings
+            if (_activeSession != null && _activeSessionFolder != null)
+            {
+                _activeSession.SmartIntervalEnabled = _smartIntervalEnabled;
+                _activeSession.ActiveIntervalSeconds = _activeIntervalSeconds;
+                _activeSession.IdleThresholdSeconds = _idleThresholdSeconds;
+                _activeSession.SkipIdleFrames = _skipIdleFrames;
+                SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+            }
             
             // Update UI
             UpdateStatusDisplay();
@@ -2114,6 +2358,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Stop capture and unlock UI.
         /// Thread-safe: Waits for any in-progress capture to complete.
+        /// ✅ FIX: Now syncs region state before saving to prevent desynchronization.
         /// </summary>
         private void StopCapture()
         {
@@ -2123,11 +2368,30 @@ namespace TimelapseCapture
                 _captureTimer.Dispose();
                 _captureTimer = null;
             }
+            
+            // ✅ NEW: Stop activity monitor
+            if (_activityMonitor != null)
+            {
+                _activityMonitor.IsEnabled = false;
+                _activityMonitor.Stop();
+                Logger.Log("ActivityMonitor", "Stopped");
+            }
 
             // CRITICAL: Wait for any in-progress capture to complete
             // This prevents disposing session while capture thread is using it
             lock (_captureLock)
             {
+                // ✅ FIX: Sync session region with runtime BEFORE saving
+                // This prevents the "Region: Not set" bug when restarting capture
+                if (_activeSession != null && _activeSessionFolder != null && captureRegion.HasValue)
+                {
+                    _activeSession.CaptureRegion = captureRegion.Value;
+                    _activeSession.ImageFormat = cmbFormat?.SelectedItem?.ToString() ?? "JPEG";
+                    _activeSession.JpegQuality = (int)(numQuality?.Value ?? 90);
+                    SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+                    Logger.Log("StopCapture", $"Session saved with region: {captureRegion.Value}");
+                }
+                
                 // Lock acquired - safe to update UI now
                 LockCaptureUI(false);
                 UpdateStatusDisplay();
@@ -2172,6 +2436,46 @@ namespace TimelapseCapture
             lock (_captureLock)
             {
                 if (_activeSession == null || _captureTimer == null) return;
+                
+                // ✅ NEW: Smart interval logic
+                if (_smartIntervalEnabled && _activityMonitor != null && _activityMonitor.IsEnabled)
+                {
+                    bool isActive = _activityMonitor.IsCurrentlyActive();
+                    
+                    // If idle and skip mode is enabled, skip this frame
+                    if (!isActive && _skipIdleFrames)
+                    {
+                        Logger.Log("SmartInterval", "Skipping frame - user idle and skip mode enabled");
+                        
+                        // Keep using active interval for next check (check frequently for activity resume)
+                        int nextInterval = (int)(_activeIntervalSeconds * 1000);
+                        _captureTimer.Change(nextInterval, nextInterval);
+                        
+                        UpdateActivityStatusUI();
+                        return; // SKIP FRAME
+                    }
+                    
+                    // Adjust next capture interval based on activity
+                    int targetInterval;
+                    if (isActive)
+                    {
+                        // User is active - use fast interval
+                        targetInterval = (int)(_activeIntervalSeconds * 1000);
+                        Logger.Log("SmartInterval", $"Active mode - interval: {_activeIntervalSeconds}s");
+                    }
+                    else
+                    {
+                        // User is idle - use base interval (slow down)
+                        double baseInterval = (double)(numInterval?.Value ?? 5.0m);
+                        targetInterval = (int)(baseInterval * 1000);
+                        Logger.Log("SmartInterval", $"Idle mode - interval: {baseInterval}s");
+                    }
+                    
+                    // Update timer for next capture
+                    _captureTimer.Change(targetInterval, targetInterval);
+                    
+                    UpdateActivityStatusUI();
+                }
 
                 try
                 {
@@ -2910,6 +3214,133 @@ namespace TimelapseCapture
             };
 
             lblCrfText.Text = $"Quality (CRF): {crf} {description}";
+        }
+        
+        /// <summary>
+        /// Handle smart interval enable/disable toggle.
+        /// </summary>
+        private void chkSmartInterval_CheckedChanged(object? sender, EventArgs e)
+        {
+            _smartIntervalEnabled = chkSmartInterval?.Checked ?? false;
+            
+            // Enable/disable dependent controls
+            bool enabled = _smartIntervalEnabled;
+            if (cmbSmartPreset != null) cmbSmartPreset.Enabled = enabled;
+            if (numActiveInterval != null) numActiveInterval.Enabled = enabled;
+            if (numIdleThreshold != null) numIdleThreshold.Enabled = enabled;
+            if (rbSlowIdle != null) rbSlowIdle.Enabled = enabled;
+            if (rbSkipIdle != null) rbSkipIdle.Enabled = enabled;
+            
+            // Update status display
+            UpdateActivityStatusUI();
+            
+            // Save settings
+            SaveSettings();
+            
+            Logger.Log("SmartInterval", $"Enabled: {_smartIntervalEnabled}");
+        }
+
+        /// <summary>
+        /// Handle smart interval preset selection.
+        /// </summary>
+        private void cmbSmartPreset_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbSmartPreset == null || numActiveInterval == null || 
+                numIdleThreshold == null || rbSlowIdle == null || rbSkipIdle == null) return;
+            
+            int index = cmbSmartPreset.SelectedIndex;
+            
+            switch (index)
+            {
+                case 0: // Custom - do nothing, user configures manually
+                    break;
+                    
+                case 1: // Painting/Drawing
+                    numActiveInterval.Value = 2.0m;
+                    numIdleThreshold.Value = 10;
+                    rbSlowIdle.Checked = true;
+                    break;
+                    
+                case 2: // 3D Modeling
+                    numActiveInterval.Value = 3.0m;
+                    numIdleThreshold.Value = 15;
+                    rbSlowIdle.Checked = true;
+                    break;
+                    
+                case 3: // Coding
+                    numActiveInterval.Value = 5.0m;
+                    numIdleThreshold.Value = 30;
+                    rbSkipIdle.Checked = true;
+                    break;
+                    
+                case 4: // Tutorial
+                    numActiveInterval.Value = 1.0m;
+                    numIdleThreshold.Value = 10;
+                    rbSkipIdle.Checked = true;
+                    break;
+            }
+            
+            Logger.Log("SmartInterval", $"Preset selected: {cmbSmartPreset.SelectedItem}");
+        }
+
+        /// <summary>
+        /// Handle active interval value change.
+        /// </summary>
+        private void numActiveInterval_ValueChanged(object? sender, EventArgs e)
+        {
+            _activeIntervalSeconds = numActiveInterval?.Value ?? 2.0m;
+            
+            // Switch to "Custom" preset if user manually changes value
+            if (cmbSmartPreset != null && cmbSmartPreset.SelectedIndex != 0)
+                cmbSmartPreset.SelectedIndex = 0;
+            
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Handle idle threshold value change.
+        /// </summary>
+        private void numIdleThreshold_ValueChanged(object? sender, EventArgs e)
+        {
+            _idleThresholdSeconds = (int)(numIdleThreshold?.Value ?? 30);
+            
+            // Update activity monitor threshold
+            if (_activityMonitor != null)
+                _activityMonitor.IdleThresholdSeconds = _idleThresholdSeconds;
+            
+            // Switch to "Custom" preset if user manually changes value
+            if (cmbSmartPreset != null && cmbSmartPreset.SelectedIndex != 0)
+                cmbSmartPreset.SelectedIndex = 0;
+            
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Handle slow idle radio button change.
+        /// </summary>
+        private void rbSlowIdle_CheckedChanged(object? sender, EventArgs e)
+        {
+            _skipIdleFrames = !(rbSlowIdle?.Checked ?? true);
+            
+            // Switch to "Custom" preset
+            if (cmbSmartPreset != null && cmbSmartPreset.SelectedIndex != 0)
+                cmbSmartPreset.SelectedIndex = 0;
+            
+            SaveSettings();
+        }
+
+        /// <summary>
+        /// Handle skip idle radio button change.
+        /// </summary>
+        private void rbSkipIdle_CheckedChanged(object? sender, EventArgs e)
+        {
+            _skipIdleFrames = rbSkipIdle?.Checked ?? false;
+            
+            // Switch to "Custom" preset
+            if (cmbSmartPreset != null && cmbSmartPreset.SelectedIndex != 0)
+                cmbSmartPreset.SelectedIndex = 0;
+            
+            SaveSettings();
         }
 
         #endregion

@@ -14,6 +14,12 @@ namespace TimelapseCapture
         public Rectangle? Region { get; set; }
         public string? FfmpegPath { get; set; }
         public int AspectRatioIndex { get; set; } = 0; // Default to "Free" aspect ratio
+        
+        // Smart interval settings
+        public bool SmartIntervalEnabled { get; set; }
+        public decimal ActiveIntervalSeconds { get; set; } = 2.0m;
+        public int IdleThresholdSeconds { get; set; } = 30;
+        public bool SkipIdleFrames { get; set; }
     }
 
 

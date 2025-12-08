@@ -31,6 +31,12 @@ namespace TimelapseCapture
         public DateTime? LastCaptureTime { get; set; }
         public double TotalCaptureSeconds { get; set; } = 0;
         public bool IntervalChanged { get; set; } = false;
+        
+        // ✅ NEW: Smart interval settings
+        public bool SmartIntervalEnabled { get; set; }
+        public decimal ActiveIntervalSeconds { get; set; } = 2.0m;
+        public int IdleThresholdSeconds { get; set; } = 30;
+        public bool SkipIdleFrames { get; set; }
     }
 
 
