@@ -7,9 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Exclude test project files from main project compilation -->
+    <!-- Exclude test project from compilation -->
     <Compile Remove="TimelapseCapture.Tests\**" />
     <EmbeddedResource Remove="TimelapseCapture.Tests\**" />
     <None Remove="TimelapseCapture.Tests\**" />
+    
+    <!-- Exclude docs, scripts, config from compilation -->
+    <Compile Remove="docs\**" />
+    <Compile Remove="scripts\**" />
+    <Compile Remove="config\**" />
   </ItemGroup>
 </Project>

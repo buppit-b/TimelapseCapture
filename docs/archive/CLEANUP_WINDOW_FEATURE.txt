@@ -1,0 +1,50 @@
+# Window Capture Feature Removal - Cleanup Instructions
+
+The window capture feature has been removed from the codebase. 
+All code changes have been reverted to the previous state.
+
+## Files to Delete Manually
+
+Please delete these files that were created for the window capture feature:
+
+1. WindowSelector.cs
+2. WINDOW_CAPTURE_FEATURE.md
+3. CLEANUP_WINDOW_FEATURE.txt (this file, after cleanup is complete)
+
+## PowerShell Command (Run from project root)
+
+Remove-Item "WindowSelector.cs"
+Remove-Item "WINDOW_CAPTURE_FEATURE.md"
+Remove-Item "CLEANUP_WINDOW_FEATURE.txt"
+
+## Changes Made
+
+✅ Removed btnSelectWindow button from MainForm.Designer.cs
+✅ Removed btnSelectWindow_Click handler from MainForm.cs
+✅ Restored original button sizes and positions
+✅ Restored original button text ("📐 Select Region", "🖥️ Full Screen ▼")
+
+## Current Capture Modes
+
+Your application now has two reliable capture modes:
+
+1. **📐 Select Region** - Draw custom region with mouse
+   - Full control over capture area
+   - Works across all monitors
+   - Aspect ratio locking support
+   
+2. **🖥️ Full Screen** - Dropdown menu for monitor selection
+   - Primary monitor option
+   - Secondary monitor options
+   - Entire screen captured
+
+Both modes work reliably without the complexity of window tracking.
+
+## Verification
+
+After deleting the files, verify the build succeeds:
+- Open solution in Visual Studio
+- Build → Rebuild Solution
+- Should complete without errors
+
+The application is now back to its stable state before the window capture feature was attempted.
