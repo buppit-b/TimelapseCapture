@@ -16,99 +16,102 @@ namespace TimelapseCapture
         #region Control Declarations
 
         // === Buttons ===
-        private System.Windows.Forms.Button btnStart;
-        private System.Windows.Forms.Button btnStop;
-        private System.Windows.Forms.Button btnSelectRegion;
-        private System.Windows.Forms.Button btnFullScreen;
-        private System.Windows.Forms.Button btnChooseFolder;
-        private System.Windows.Forms.Button btnEncode;
-        private System.Windows.Forms.Button btnOpenFolder;
-        private System.Windows.Forms.Button btnBrowseFfmpeg;
-        private System.Windows.Forms.Button btnDownloadFfmpeg;
-        private System.Windows.Forms.Button btnNewSession;
-        private System.Windows.Forms.Button btnLoadSession;
-        private System.Windows.Forms.Button btnShowRegion;
+        internal System.Windows.Forms.Button btnStart;
+        internal System.Windows.Forms.Button btnStop;
+        internal System.Windows.Forms.Button btnSelectRegion;
+        internal System.Windows.Forms.Button btnFullScreen;
+        internal System.Windows.Forms.Button btnChooseFolder;
+        internal System.Windows.Forms.Button btnEncode;
+        internal System.Windows.Forms.Button btnOpenFolder;
+        internal System.Windows.Forms.Button btnBrowseFfmpeg;
+        internal System.Windows.Forms.Button btnDownloadFfmpeg;
+        internal System.Windows.Forms.Button btnNewSession;
+        internal System.Windows.Forms.Button btnLoadSession;
+        internal System.Windows.Forms.Button btnShowRegion;
 
         // === Labels ===
-        private System.Windows.Forms.Label lblSessionNameText;
-        private System.Windows.Forms.Label lblRegion;
-        private System.Windows.Forms.Label lblFullScreenInfo;
-        private System.Windows.Forms.Label lblFolder;
-        private System.Windows.Forms.Label lblStatus;
-        private System.Windows.Forms.Label lblQuality;
-        private System.Windows.Forms.Label lblEstimate;
-        private System.Windows.Forms.Label lblIntervalText;
-        private System.Windows.Forms.Label lblFormatText;
-        private System.Windows.Forms.Label lblFfmpegText;
-        private System.Windows.Forms.Label lblAspectRatioText;
-        private System.Windows.Forms.Label lblDesiredVideoLength;
+        internal System.Windows.Forms.Label lblSessionNameText;
+        internal System.Windows.Forms.Label lblRegion;
+        internal System.Windows.Forms.Label lblFullScreenInfo;
+        internal System.Windows.Forms.Label lblFolder;
+        internal System.Windows.Forms.Label lblStatus;
+        internal System.Windows.Forms.Label lblQuality;
+        internal System.Windows.Forms.Label lblEstimate;
+        internal System.Windows.Forms.Label lblIntervalText;
+        internal System.Windows.Forms.Label lblFormatText;
+        internal System.Windows.Forms.Label lblFfmpegText;
+        internal System.Windows.Forms.Label lblAspectRatioText;
+        internal System.Windows.Forms.Label lblDesiredVideoLength;
 
         // === Text Boxes ===
-        private System.Windows.Forms.TextBox txtSessionName;
-        private System.Windows.Forms.TextBox txtFfmpegPath;
+        internal System.Windows.Forms.TextBox txtSessionName;
+        internal System.Windows.Forms.TextBox txtFfmpegPath;
 
         // === Numeric Controls ===
-        private System.Windows.Forms.NumericUpDown numInterval;
-        private System.Windows.Forms.NumericUpDown numQuality;
-        private System.Windows.Forms.NumericUpDown numDesiredSec;
+        internal System.Windows.Forms.NumericUpDown numInterval;
+        internal System.Windows.Forms.NumericUpDown numQuality;
+        internal System.Windows.Forms.NumericUpDown numDesiredSec;
 
         // === Combo Boxes ===
-        private System.Windows.Forms.ComboBox cmbFormat;
-        private System.Windows.Forms.ComboBox cmbAspectRatio;
+        internal System.Windows.Forms.ComboBox cmbFormat;
+        internal System.Windows.Forms.ComboBox cmbAspectRatio;
 
         // === Other Controls ===
-        private System.Windows.Forms.TrackBar trkQuality;
+        internal System.Windows.Forms.TrackBar trkQuality;
 
         // === Group Boxes ===
-        private System.Windows.Forms.GroupBox grpCaptureSettings;
-        private System.Windows.Forms.GroupBox grpSession;
-        private System.Windows.Forms.GroupBox grpOutput;
-        private System.Windows.Forms.GroupBox grpReadiness;
-        private System.Windows.Forms.GroupBox grpSessionInfo;
-        private System.Windows.Forms.GroupBox grpEncodingSettings;
+        internal System.Windows.Forms.GroupBox grpCaptureSettings;
+        internal System.Windows.Forms.GroupBox grpSession;
+        internal System.Windows.Forms.GroupBox grpOutput;
+        internal System.Windows.Forms.GroupBox grpReadiness;
+        internal System.Windows.Forms.GroupBox grpSessionInfo;
+        internal System.Windows.Forms.GroupBox grpEncodingSettings;
 
         // === Readiness Panel Labels ===
-        private System.Windows.Forms.Label lblReadiness1;
-        private System.Windows.Forms.Label lblReadiness2;
-        private System.Windows.Forms.Label lblReadiness3;
-        private System.Windows.Forms.Label lblReadiness4;
-        private System.Windows.Forms.Label lblReadiness5;
-        private System.Windows.Forms.Label lblReadiness6;
+        internal System.Windows.Forms.Label lblReadiness1;
+        internal System.Windows.Forms.Label lblReadiness2;
+        internal System.Windows.Forms.Label lblReadiness3;
+        internal System.Windows.Forms.Label lblReadiness4;
+        internal System.Windows.Forms.Label lblReadiness5;
+        internal System.Windows.Forms.Label lblReadiness6;
 
         // === Session Info Panel Labels ===
-        private System.Windows.Forms.Label lblSessionInfoRegion;
-        private System.Windows.Forms.Label lblSessionInfoFormat;
-        private System.Windows.Forms.Label lblSessionInfoQuality;
-        private System.Windows.Forms.Label lblSessionInfoInterval;
+        internal System.Windows.Forms.Label lblSessionInfoRegion;
+        internal System.Windows.Forms.Label lblSessionInfoFormat;
+        internal System.Windows.Forms.Label lblSessionInfoQuality;
+        internal System.Windows.Forms.Label lblSessionInfoInterval;
         
         // === Resource Monitoring Labels ===
-        private System.Windows.Forms.GroupBox grpResources;
-        private System.Windows.Forms.Label lblStorageInfo;
-        private System.Windows.Forms.Label lblResourceInfo;
+        internal System.Windows.Forms.GroupBox grpResources;
+        internal System.Windows.Forms.Label lblStorageInfo;
+        internal System.Windows.Forms.Label lblResourceInfo;
         
         // === Encoding Settings Controls ===
-        private System.Windows.Forms.Label lblFrameRateText;
-        private System.Windows.Forms.ComboBox cmbFrameRate;
-        private System.Windows.Forms.NumericUpDown numCustomFrameRate;
-        private System.Windows.Forms.Label lblEncodingPresetText;
-        private System.Windows.Forms.ComboBox cmbEncodingPreset;
-        private System.Windows.Forms.Label lblVideoCodecText;
-        private System.Windows.Forms.ComboBox cmbVideoCodec;
-        private System.Windows.Forms.Label lblCrfText;
-        private System.Windows.Forms.NumericUpDown numCrf;
+        internal System.Windows.Forms.Label lblFrameRateText;
+        internal System.Windows.Forms.ComboBox cmbFrameRate;
+        internal System.Windows.Forms.NumericUpDown numCustomFrameRate;
+        internal System.Windows.Forms.Label lblEncodingPresetText;
+        internal System.Windows.Forms.ComboBox cmbEncodingPreset;
+        internal System.Windows.Forms.Label lblVideoCodecText;
+        internal System.Windows.Forms.ComboBox cmbVideoCodec;
+        internal System.Windows.Forms.Label lblCrfText;
+        internal System.Windows.Forms.NumericUpDown numCrf;
         
         // === Smart Interval Controls ===
-        private System.Windows.Forms.GroupBox grpSmartInterval;
-        private System.Windows.Forms.CheckBox chkSmartInterval;
-        private System.Windows.Forms.NumericUpDown numActiveInterval;
-        private System.Windows.Forms.NumericUpDown numIdleThreshold;
-        private System.Windows.Forms.Label lblActiveIntervalText;
-        private System.Windows.Forms.Label lblIdleThresholdText;
-        private System.Windows.Forms.RadioButton rbSlowIdle;
-        private System.Windows.Forms.RadioButton rbSkipIdle;
-        private System.Windows.Forms.Label lblActivityStatus;
-        private System.Windows.Forms.ComboBox cmbSmartPreset;
-        private System.Windows.Forms.Label lblSmartPresetText;
+        internal System.Windows.Forms.GroupBox grpSmartInterval;
+        internal System.Windows.Forms.CheckBox chkSmartInterval;
+        internal System.Windows.Forms.NumericUpDown numActiveInterval;
+        internal System.Windows.Forms.NumericUpDown numIdleThreshold;
+        internal System.Windows.Forms.Label lblActiveIntervalText;
+        internal System.Windows.Forms.Label lblIdleThresholdText;
+        internal System.Windows.Forms.RadioButton rbSlowIdle;
+        internal System.Windows.Forms.RadioButton rbSkipIdle;
+        internal System.Windows.Forms.Label lblActivityStatus;
+        internal System.Windows.Forms.ComboBox cmbSmartPreset;
+        internal System.Windows.Forms.Label lblSmartPresetText;
+        
+        // === Guided Mode ===
+        internal System.Windows.Forms.CheckBox chkGuidedMode;
 
         #endregion
 
@@ -343,6 +346,7 @@ namespace TimelapseCapture
             rbSlowIdle = new RadioButton();
             rbSkipIdle = new RadioButton();
             lblActivityStatus = new Label();
+            chkGuidedMode = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)numInterval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numQuality).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numDesiredSec).BeginInit();
@@ -720,6 +724,18 @@ namespace TimelapseCapture
             trkQuality.TickFrequency = 5;
             trkQuality.Value = 90;
             trkQuality.Scroll += trkQuality_Scroll;
+            // 
+            // chkGuidedMode
+            // 
+            chkGuidedMode.AutoSize = true;
+            chkGuidedMode.Checked = true;
+            chkGuidedMode.Location = new Point(490, 683);
+            chkGuidedMode.Name = "chkGuidedMode";
+            chkGuidedMode.Size = new Size(220, 19);
+            chkGuidedMode.TabIndex = 8;
+            chkGuidedMode.Text = "🧭 Guided Mode (Setup Assistance)";
+            chkGuidedMode.UseVisualStyleBackColor = true;
+            chkGuidedMode.CheckedChanged += chkGuidedMode_CheckedChanged;
             // 
             // grpCaptureSettings
             // 
@@ -1225,6 +1241,7 @@ namespace TimelapseCapture
             Controls.Add(grpSession);
             Controls.Add(grpSmartInterval);
             Controls.Add(grpCaptureSettings);
+            Controls.Add(chkGuidedMode);
             Font = new Font("Segoe UI", 9F);
             ForeColor = Color.FromArgb(200, 200, 200);
             FormBorderStyle = FormBorderStyle.FixedSingle;

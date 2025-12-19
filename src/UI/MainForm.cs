@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -62,6 +63,10 @@ namespace TimelapseCapture
         private System.Windows.Forms.Timer? _settingsSaveTimer;
         private bool _settingsPendingSave = false;
         private readonly object _settingsSaveLock = new object();
+        
+        // Guided Mode - Progressive UI disclosure
+        private bool _guidedModeEnabled = true;
+        private Dictionary<Control, ToolTip> _tooltips = new Dictionary<Control, ToolTip>();
 
         /// <summary>
         /// Get the current capture region - session takes priority over settings.
@@ -126,6 +131,8 @@ namespace TimelapseCapture
             // Update UI
             UpdateRegionDisplay();
             UpdateSessionInfoPanel();
+            UpdateControlStates(); // Update control availability after region change
+            UpdateGuidedModeUI(); // Update guided mode UI state
             
             // Log final state
             Logger.LogState("Sync", "captureRegion", captureRegion);
@@ -164,6 +171,8 @@ namespace TimelapseCapture
             
             UpdateRegionDisplay();
             UpdateSessionInfoPanel();
+            UpdateControlStates(); // Update control availability after region clear
+            UpdateGuidedModeUI(); // Update guided mode UI state
         }
 
         /// <summary>
@@ -419,6 +428,12 @@ namespace TimelapseCapture
             
             // ✅ FIX Issue #4: Initialize settings save debounce timer
             InitializeSettingsSaveTimer();
+            
+            // Initialize tooltip system for guided setup
+            InitializeTooltips();
+            
+            // Initialize control states to guide user through setup
+            UpdateControlStates();
         }
 
         /// <summary>
@@ -2151,11 +2166,6 @@ namespace TimelapseCapture
         #region Capture Control
 
         /// <summary>
-        /// Gets whether capture is currently active.
-        /// </summary>
-        private bool IsCapturing => _captureTimer != null;
-
-        /// <summary>
         /// Start capture session.
         /// Validates settings and creates/resumes session.
         /// </summary>
@@ -3762,5 +3772,180 @@ namespace TimelapseCapture
         {
 
         }
+        
+        #endregion
+        
+        #region Guided Mode
+        
+        /// <summary>
+        /// Handle guided mode checkbox change.
+        /// </summary>
+        private void chkGuidedMode_CheckedChanged(object? sender, EventArgs e)
+        {
+            _guidedModeEnabled = chkGuidedMode?.Checked ?? true;
+            UpdateGuidedModeUI();
+            SaveSettings();
+        }
+        
+        /// <summary>
+        /// Update the UI based on guided mode and current prerequisites.
+        /// This provides progressive disclosure to guide users through setup.
+        /// </summary>
+        private void UpdateGuidedModeUI()
+        {
+            if (!_guidedModeEnabled)
+            {
+                // Guided mode off - enable everything
+                EnableAllControls();
+                return;
+            }
+            
+            // Guided mode on - enable controls based on prerequisites
+            bool hasOutputFolder = !string.IsNullOrEmpty(settings.SaveFolder);
+            bool hasFfmpeg = !string.IsNullOrEmpty(_ffmpegPath) && System.IO.File.Exists(_ffmpegPath);
+            bool hasSession = _activeSession != null;
+            bool hasRegion = captureRegion.HasValue;
+            bool hasFrames = _activeSession?.FramesCaptured > 0;
+            bool isCapturing = IsCapturing;
+            
+            // STEP 1: Output folder (always available)
+            UIHelper.SafeSetEnabled(btnChooseFolder, true);
+            UIHelper.SafeSetEnabled(btnOpenFolder, hasOutputFolder);
+            
+            // STEP 2: FFmpeg (always available)
+            UIHelper.SafeSetEnabled(btnDownloadFfmpeg, true);
+            UIHelper.SafeSetEnabled(btnBrowseFfmpeg, true);
+            
+            // STEP 3: Session (requires output folder)
+            UIHelper.SafeSetEnabled(btnNewSession, hasOutputFolder);
+            UIHelper.SafeSetEnabled(btnLoadSession, hasOutputFolder);
+            SetControlTooltip(btnNewSession, hasOutputFolder ? null : "Choose an output folder first");
+            SetControlTooltip(btnLoadSession, hasOutputFolder ? null : "Choose an output folder first");
+            
+            // STEP 4: Region selection (requires session)
+            UIHelper.SafeSetEnabled(btnSelectRegion, hasSession);
+            UIHelper.SafeSetEnabled(btnFullScreen, hasSession);
+            UIHelper.SafeSetEnabled(btnShowRegion, hasSession && hasRegion);
+            SetControlTooltip(btnSelectRegion, hasSession ? null : "Create or load a session first");
+            SetControlTooltip(btnFullScreen, hasSession ? null : "Create or load a session first");
+            
+            // STEP 5: Capture settings (requires session)
+            bool canConfigureCapture = hasSession && !isCapturing;
+            UIHelper.SafeSetEnabled(cmbAspectRatio, canConfigureCapture);
+            UIHelper.SafeSetEnabled(numInterval, canConfigureCapture);
+            UIHelper.SafeSetEnabled(cmbFormat, canConfigureCapture);
+            UIHelper.SafeSetEnabled(trkQuality, canConfigureCapture);
+            UIHelper.SafeSetEnabled(numQuality, canConfigureCapture);
+            
+            // STEP 6: Start capture (requires session + region)
+            bool canStartCapture = hasSession && hasRegion && !isCapturing;
+            UIHelper.SafeSetEnabled(btnStart, canStartCapture);
+            SetControlTooltip(btnStart, 
+                !hasSession ? "Create a session first" :
+                !hasRegion ? "Select a capture region first" :
+                null);
+            
+            // Stop always enabled during capture
+            UIHelper.SafeSetEnabled(btnStop, isCapturing);
+            
+            // STEP 7: Encoding (requires FFmpeg + frames)
+            bool canEncode = hasFfmpeg && hasFrames && !_isEncoding;
+            UIHelper.SafeSetEnabled(btnEncode, canEncode);
+            SetControlTooltip(btnEncode,
+                !hasFfmpeg ? "Download FFmpeg first" :
+                !hasFrames ? "Capture some frames first" :
+                null);
+            
+            // Encoding settings (always configurable)
+            UIHelper.SafeSetEnabled(cmbFrameRate, true);
+            UIHelper.SafeSetEnabled(numCustomFrameRate, cmbFrameRate?.SelectedIndex == 4);
+            UIHelper.SafeSetEnabled(cmbEncodingPreset, true);
+            UIHelper.SafeSetEnabled(numCrf, true);
+            
+            // Smart interval (requires session)
+            UIHelper.SafeSetEnabled(chkSmartInterval, hasSession);
+            bool smartEnabled = (chkSmartInterval?.Checked ?? false) && hasSession;
+            UIHelper.SafeSetEnabled(cmbSmartPreset, smartEnabled);
+            UIHelper.SafeSetEnabled(numActiveInterval, smartEnabled);
+            UIHelper.SafeSetEnabled(numIdleThreshold, smartEnabled);
+            UIHelper.SafeSetEnabled(rbSlowIdle, smartEnabled);
+            UIHelper.SafeSetEnabled(rbSkipIdle, smartEnabled);
+        }
+        
+        /// <summary>
+        /// Enable all controls (guided mode disabled).
+        /// </summary>
+        private void EnableAllControls()
+        {
+            UIHelper.SafeSetEnabled(btnChooseFolder, true);
+            UIHelper.SafeSetEnabled(btnOpenFolder, true);
+            UIHelper.SafeSetEnabled(btnDownloadFfmpeg, true);
+            UIHelper.SafeSetEnabled(btnBrowseFfmpeg, true);
+            UIHelper.SafeSetEnabled(btnNewSession, true);
+            UIHelper.SafeSetEnabled(btnLoadSession, true);
+            UIHelper.SafeSetEnabled(btnSelectRegion, true);
+            UIHelper.SafeSetEnabled(btnFullScreen, true);
+            UIHelper.SafeSetEnabled(btnShowRegion, true);
+            UIHelper.SafeSetEnabled(cmbAspectRatio, true);
+            UIHelper.SafeSetEnabled(numInterval, true);
+            UIHelper.SafeSetEnabled(cmbFormat, true);
+            UIHelper.SafeSetEnabled(trkQuality, true);
+            UIHelper.SafeSetEnabled(numQuality, true);
+            UIHelper.SafeSetEnabled(btnStart, true);
+            UIHelper.SafeSetEnabled(btnStop, false); // Stop only enabled when capturing
+            UIHelper.SafeSetEnabled(btnEncode, true);
+            UIHelper.SafeSetEnabled(cmbFrameRate, true);
+            UIHelper.SafeSetEnabled(numCustomFrameRate, cmbFrameRate?.SelectedIndex == 4);
+            UIHelper.SafeSetEnabled(cmbEncodingPreset, true);
+            UIHelper.SafeSetEnabled(numCrf, true);
+            UIHelper.SafeSetEnabled(chkSmartInterval, true);
+            
+            bool smartEnabled = chkSmartInterval?.Checked ?? false;
+            UIHelper.SafeSetEnabled(cmbSmartPreset, smartEnabled);
+            UIHelper.SafeSetEnabled(numActiveInterval, smartEnabled);
+            UIHelper.SafeSetEnabled(numIdleThreshold, smartEnabled);
+            UIHelper.SafeSetEnabled(rbSlowIdle, smartEnabled);
+            UIHelper.SafeSetEnabled(rbSkipIdle, smartEnabled);
+            
+            // Clear all tooltips
+            ClearAllTooltips();
+        }
+        
+        /// <summary>
+        /// Set a tooltip for a control.
+        /// </summary>
+        private void SetControlTooltip(Control? control, string? text)
+        {
+            if (control == null) return;
+            
+            // Create tooltip if needed
+            if (!_tooltips.ContainsKey(control))
+            {
+                var tooltip = new ToolTip();
+                _tooltips[control] = tooltip;
+            }
+            
+            if (string.IsNullOrEmpty(text))
+            {
+                _tooltips[control].SetToolTip(control, "");
+            }
+            else
+            {
+                _tooltips[control].SetToolTip(control, text);
+            }
+        }
+        
+        /// <summary>
+        /// Clear all tooltips.
+        /// </summary>
+        private void ClearAllTooltips()
+        {
+            foreach (var kvp in _tooltips)
+            {
+                kvp.Value.SetToolTip(kvp.Key, "");
+            }
+        }
+        
+        #endregion
     }
 }
