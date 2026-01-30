@@ -15,16 +15,32 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeUpdateLabel(Label? label, string text)
         {
-            if (label != null && !label.IsDisposed)
+            if (label == null)
+                return;
+
+            try
             {
                 if (label.InvokeRequired)
                 {
-                    label.Invoke(new Action(() => label.Text = text));
+                    label.Invoke(new Action(() =>
+                    {
+                        if (!label.IsDisposed)
+                            label.Text = text;
+                    }));
                 }
                 else
                 {
-                    label.Text = text;
+                    if (!label.IsDisposed)
+                        label.Text = text;
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
             }
         }
 
@@ -34,16 +50,32 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeSetEnabled(Control? control, bool enabled)
         {
-            if (control != null && !control.IsDisposed)
+            if (control == null)
+                return;
+
+            try
             {
                 if (control.InvokeRequired)
                 {
-                    control.Invoke(new Action(() => control.Enabled = enabled));
+                    control.Invoke(new Action(() =>
+                    {
+                        if (!control.IsDisposed)
+                            control.Enabled = enabled;
+                    }));
                 }
                 else
                 {
-                    control.Enabled = enabled;
+                    if (!control.IsDisposed)
+                        control.Enabled = enabled;
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
             }
         }
 
@@ -53,16 +85,32 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeSetText(Control? control, string text)
         {
-            if (control != null && !control.IsDisposed)
+            if (control == null)
+                return;
+
+            try
             {
                 if (control.InvokeRequired)
                 {
-                    control.Invoke(new Action(() => control.Text = text));
+                    control.Invoke(new Action(() =>
+                    {
+                        if (!control.IsDisposed)
+                            control.Text = text;
+                    }));
                 }
                 else
                 {
-                    control.Text = text;
+                    if (!control.IsDisposed)
+                        control.Text = text;
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
             }
         }
 
@@ -127,16 +175,32 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeSetColor(Control? control, Color color)
         {
-            if (control != null && !control.IsDisposed)
+            if (control == null)
+                return;
+
+            try
             {
                 if (control.InvokeRequired)
                 {
-                    control.Invoke(new Action(() => control.ForeColor = color));
+                    control.Invoke(new Action(() =>
+                    {
+                        if (!control.IsDisposed)
+                            control.ForeColor = color;
+                    }));
                 }
                 else
                 {
-                    control.ForeColor = color;
+                    if (!control.IsDisposed)
+                        control.ForeColor = color;
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
             }
         }
 
@@ -167,7 +231,10 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeInvoke(Control control, Action action)
         {
-            if (control != null && !control.IsDisposed)
+            if (control == null)
+                return;
+
+            try
             {
                 if (control.InvokeRequired)
                 {
@@ -178,6 +245,14 @@ namespace TimelapseCapture
                     action();
                 }
             }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
+            }
         }
 
         /// <summary>
@@ -185,7 +260,10 @@ namespace TimelapseCapture
         /// </summary>
         public static void SafeBeginInvoke(Control control, Action action)
         {
-            if (control != null && !control.IsDisposed)
+            if (control == null)
+                return;
+
+            try
             {
                 if (control.InvokeRequired)
                 {
@@ -195,6 +273,14 @@ namespace TimelapseCapture
                 {
                     action();
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Control was disposed between the check and the operation - this is fine
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle was not created or control is being disposed - this is fine
             }
         }
 

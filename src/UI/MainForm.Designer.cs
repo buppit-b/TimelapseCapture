@@ -397,7 +397,7 @@ namespace TimelapseCapture
             // btnSelectRegion
             // 
             btnSelectRegion.FlatStyle = FlatStyle.Flat;
-            btnSelectRegion.ForeColor = Color.OrangeRed;
+            btnSelectRegion.ForeColor = Color.LightCoral;
             btnSelectRegion.Location = new Point(15, 66);
             btnSelectRegion.Name = "btnSelectRegion";
             btnSelectRegion.Size = new Size(130, 32);
@@ -409,7 +409,7 @@ namespace TimelapseCapture
             // btnFullScreen
             // 
             btnFullScreen.FlatStyle = FlatStyle.Flat;
-            btnFullScreen.ForeColor = Color.DeepSkyBlue;
+            btnFullScreen.ForeColor = Color.LightSkyBlue;
             btnFullScreen.Location = new Point(154, 66);
             btnFullScreen.Name = "btnFullScreen";
             btnFullScreen.Size = new Size(137, 32);
@@ -505,7 +505,7 @@ namespace TimelapseCapture
             // btnShowRegion
             // 
             btnShowRegion.FlatStyle = FlatStyle.Flat;
-            btnShowRegion.ForeColor = Color.MediumPurple;
+            btnShowRegion.ForeColor = Color.Plum;
             btnShowRegion.Location = new Point(301, 66);
             btnShowRegion.Name = "btnShowRegion";
             btnShowRegion.Size = new Size(130, 32);
@@ -1109,6 +1109,7 @@ namespace TimelapseCapture
             // chkSmartInterval
             // 
             chkSmartInterval.AutoSize = true;
+            chkSmartInterval.ForeColor = Color.LightGray;
             chkSmartInterval.Location = new Point(15, 25);
             chkSmartInterval.Name = "chkSmartInterval";
             chkSmartInterval.Size = new Size(155, 19);
@@ -1120,6 +1121,7 @@ namespace TimelapseCapture
             // lblSmartPresetText
             // 
             lblSmartPresetText.AutoSize = true;
+            lblSmartPresetText.ForeColor = Color.LightGray;
             lblSmartPresetText.Location = new Point(15, 55);
             lblSmartPresetText.Name = "lblSmartPresetText";
             lblSmartPresetText.Size = new Size(42, 15);
@@ -1144,6 +1146,7 @@ namespace TimelapseCapture
             // lblActiveIntervalText
             // 
             lblActiveIntervalText.AutoSize = true;
+            lblActiveIntervalText.ForeColor = Color.LightGray;
             lblActiveIntervalText.Location = new Point(15, 90);
             lblActiveIntervalText.Name = "lblActiveIntervalText";
             lblActiveIntervalText.Size = new Size(125, 15);
@@ -1170,6 +1173,7 @@ namespace TimelapseCapture
             // lblIdleThresholdText
             // 
             lblIdleThresholdText.AutoSize = true;
+            lblIdleThresholdText.ForeColor = Color.LightGray;
             lblIdleThresholdText.Location = new Point(250, 90);
             lblIdleThresholdText.Name = "lblIdleThresholdText";
             lblIdleThresholdText.Size = new Size(90, 15);
@@ -1195,6 +1199,7 @@ namespace TimelapseCapture
             // 
             rbSlowIdle.AutoSize = true;
             rbSlowIdle.Checked = true;
+            rbSlowIdle.ForeColor = Color.LightGray;
             rbSlowIdle.Location = new Point(15, 125);
             rbSlowIdle.Name = "rbSlowIdle";
             rbSlowIdle.Size = new Size(180, 19);
@@ -1208,6 +1213,7 @@ namespace TimelapseCapture
             // rbSkipIdle
             // 
             rbSkipIdle.AutoSize = true;
+            rbSkipIdle.ForeColor = Color.LightGray;
             rbSkipIdle.Location = new Point(220, 125);
             rbSkipIdle.Name = "rbSkipIdle";
             rbSkipIdle.Size = new Size(180, 19);
