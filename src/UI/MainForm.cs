@@ -380,6 +380,9 @@ namespace TimelapseCapture
         {
             InitializeComponent();
             
+            // ✅ NEW: Initialize menu bar
+            InitializeMenuBar();
+            
             // Log DPI information for debugging
             try
             {
@@ -408,6 +411,7 @@ namespace TimelapseCapture
             
             ApplyModernStyling();
             LoadSettings();
+
             WireInitialValues();
             CheckForActiveSession();
             UpdateCaptureTimer();
@@ -440,6 +444,9 @@ namespace TimelapseCapture
             
             // Initialize control states to guide user through setup
             UpdateControlStates();
+
+            // Show wizard on first launch or when not configured
+            CheckAndShowWizard();
         }
 
         /// <summary>

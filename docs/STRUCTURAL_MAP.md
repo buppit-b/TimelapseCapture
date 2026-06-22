@@ -1,5 +1,9 @@
 # TimelapseCapture — Structural Map
 
+> **Start at `/CLAUDE.md` (project root) first.** This file is deep-reference
+> material for system ownership — read it when a bug doesn't obviously belong
+> to one file. It is not the session-start doc anymore.
+
 ## Purpose of This Document
 
 This document describes the **structural layout** of the TimelapseCapture codebase.
@@ -45,7 +49,7 @@ There is no peer-to-peer communication between subsystems.
 ## System 1: UI Orchestration — MainForm
 
 **Primary Files**
-- `src/UI/MainForm.cs` (~4000 lines - main application logic)
+- `src/UI/MainForm.cs` (~3800 lines, verified 2026-06-22 - main application logic)
 - `src/UI/MainForm.Designer.cs` (auto-generated UI definitions)
 - `src/UI/MainForm.ControlState.cs` (guided mode & control state management)
 
@@ -245,6 +249,15 @@ Region exists in exactly **three locations** and MUST remain synchronized:
 - `ClearCurrentRegion()` - Sets ALL three to null
 - `GetCurrentRegion()` - Reads region with session priority
 - `SetCaptureRegionFromNullable(Rectangle? region)` - Helper for nullable assignment
+
+**Verified exceptions (2026-06-22) — do not "fix" these:**
+`SaveSettings()`, `SaveSettingsImmediate()`, and `StopCapture()` in MainForm.cs
+each mirror the canonical `captureRegion` field into `settings.Region` /
+`_activeSession.CaptureRegion` immediately before persisting. These are
+one-directional (read canonical, write copy) and cannot cause desync on their
+own. The `StopCapture()` instance is a deliberate fix for a real prior bug.
+Routing them through `SetCurrentRegion()` would recurse, since that method
+calls `SaveSettings()` internally. See `/CLAUDE.md` for the full note.
 
 **Why This Matters**
 - Desynchronization causes corruption (Issue #3 - FIXED)

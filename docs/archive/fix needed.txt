@@ -1,0 +1,7 @@
+# FIXED ✅
+
+This issue has been resolved in commit [date: 2025-12-22]
+
+See: `docs/development/claude/BUGFIX_CROSS_THREAD_UI.md` for details.
+
+**Summary:** Fixed cross-thread UI access by properly checking InvokeRequired before checking IsDisposed, and adding exception handling for race conditions.

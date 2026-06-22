@@ -20,6 +20,9 @@ namespace TimelapseCapture
         public decimal ActiveIntervalSeconds { get; set; } = 2.0m;
         public int IdleThresholdSeconds { get; set; } = 30;
         public bool SkipIdleFrames { get; set; }
+        
+        // UI settings
+        public bool GuidedModeEnabled { get; set; } = true; // Progressive disclosure for new users
     }
 
 
