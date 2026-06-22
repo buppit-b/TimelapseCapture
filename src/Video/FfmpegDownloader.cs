@@ -182,6 +182,9 @@ namespace TimelapseCapture
                 if (fileInfo.Length < 10_000) return false; // Too small
 
                 // Try to run ffmpeg -version as final validation
+                // Note: do NOT redirect stdout/stderr here. `ffmpeg -version` prints several
+                // KB of build/config text; with redirected-but-undrained pipes it can fill the
+                // OS pipe buffer, block, time out, and falsely report a valid ffmpeg as invalid.
                 using var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -189,14 +192,17 @@ namespace TimelapseCapture
                         FileName = path,
                         Arguments = "-version",
                         UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
                         CreateNoWindow = true
                     }
                 };
 
                 process.Start();
-                process.WaitForExit(5000); // 5 second timeout
+                if (!process.WaitForExit(5000)) // 5 second timeout
+                {
+                    // Still running after the timeout: don't touch ExitCode (it would throw).
+                    try { process.Kill(); } catch { /* best effort */ }
+                    return false;
+                }
                 return process.ExitCode == 0;
             }
             catch

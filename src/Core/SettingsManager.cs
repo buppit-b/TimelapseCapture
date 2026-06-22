@@ -56,7 +56,16 @@ namespace TimelapseCapture
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
                 var json = JsonSerializer.Serialize(settings, opts);
-                File.WriteAllText(SettingsFilePath, json);
+
+                // Atomic write: write to a temp file then swap, so a crash or power loss
+                // mid-write can never leave settings.json truncated or empty (which would
+                // silently reset all settings to defaults on next launch).
+                var tmp = SettingsFilePath + ".tmp";
+                File.WriteAllText(tmp, json);
+                if (File.Exists(SettingsFilePath))
+                    File.Replace(tmp, SettingsFilePath, null);
+                else
+                    File.Move(tmp, SettingsFilePath);
             }
             catch
             {

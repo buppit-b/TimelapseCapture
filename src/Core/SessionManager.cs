@@ -143,7 +143,24 @@ namespace TimelapseCapture
             var sessionFile = Path.Combine(sessionFolder, SessionFileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             var json = JsonSerializer.Serialize(info, opts);
-            File.WriteAllText(sessionFile, json);
+
+            // Atomic write: this runs on the capture timer thread once per frame, so a
+            // crash/power-loss must never leave session.json truncated (which would make the
+            // whole session unloadable on restart even though the frames are still on disk).
+            // A transient IO failure (e.g. file lock) must not throw into the capture path.
+            try
+            {
+                var tmp = sessionFile + ".tmp";
+                File.WriteAllText(tmp, json);
+                if (File.Exists(sessionFile))
+                    File.Replace(tmp, sessionFile, null);
+                else
+                    File.Move(tmp, sessionFile);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Session", $"SaveSession failed for '{sessionFile}': {ex.Message}");
+            }
         }
 
         /// <summary>
