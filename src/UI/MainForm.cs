@@ -784,7 +784,7 @@ namespace TimelapseCapture
                     }
                     if (cmbFormat != null) cmbFormat.SelectedItem = _activeSession.ImageFormat ?? "JPEG";
                     if (numQuality != null && _activeSession.ImageFormat == "JPEG")
-                        numQuality.Value = _activeSession.JpegQuality;
+                        numQuality.Value = Math.Clamp(_activeSession.JpegQuality, 1, 100);
 
                     // Update session name display
                     if (txtSessionName != null)
@@ -855,7 +855,7 @@ namespace TimelapseCapture
             }
 
             if (cmbFormat != null) cmbFormat.SelectedItem = settings.Format ?? "JPEG";
-            if (numInterval != null) numInterval.Value = settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5;
+            if (numInterval != null) numInterval.Value = Math.Clamp(settings.IntervalSeconds > 0 ? settings.IntervalSeconds : 5, 1, 3600);
             if (numDesiredSec != null) 
             {
                 numDesiredSec.Value = 30;
@@ -880,9 +880,12 @@ namespace TimelapseCapture
                 if (lblFolder != null) lblFolder.Text = "Save to: " + settings.SaveFolder;
             }
 
-            if (trkQuality != null) trkQuality.Value = settings.JpegQuality;
-            if (numQuality != null) numQuality.Value = settings.JpegQuality;
-            if (lblQuality != null) lblQuality.Text = $"JPEG Quality: {settings.JpegQuality}";
+            // Clamp to the controls' valid range (1-100) so a corrupt/hand-edited
+            // settings.json can't throw ArgumentOutOfRangeException during startup.
+            int jpegQuality = Math.Clamp(settings.JpegQuality, 1, 100);
+            if (trkQuality != null) trkQuality.Value = jpegQuality;
+            if (numQuality != null) numQuality.Value = jpegQuality;
+            if (lblQuality != null) lblQuality.Text = $"JPEG Quality: {jpegQuality}";
 
             // Load saved aspect ratio preference
             if (cmbAspectRatio != null)
@@ -1149,10 +1152,10 @@ namespace TimelapseCapture
             }
             SetCaptureRegionFromNullable(session.CaptureRegion);
 
-            if (numInterval != null) numInterval.Value = session.IntervalSeconds;
+            if (numInterval != null) numInterval.Value = Math.Clamp(session.IntervalSeconds, 1, 3600);
             if (cmbFormat != null) cmbFormat.SelectedItem = session.ImageFormat ?? "JPEG";
             if (numQuality != null && session.ImageFormat == "JPEG")
-                numQuality.Value = session.JpegQuality;
+                numQuality.Value = Math.Clamp(session.JpegQuality, 1, 100);
 
             // ✅ FIX Issue #3: Handle nullable region
             if (lblRegion != null)
@@ -3757,7 +3760,16 @@ namespace TimelapseCapture
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             Logger.Log("Lifecycle", "MainForm closing - marking session inactive");
-            
+
+            // Stop any in-progress capture FIRST. StopCapture() disposes the capture timer
+            // and then takes _captureLock, so it waits for an in-flight frame to finish before
+            // we mark the session inactive below. Otherwise the close-time session.json write
+            // races the capture thread's writes (lost final frame / stale Active flag).
+            if (IsCapturing)
+            {
+                StopCapture();
+            }
+
             // ✅ FIX Issue #4: Save settings immediately before closing
             // Ensures any pending changes are persisted
             SaveSettingsImmediate();

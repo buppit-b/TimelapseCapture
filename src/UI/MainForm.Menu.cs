@@ -219,6 +219,7 @@ namespace TimelapseCapture
                 if (_activeSessionFolder != null)
                     SessionManager.MarkSessionInactive(_activeSessionFolder);
                 _activeSession = null;
+                _activeSessionFolder = null;
                 ClearCurrentRegion();
                 UpdateStatusDisplay();
                 UpdateCaptureTimer();
@@ -401,6 +402,12 @@ namespace TimelapseCapture
                     // For now, just save the settings
                     SaveSettingsImmediate();
                     
+                    // Deactivate any previously-active session first, so we never leave two
+                    // Active=true sessions on disk (mirrors btnNewSession_Click). Otherwise
+                    // FindActiveSession can resurrect the wrong session on next launch.
+                    if (_activeSessionFolder != null)
+                        SessionManager.MarkSessionInactive(_activeSessionFolder);
+
                     // Create the session
                     var capturesRoot = Path.Combine(settings.SaveFolder, "captures");
                     _activeSessionFolder = SessionManager.CreateNamedSession(
