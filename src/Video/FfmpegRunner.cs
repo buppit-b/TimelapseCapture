@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TimelapseCapture
@@ -42,10 +43,11 @@ namespace TimelapseCapture
             return null;
         }
 
-        public static Task<(int exitCode, string output, string error)> RunFfmpegAsync(string ffmpegPath, string arguments)
+        public static Task<(int exitCode, string output, string error)> RunFfmpegAsync(string ffmpegPath, string arguments, CancellationToken cancellationToken = default)
         {
             var tcs = new TaskCompletionSource<(int, string, string)>();
             Process? p = null;
+            CancellationTokenRegistration ctr = default;
             try
             {
                 var psi = new ProcessStartInfo(ffmpegPath, arguments)
@@ -75,15 +77,22 @@ namespace TimelapseCapture
                     try { proc.WaitForExit(); } catch { }
                     string outText, errText;
                     lock (sync) { outText = stdout.ToString(); errText = stderr.ToString(); }
+                    ctr.Dispose();
                     tcs.TrySetResult((proc.ExitCode, outText, errText));
                     proc.Dispose();
                 };
                 p.Start();
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
+                // Cancellation: kill the ffmpeg process; its Exited handler then resolves the task.
+                ctr = cancellationToken.Register(() =>
+                {
+                    try { if (!proc.HasExited) proc.Kill(); } catch { }
+                });
             }
             catch(Exception ex)
             {
+                ctr.Dispose();
                 p?.Dispose();
                 tcs.TrySetResult((-1, "", ex.Message));
             }

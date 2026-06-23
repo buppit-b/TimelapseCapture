@@ -100,9 +100,9 @@ namespace TimelapseCapture
             
             UIHelper.SafeSetEnabled(btnStop, IsCapturing);
             
-            // Encoding
+            // Encoding (during an active encode the button stays enabled and acts as Cancel)
             bool canEncode = hasFfmpeg && hasFrames && !_isEncoding;
-            UIHelper.SafeSetEnabled(btnEncode, canEncode);
+            UIHelper.SafeSetEnabled(btnEncode, canEncode || _isEncoding);
             SetControlTooltip(btnEncode,
                 !hasFfmpeg ? "Download FFmpeg first" :
                 !hasFrames ? "Capture some frames first" :

@@ -26,6 +26,7 @@ namespace TimelapseCapture
         private string? _activeSessionFolder;
         private SessionInfo? _activeSession;
         private bool _isEncoding = false;
+        private System.Threading.CancellationTokenSource? _encodeCts;
         private System.Windows.Forms.Timer? _uiUpdateTimer;
 
         // Remember the user's aspect-ratio selection so we can restore it when leaving Full Screen.
@@ -658,9 +659,20 @@ namespace TimelapseCapture
 
             if (!string.IsNullOrEmpty(_ffmpegPath) && File.Exists(_ffmpegPath))
             {
+                // Warn before overriding a custom ffmpeg path the user browsed to: the download
+                // always installs into the app folder and switches to that copy.
+                var appFfmpeg = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+                bool isCustomPath = !string.Equals(
+                    Path.GetFullPath(_ffmpegPath), Path.GetFullPath(appFfmpeg),
+                    StringComparison.OrdinalIgnoreCase);
+
                 var result = MessageBox.Show(
-                    "FFmpeg is already installed.\n\nDo you want to download again?",
-                    "FFmpeg Already Installed",
+                    isCustomPath
+                        ? $"FFmpeg is currently set to a custom location:\n{_ffmpegPath}\n\n" +
+                          "Downloading will install a fresh copy in the app folder and switch to it, " +
+                          "replacing your custom path. Continue?"
+                        : "FFmpeg is already installed.\n\nDo you want to download again?",
+                    isCustomPath ? "Override custom FFmpeg path?" : "FFmpeg Already Installed",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
@@ -3465,6 +3477,15 @@ namespace TimelapseCapture
         /// </summary>
         private async void btnEncode_Click(object? sender, EventArgs e)
         {
+            // While an encode is running this button acts as a Cancel button.
+            if (_isEncoding)
+            {
+                _encodeCts?.Cancel();
+                UIHelper.SafeSetText(btnEncode, "⏹ Cancelling...");
+                UIHelper.SafeSetEnabled(btnEncode, false);
+                return;
+            }
+
             if (!ValidateEncodingPrerequisites(sender, e))
                 return;
 
@@ -3538,6 +3559,7 @@ namespace TimelapseCapture
         private async Task PerformEncoding()
         {
             _isEncoding = true;
+            _encodeCts = new System.Threading.CancellationTokenSource();
             string sessionFolder = _activeSessionFolder ?? settings.SaveFolder!;
             var frameFiles = SessionManager.GetFrameFiles(sessionFolder);
 
@@ -3568,6 +3590,8 @@ namespace TimelapseCapture
             }
             finally
             {
+                _encodeCts?.Dispose();
+                _encodeCts = null;
                 ResetEncodingState();
             }
         }
@@ -3579,8 +3603,9 @@ namespace TimelapseCapture
         {
             if (isEncoding)
             {
-                UIHelper.SafeSetEnabled(btnEncode, false);
-                UIHelper.SafeSetText(btnEncode, "🎬 Encoding...");
+                // Keep the button enabled so the user can click it to cancel the encode.
+                UIHelper.SafeSetEnabled(btnEncode, true);
+                UIHelper.SafeSetText(btnEncode, "⏹ Cancel Encode");
                 UIHelper.SafeUpdateLabel(lblStatus, string.Format(Constants.STATUS_ENCODING, frameCount));
             }
             else
@@ -3611,14 +3636,19 @@ namespace TimelapseCapture
             string preset = GetEncodingPreset();
             string ffmpegArgs = BuildFfmpegArguments(fileListPath, outputPath, preset);
 
-            // Run FFmpeg
-            var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs);
+            // Run FFmpeg (cancellable via the Cancel button)
+            var token = _encodeCts?.Token ?? System.Threading.CancellationToken.None;
+            var result = await FfmpegRunner.RunFfmpegAsync(_ffmpegPath, ffmpegArgs, token);
 
             // Clean up
             SessionManager.CleanTempFolder(sessionFolder);
 
             // Handle result
-            if (result.exitCode == 0)
+            if (token.IsCancellationRequested)
+            {
+                HandleEncodingCancelled();
+            }
+            else if (result.exitCode == 0)
             {
                 HandleEncodingSuccess(frameFiles.Length, outputPath);
             }
@@ -3716,6 +3746,15 @@ namespace TimelapseCapture
                 $"Error output:\n{result.error}\n\n" +
                 $"Standard output:\n{result.output}",
                 "Encoding Failed");
+        }
+
+        /// <summary>
+        /// Handles a user-cancelled encode (status only, no error dialog).
+        /// </summary>
+        private void HandleEncodingCancelled()
+        {
+            UIHelper.SafeUpdateLabel(lblStatus, "⏹ Encoding cancelled.");
+            Logger.Log("Encode", "Encoding cancelled by user");
         }
 
         /// <summary>
