@@ -137,6 +137,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (SetProperty(ref _isCapturing, value))
                 {
                     OnPropertyChanged(nameof(StatusText));
+                    OnPropertyChanged(nameof(RegionNeeded));
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -172,6 +173,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             _session == null ? "Create a session to begin." :
             _region.HasValue ? "Ready to capture." :
             "Select a region (Full Screen for now).";
+
+        /// <summary>True when a session exists but no region is chosen yet — used to highlight the region buttons.</summary>
+        public bool RegionNeeded => _session != null && !_region.HasValue && !IsCapturing;
 
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
@@ -217,6 +221,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 RegionText = "Not selected";
                 FrameCount = (int)(_session?.FramesCaptured ?? 0);
                 OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(RegionNeeded));
                 CommandManager.InvalidateRequerySuggested();
             }
             catch (Exception ex)
@@ -253,6 +258,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 : "Not selected";
             FrameCount = (int)session.FramesCaptured;
             OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
         }
 
@@ -264,6 +270,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _region = r;
             RegionText = $"{r.Width}×{r.Height} (full screen)";
             OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
         }
 
@@ -276,6 +283,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _region = r;
                 RegionText = $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
                 OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(RegionNeeded));
                 CommandManager.InvalidateRequerySuggested();
             }
         }

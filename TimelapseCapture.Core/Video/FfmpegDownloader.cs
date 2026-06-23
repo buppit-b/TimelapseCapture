@@ -190,10 +190,11 @@ namespace TimelapseCapture
                     lastReportMs = nowMs;
                     lastReportBytes = bytesDownloaded;
 
+                    string speed = mbps >= 1.0 ? $"{mbps:F1} MB/s" : $"{mbps * 1000:F0} KB/s";
                     string status = (totalBytes.HasValue && totalBytes.Value > 0)
                         ? $"Downloading… {bytesDownloaded / 1_000_000}/{totalBytes.Value / 1_000_000} MB " +
-                          $"({bytesDownloaded * 100 / totalBytes.Value}%, {mbps:F1} MB/s)"
-                        : $"Downloading… {bytesDownloaded / 1_000_000} MB ({mbps:F1} MB/s)";
+                          $"({bytesDownloaded * 100 / totalBytes.Value}%, {speed})"
+                        : $"Downloading… {bytesDownloaded / 1_000_000} MB ({speed})";
                     progressCallback(bytesDownloaded, totalBytes ?? 0, status);
                 }
             }
