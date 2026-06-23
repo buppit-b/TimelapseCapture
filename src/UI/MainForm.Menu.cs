@@ -18,7 +18,15 @@ namespace TimelapseCapture
         private ToolStripMenuItem? menuSession;
         private ToolStripMenuItem? menuSettings;
         private ToolStripMenuItem? menuHelp;
-        
+
+        // Direct references to the state-dependent items so UpdateMenuStates() doesn't index
+        // DropDownItems by hard-coded position (which silently breaks if a menu is reordered).
+        private ToolStripMenuItem? _menuCloseSession;
+        private ToolStripMenuItem? _menuStartCapture;
+        private ToolStripMenuItem? _menuStopCapture;
+        private ToolStripMenuItem? _menuSessionDetails;
+        private ToolStripMenuItem? _menuOpenFolder;
+
         #endregion
 
         #region Menu Initialization
@@ -37,25 +45,30 @@ namespace TimelapseCapture
             };
 
             // File Menu
+            _menuCloseSession = CreateMenuItem("&Close Session", MenuFile_CloseSession_Click);
             menuFile = new ToolStripMenuItem("&File");
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
                 CreateMenuItem("&New Session...", MenuFile_NewSession_Click, "Ctrl+N"),
                 CreateMenuItem("&Load Session...", MenuFile_LoadSession_Click, "Ctrl+O"),
-                CreateMenuItem("&Close Session", MenuFile_CloseSession_Click),
+                _menuCloseSession,
                 new ToolStripSeparator(),
                 CreateMenuItem("E&xit", MenuFile_Exit_Click, "Alt+F4")
             });
 
             // Session Menu
+            _menuStartCapture = CreateMenuItem("&Start Capture", MenuSession_StartCapture_Click, "F5");
+            _menuStopCapture = CreateMenuItem("S&top Capture", MenuSession_StopCapture_Click, "F6");
+            _menuSessionDetails = CreateMenuItem("Session &Details...", MenuSession_Details_Click);
+            _menuOpenFolder = CreateMenuItem("&Open Session Folder", MenuSession_OpenFolder_Click, "Ctrl+E");
             menuSession = new ToolStripMenuItem("&Session");
             menuSession.DropDownItems.AddRange(new ToolStripItem[]
             {
-                CreateMenuItem("&Start Capture", MenuSession_StartCapture_Click, "F5"),
-                CreateMenuItem("S&top Capture", MenuSession_StopCapture_Click, "F6"),
+                _menuStartCapture,
+                _menuStopCapture,
                 new ToolStripSeparator(),
-                CreateMenuItem("Session &Details...", MenuSession_Details_Click),
-                CreateMenuItem("&Open Session Folder", MenuSession_OpenFolder_Click, "Ctrl+E")
+                _menuSessionDetails,
+                _menuOpenFolder
             });
 
             // Settings Menu
@@ -134,33 +147,23 @@ namespace TimelapseCapture
         /// </summary>
         private void UpdateMenuStates()
         {
-            if (menuSession == null) return;
-
             bool hasActiveSession = _activeSession != null;
             bool isCapturing = IsCapturing;
 
-            // File menu
-            var closeSessionItem = menuFile?.DropDownItems[2] as ToolStripMenuItem;
-            if (closeSessionItem != null)
-                closeSessionItem.Enabled = hasActiveSession && !isCapturing;
+            if (_menuCloseSession != null)
+                _menuCloseSession.Enabled = hasActiveSession && !isCapturing;
 
-            // Session menu
-            var startCaptureItem = menuSession.DropDownItems[0] as ToolStripMenuItem;
-            var stopCaptureItem = menuSession.DropDownItems[1] as ToolStripMenuItem;
-            var sessionDetailsItem = menuSession.DropDownItems[3] as ToolStripMenuItem;
-            var openFolderItem = menuSession.DropDownItems[4] as ToolStripMenuItem;
+            if (_menuStartCapture != null)
+                _menuStartCapture.Enabled = hasActiveSession && !isCapturing && GetCurrentRegion() != null;
 
-            if (startCaptureItem != null)
-                startCaptureItem.Enabled = hasActiveSession && !isCapturing && GetCurrentRegion() != null;
-            
-            if (stopCaptureItem != null)
-                stopCaptureItem.Enabled = isCapturing;
-            
-            if (sessionDetailsItem != null)
-                sessionDetailsItem.Enabled = hasActiveSession;
-            
-            if (openFolderItem != null)
-                openFolderItem.Enabled = hasActiveSession;
+            if (_menuStopCapture != null)
+                _menuStopCapture.Enabled = isCapturing;
+
+            if (_menuSessionDetails != null)
+                _menuSessionDetails.Enabled = hasActiveSession;
+
+            if (_menuOpenFolder != null)
+                _menuOpenFolder.Enabled = hasActiveSession;
         }
 
         #endregion
@@ -390,7 +393,7 @@ namespace TimelapseCapture
             try
             {
                 // Create wizard with existing settings pre-populated
-                var wizard = new SessionSetupForm(settings.SaveFolder ?? "", settings.FfmpegPath ?? "");
+                using var wizard = new SessionSetupForm(settings.SaveFolder ?? "", settings.FfmpegPath ?? "");
                 
                 if (wizard.ShowDialog(this) == DialogResult.OK && wizard.SetupCompleted)
                 {

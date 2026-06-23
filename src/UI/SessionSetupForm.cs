@@ -489,30 +489,42 @@ namespace TimelapseCapture
         {
             if (btnDownloadFfmpeg != null)
                 btnDownloadFfmpeg.Enabled = false;
-            
+            // Block cancel/close while the download runs, so the dialog can't be disposed out from
+            // under the async continuation below (which would crash this async void handler).
+            if (btnCancel != null)
+                btnCancel.Enabled = false;
+
             try
             {
                 var dirTarget = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
                 string? downloadedPath = await FfmpegDownloader.EnsureFfmpegPresentAsync(
                     dirTarget,
                     (downloaded, total, status) => {
-                        // Progress callback
-                        if (lblStatus != null && !string.IsNullOrEmpty(status))
+                        // Runs on a background thread. Guard against the form being closed
+                        // mid-download and marshal with BeginInvoke (non-blocking).
+                        if (string.IsNullOrEmpty(status)) return;
+                        try
                         {
+                            if (IsDisposed || Disposing) return;
                             if (InvokeRequired)
-                                Invoke(new Action(() => lblStatus.Text = status));
-                            else
+                                BeginInvoke(new Action(() => { if (!IsDisposed && lblStatus != null) lblStatus.Text = status; }));
+                            else if (lblStatus != null)
                                 lblStatus.Text = status;
                         }
+                        catch { /* form closed during download */ }
                     });
-                
+
+                // The form may have been closed/disposed while awaiting; bail before touching it.
+                if (IsDisposed || Disposing)
+                    return;
+
                 if (!string.IsNullOrEmpty(downloadedPath))
                 {
                     FfmpegPath = downloadedPath;
                     if (txtFfmpegPath != null)
                         txtFfmpegPath.Text = FfmpegPath;
                     UpdateStatus();
-                    
+
                     MessageBox.Show(
                         $"FFmpeg downloaded successfully!\n\nLocation: {downloadedPath}",
                         "Download Complete",
@@ -530,8 +542,13 @@ namespace TimelapseCapture
             }
             finally
             {
-                if (btnDownloadFfmpeg != null)
-                    btnDownloadFfmpeg.Enabled = true;
+                if (!IsDisposed)
+                {
+                    if (btnDownloadFfmpeg != null)
+                        btnDownloadFfmpeg.Enabled = true;
+                    if (btnCancel != null)
+                        btnCancel.Enabled = true;
+                }
             }
         }
 
