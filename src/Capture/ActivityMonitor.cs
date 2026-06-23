@@ -341,11 +341,11 @@ namespace TimelapseCapture
                 _lastActivityTime = now;
             }
 
-            // Fire event if transitioning from idle to active
-            // Do this outside the lock to avoid potential deadlocks
+            // Fire event if transitioning from idle to active. Do this outside the lock.
+            // NOTE: no disk I/O (Logger.Log) here — this runs inside the low-level keyboard/mouse
+            // hook callback, which Windows silently removes if the callback blocks too long.
             if (wasIdle)
             {
-                Logger.Log("ActivityMonitor", $"Activity detected after idle: {source}");
                 ActivityDetected?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -353,6 +353,8 @@ namespace TimelapseCapture
         #endregion
 
         #region Periodic Idle Check (Optional Helper)
+
+        private bool _idleNotified;
 
         /// <summary>
         /// Check if user has become idle and fire event if so.
@@ -364,14 +366,19 @@ namespace TimelapseCapture
                 return;
 
             var timeSince = TimeSinceLastActivity();
-            
-            // Only fire if just crossed the threshold (to avoid spam)
-            // Consider "just crossed" as within last 2 seconds
-            if (timeSince.TotalSeconds >= IdleThresholdSeconds && 
-                timeSince.TotalSeconds < IdleThresholdSeconds + 2)
+            bool isIdle = timeSince.TotalSeconds >= IdleThresholdSeconds;
+
+            // Fire once on the active->idle edge. Edge-tracking (rather than a fixed time window)
+            // means the transition can't be missed when the external poll cadence jitters.
+            if (isIdle && !_idleNotified)
             {
+                _idleNotified = true;
                 Logger.Log("ActivityMonitor", $"User became idle ({timeSince.TotalSeconds:F0}s since activity)");
                 IdleDetected?.Invoke(this, EventArgs.Empty);
+            }
+            else if (!isIdle && _idleNotified)
+            {
+                _idleNotified = false;
             }
         }
 

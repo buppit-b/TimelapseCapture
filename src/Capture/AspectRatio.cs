@@ -59,6 +59,12 @@ namespace TimelapseCapture
             if (ratioW == 0 || ratioH == 0)
                 return EnsureEvenDimensions(rect);
 
+            // Guard against a zero-dimension rect (happens mid-drag right after mouse-down on a
+            // purely horizontal/vertical drag); the division below would yield Infinity/NaN and
+            // collapse the constrained preview to a 2x2 box for that frame.
+            if (rect.Width <= 0 || rect.Height <= 0)
+                return EnsureEvenDimensions(rect);
+
             double targetRatio = (double)ratioW / ratioH;
             double currentRatio = (double)rect.Width / rect.Height;
 

@@ -14,6 +14,9 @@ namespace TimelapseCapture
 
         private static readonly object _lock = new object();
 
+        // Cap the log so an unattended multi-day run can't grow debug.log without bound.
+        private const long MaxLogBytes = 5 * 1024 * 1024; // 5 MB
+
         /// <summary>
         /// Log a message with timestamp.
         /// </summary>
@@ -23,6 +26,7 @@ namespace TimelapseCapture
             {
                 lock (_lock)
                 {
+                    RollOverIfTooLarge();
                     string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}";
                     File.AppendAllText(LogPath, entry + Environment.NewLine);
                 }
@@ -31,6 +35,22 @@ namespace TimelapseCapture
             {
                 // Silent failure - logging should never crash the app
             }
+        }
+
+        // Roll debug.log over to debug.log.bak once it exceeds the cap. Caller holds _lock.
+        private static void RollOverIfTooLarge()
+        {
+            try
+            {
+                var fi = new FileInfo(LogPath);
+                if (fi.Exists && fi.Length > MaxLogBytes)
+                {
+                    var bak = LogPath + ".bak";
+                    if (File.Exists(bak)) File.Delete(bak);
+                    File.Move(LogPath, bak);
+                }
+            }
+            catch { /* if rollover fails, just keep appending */ }
         }
 
         /// <summary>
