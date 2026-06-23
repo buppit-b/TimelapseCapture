@@ -57,10 +57,16 @@ namespace TimelapseCapture
         
         // Activity monitoring for smart intervals
         private ActivityMonitor? _activityMonitor;
+        // Smart-interval tuning. Written from UI event handlers, read in CaptureFrame on the
+        // capture timer thread. Deliberately lock-free: these are primitive value types (atomic
+        // writes), so the worst case is a one-cycle-stale interval, never corruption. Do NOT wrap
+        // the UI-side writes in lock(_captureLock) — CaptureFrame holds that lock across its whole
+        // body, so blocking the UI thread on it would risk a stall.
         private bool _smartIntervalEnabled = false;
         private decimal _activeIntervalSeconds = 2.0m; // Faster during work
         private int _idleThresholdSeconds = 30;
         private bool _skipIdleFrames = false; // false = slow down, true = skip
+        private decimal _baseIntervalSeconds = 5.0m; // UI-thread snapshot of numInterval for the capture thread
 
         // Smart interval timer update
         private System.Windows.Forms.Timer? _activityUpdateTimer;
@@ -1669,6 +1675,8 @@ namespace TimelapseCapture
             var contextMenu = new ContextMenuStrip();
             contextMenu.BackColor = Color.FromArgb(45, 45, 45);
             contextMenu.ForeColor = Color.LightGray;
+            // Dispose the menu (and its native handles) once it closes — a new one is built each click.
+            contextMenu.Closed += (s, e) => contextMenu.Dispose();
 
             var screens = Screen.AllScreens;
             for (int i = 0; i < screens.Length; i++)
@@ -2342,6 +2350,11 @@ namespace TimelapseCapture
                 }
             }
             
+            // Snapshot the base interval on the UI thread so the capture timer thread never reads
+            // the numInterval control directly. numInterval is disabled during capture, so this
+            // value can't change mid-run.
+            _baseIntervalSeconds = numInterval?.Value ?? 5.0m;
+
             // Determine initial interval
             double initialInterval;
             if (_smartIntervalEnabled && _activityMonitor != null && _activityMonitor.IsCurrentlyActive())
@@ -2352,7 +2365,7 @@ namespace TimelapseCapture
             else
             {
                 // Start with base interval
-                initialInterval = (double)(numInterval?.Value ?? 5.0m);
+                initialInterval = (double)_baseIntervalSeconds;
             }
 
             int intervalMs = (int)(initialInterval * 1000);
@@ -2491,8 +2504,9 @@ namespace TimelapseCapture
                     }
                     else
                     {
-                        // User is idle - use base interval (slow down)
-                        double baseInterval = (double)(numInterval?.Value ?? 5.0m);
+                        // User is idle - use base interval (slow down). Read the cached snapshot,
+                        // never the numInterval control, from this (timer) thread.
+                        double baseInterval = (double)_baseIntervalSeconds;
                         targetInterval = (int)(baseInterval * 1000);
                         Logger.Log("SmartInterval", $"Idle mode - interval: {baseInterval}s");
                     }
