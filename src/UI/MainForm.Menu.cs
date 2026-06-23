@@ -295,12 +295,43 @@ namespace TimelapseCapture
 
         private void MenuSettings_EncodingSettings_Click(object? sender, EventArgs e)
         {
-            // TODO: Create EncodingSettingsDialog
-            MessageBox.Show(
-                "Encoding settings dialog coming soon.\n\nFor now, encoding settings are configured when creating a new session.",
-                "Encoding Settings",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            int curFps = _targetFrameRate;
+            int curPreset = (cmbEncodingPreset != null && cmbEncodingPreset.SelectedIndex >= 0)
+                ? cmbEncodingPreset.SelectedIndex : 2;
+            int curCrf = (int)(numCrf?.Value ?? 23);
+
+            using var dlg = new EncodingSettingsDialog(curFps, curPreset, curCrf);
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            // Write back into the encoding controls so the encode path (GetEncodingPreset /
+            // BuildFfmpegArguments, which read these controls + _targetFrameRate) picks them up.
+            ApplyFrameRate(dlg.FrameRate);
+            if (cmbEncodingPreset != null) cmbEncodingPreset.SelectedIndex = dlg.PresetIndex;
+            if (numCrf != null)
+                numCrf.Value = Math.Clamp(dlg.Crf, (int)numCrf.Minimum, (int)numCrf.Maximum);
+
+            // Persist the frame rate to the active session (mirrors the setup wizard).
+            if (_activeSession != null && _activeSessionFolder != null)
+            {
+                _activeSession.VideoFps = dlg.FrameRate;
+                SessionManager.SaveSession(_activeSessionFolder, _activeSession);
+            }
+
+            RefreshUiState();
+        }
+
+        /// <summary>
+        /// Apply a frame rate to the encoding controls + _targetFrameRate, mapping standard rates
+        /// to the frame-rate dropdown and anything else to the Custom entry.
+        /// </summary>
+        private void ApplyFrameRate(int fps)
+        {
+            int idx = fps switch { 24 => 0, 25 => 1, 30 => 2, 60 => 3, _ => 4 };
+            if (cmbFrameRate != null) cmbFrameRate.SelectedIndex = idx;
+            if (idx == 4 && numCustomFrameRate != null)
+                numCustomFrameRate.Value = Math.Clamp(fps, (int)numCustomFrameRate.Minimum, (int)numCustomFrameRate.Maximum);
+            _targetFrameRate = fps;
         }
 
         private void MenuSettings_SmartInterval_Click(object? sender, EventArgs e)
