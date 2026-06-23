@@ -7,7 +7,7 @@ using System.Diagnostics;
 
 namespace TimelapseCapture
 {
-    internal static class FfmpegDownloader
+    public static class FfmpegDownloader
     {
         private const string FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
         private const long MIN_EXPECTED_SIZE = 50_000_000; // 50MB minimum

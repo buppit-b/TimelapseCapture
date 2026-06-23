@@ -11,10 +11,22 @@
     <Compile Remove="TimelapseCapture.Tests\**" />
     <EmbeddedResource Remove="TimelapseCapture.Tests\**" />
     <None Remove="TimelapseCapture.Tests\**" />
-    
+
+    <!-- Exclude the sibling sub-projects (Core library, WPF app) from this project's glob -->
+    <Compile Remove="TimelapseCapture.Core\**" />
+    <EmbeddedResource Remove="TimelapseCapture.Core\**" />
+    <None Remove="TimelapseCapture.Core\**" />
+    <Compile Remove="TimelapseCapture.Wpf\**" />
+    <EmbeddedResource Remove="TimelapseCapture.Wpf\**" />
+    <None Remove="TimelapseCapture.Wpf\**" />
+
     <!-- Exclude docs, scripts, config from compilation -->
     <Compile Remove="docs\**" />
     <Compile Remove="scripts\**" />
     <Compile Remove="config\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="TimelapseCapture.Core\TimelapseCapture.Core.csproj" />
   </ItemGroup>
 </Project>
