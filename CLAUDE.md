@@ -152,10 +152,9 @@ doesn't obviously belong to one file.
   `SessionManager` + `ValidationHelper`. **Not covered:** capture engine,
   region-sync invariant, `ActivityMonitor`, FFmpeg pipeline. Prioritize those.
 - **Open / next:**
-  - The full multi-agent review is now complete (21 confirmed findings); 19 are
-    fixed. **2 low-priority items are intentionally deferred pending a product
-    decision:** ffmpeg encode has no timeout/cancel (a hung ffmpeg hangs the
-    encode), and "Download FFmpeg" silently overrides a custom ffmpeg path.
+  - The full multi-agent review is complete (21 confirmed findings) and **all 21
+    are addressed** — including an encode Cancel button (ffmpeg encodes can now be
+    stopped) and a confirmation before "Download FFmpeg" overrides a custom path.
   - UI rework Phases 2–4 (compact session bar, collapsible Smart Interval panel,
     encoding-settings dialog) are planned, not built — see
     `docs/development/claude/UI_WORKFLOW_REORGANIZATION.md` before proposing a
@@ -165,11 +164,11 @@ doesn't obviously belong to one file.
 
 ## Issue log (newest first)
 
-#### Full code review — 21 findings, 19 fixed (2026-06-23)
-- A verified multi-agent review found 21 real issues; 19 fixed across crashes on
+#### Full code review — 21 findings, all addressed (2026-06-23)
+- A verified multi-agent review found 21 real issues; all addressed: crashes on
   bad settings/session files, a close-time `session.json` race, a capture-thread
-  control read, a wizard download crash, and ffmpeg/logging/leak hardening. 2 low
-  items deferred for a product decision (encode timeout, ffmpeg-download path).
+  control read, a wizard download crash, ffmpeg/logging/leak hardening, plus an
+  encode Cancel button and a custom-ffmpeg-path override warning.
 
 #### Build break from dead UI scaffolding (FIXED — 2026-06-23)
 - Constructor called `InitializeCollapsiblePanels()` / `RefreshUIState()` which
