@@ -1683,8 +1683,16 @@ namespace TimelapseCapture
             var contextMenu = new ContextMenuStrip();
             contextMenu.BackColor = Color.FromArgb(45, 45, 45);
             contextMenu.ForeColor = Color.LightGray;
-            // Dispose the menu (and its native handles) once it closes — a new one is built each click.
-            contextMenu.Closed += (s, e) => contextMenu.Dispose();
+            // Dispose the menu (and its native handles) after it closes — a new one is built each
+            // click. Disposing *inside* the Closed handler crashes: the framework's close machinery
+            // (ToolStripDropDown.SetVisibleCore) still touches the menu's handle after Closed fires,
+            // throwing ObjectDisposedException. Defer via BeginInvoke so disposal runs once the
+            // close has fully unwound.
+            contextMenu.Closed += (s, e) =>
+            {
+                try { BeginInvoke(new Action(contextMenu.Dispose)); }
+                catch { /* form already gone; it will be torn down with the form */ }
+            };
 
             var screens = Screen.AllScreens;
             for (int i = 0; i < screens.Length; i++)
