@@ -1,0 +1,107 @@
+<Window x:Class="TimelapseCapture.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
+        Title="Timelapse Capture" Height="660" Width="920"
+        Background="{StaticResource BgBrush}"
+        WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Display"
+        FontFamily="Segoe UI">
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,18">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#128247;" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Border HorizontalAlignment="Right" Background="{StaticResource SurfaceAltBrush}"
+                    CornerRadius="14" Padding="12,6"
+                    BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
+                <TextBlock Text="{Binding SessionName}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <!-- Content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="300"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left column -->
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource CardTitle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding OutputFolder}" Style="{StaticResource Body}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Button Grid.Column="1" Content="Choose&#8230;" Style="{StaticResource BtnBase}"
+                                    Command="{Binding ChooseFolderCommand}" Margin="10,0,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="CAPTURE" Style="{StaticResource CardTitle}"/>
+                        <TextBlock Text="Region, interval and format controls will live here."
+                                   Style="{StaticResource Muted}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Content="Select Region" Style="{StaticResource BtnBase}" Margin="0,0,10,0" IsEnabled="False"/>
+                            <Button Content="Full Screen" Style="{StaticResource BtnBase}" IsEnabled="False"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="CAPTURE CONTROL" Style="{StaticResource CardTitle}"/>
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="&#9654;  Start Capture" Style="{StaticResource BtnSuccess}" Margin="0,0,10,0" IsEnabled="False"/>
+                            <Button Content="&#9209;  Stop" Style="{StaticResource BtnBase}" IsEnabled="False"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Right column: status -->
+            <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="STATUS" Style="{StaticResource CardTitle}"/>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Session" Style="{StaticResource Muted}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding SessionName}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
