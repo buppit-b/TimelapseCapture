@@ -5,14 +5,14 @@
     <Application.Resources>
         <ResourceDictionary>
             <!-- Palette -->
-            <SolidColorBrush x:Key="BgBrush" Color="#141414"/>
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#1E1E1E"/>
-            <SolidColorBrush x:Key="SurfaceAltBrush" Color="#262626"/>
-            <SolidColorBrush x:Key="StrokeBrush" Color="#343434"/>
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#ECECEC"/>
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9AA0A6"/>
-            <SolidColorBrush x:Key="AccentBrush" Color="#3D8BFD"/>
-            <SolidColorBrush x:Key="SuccessBrush" Color="#2EA043"/>
+            <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#161616"/>
+            <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F"/>
+            <SolidColorBrush x:Key="StrokeBrush" Color="#2B2B2B"/>
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E6EDE6"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#7D8C7D"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#3FB950"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#3FB950"/>
             <SolidColorBrush x:Key="DangerBrush" Color="#E5534B"/>
 
             <Style x:Key="Card" TargetType="Border">
@@ -25,9 +25,10 @@
             </Style>
 
             <Style x:Key="CardTitle" TargetType="TextBlock">
-                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="FontFamily" Value="Consolas"/>
                 <Setter Property="FontSize" Value="11"/>
-                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontWeight" Value="Bold"/>
                 <Setter Property="Margin" Value="0,0,0,12"/>
             </Style>
 
