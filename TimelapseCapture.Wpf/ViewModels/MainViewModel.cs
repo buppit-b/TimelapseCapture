@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -37,6 +38,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
+            EncodeCommand = new RelayCommand(async _ => await Encode(), _ => CanEncode);
         }
 
         // ---- bound state ----
@@ -74,7 +76,25 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
         }
 
+        private bool _isEncoding;
+        public bool IsEncoding
+        {
+            get => _isEncoding;
+            set
+            {
+                if (SetProperty(ref _isEncoding, value))
+                {
+                    OnPropertyChanged(nameof(StatusText));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        private string _encodeStatus = "";
+        public string EncodeStatus { get => _encodeStatus; set => SetProperty(ref _encodeStatus, value); }
+
         public string StatusText =>
+            IsEncoding ? "Encoding video…" :
             IsCapturing ? $"● Capturing every {_settings.IntervalSeconds}s…" :
             _session == null ? "Create a session to begin." :
             _region.HasValue ? "Ready to capture." :
@@ -91,6 +111,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
         public ICommand OpenFolderCommand { get; }
+        public ICommand EncodeCommand { get; }
 
         private void ChooseFolder()
         {
@@ -194,6 +215,52 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void OnCaptureFailed(string message)
             => Logger.Log("Wpf", $"Capture error: {message}");
+
+        private bool CanEncode => _session != null && _frameCount > 0 && !IsCapturing && !IsEncoding;
+
+        private async Task Encode()
+        {
+            if (_session == null || _sessionFolder == null) return;
+
+            var ffmpeg = FfmpegRunner.FindFfmpeg(_settings.FfmpegPath);
+            if (string.IsNullOrEmpty(ffmpeg))
+            {
+                MessageBox.Show("FFmpeg was not found. Configure or download it first.",
+                    "FFmpeg not found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            IsEncoding = true;
+            EncodeStatus = "Encoding…";
+            int fps = _session.VideoFps > 0 ? _session.VideoFps : 30;
+
+            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, fps, "medium", 23);
+
+            IsEncoding = false;
+            if (result.Success)
+            {
+                EncodeStatus = "Encoded ✓";
+                var open = MessageBox.Show($"Video encoded:\n{result.OutputPath}\n\nOpen the output folder?",
+                    "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (open == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = Path.GetDirectoryName(result.OutputPath)!,
+                            UseShellExecute = true,
+                        });
+                    }
+                    catch { /* ignore */ }
+                }
+            }
+            else
+            {
+                EncodeStatus = "Encode failed";
+                MessageBox.Show($"Encode failed:\n{result.Error}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         private void RefreshFfmpegStatus()
         {
