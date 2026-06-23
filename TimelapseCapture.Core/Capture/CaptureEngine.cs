@@ -30,6 +30,12 @@ namespace TimelapseCapture
         private ImageFormat _imageFormat = ImageFormat.Jpeg;
         private string _extension = "jpg";
 
+        private ActivityMonitor? _activityMonitor;
+        private bool _smartEnabled;
+        private int _baseIntervalMs;
+        private int _activeIntervalMs;
+        private bool _skipIdleFrames;
+
         /// <summary>Raised after each successful frame, with the new total frame count. UI thread not guaranteed.</summary>
         public event Action<int>? FrameCaptured;
 
@@ -43,7 +49,9 @@ namespace TimelapseCapture
         /// into the session at <paramref name="sessionFolder"/>.
         /// </summary>
         public void Start(string sessionFolder, SessionInfo session, Rectangle region,
-                          double intervalSeconds, string format)
+                          double intervalSeconds, string format,
+                          bool smartEnabled = false, double activeIntervalSeconds = 2.0,
+                          int idleThresholdSeconds = 30, bool skipIdleFrames = false)
         {
             lock (_lock)
             {
@@ -66,10 +74,22 @@ namespace TimelapseCapture
                     _extension = "jpg";
                 }
 
-                int intervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
+                _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
+                _smartEnabled = smartEnabled;
+                _activeIntervalMs = Math.Max(100, (int)(activeIntervalSeconds * 1000));
+                _skipIdleFrames = skipIdleFrames;
+
+                if (_smartEnabled)
+                {
+                    _activityMonitor = new ActivityMonitor { IdleThresholdSeconds = idleThresholdSeconds, IsEnabled = true };
+                    _activityMonitor.Start();
+                }
+
                 IsRunning = true;
-                _timer = new Timer(OnTick, null, intervalMs, intervalMs);
-                Logger.Log("CaptureEngine", $"Started: region={region}, interval={intervalSeconds}s, format={_extension}");
+                int startMs = _smartEnabled ? _activeIntervalMs : _baseIntervalMs;
+                _timer = new Timer(OnTick, null, startMs, startMs);
+                Logger.Log("CaptureEngine",
+                    $"Started: region={region}, interval={intervalSeconds}s, format={_extension}, smart={_smartEnabled}");
             }
         }
 
@@ -81,6 +101,13 @@ namespace TimelapseCapture
                 IsRunning = false;
                 _timer?.Dispose();
                 _timer = null;
+                if (_activityMonitor != null)
+                {
+                    _activityMonitor.IsEnabled = false;
+                    _activityMonitor.Stop();
+                    _activityMonitor.Dispose();
+                    _activityMonitor = null;
+                }
                 Logger.Log("CaptureEngine", "Stopped");
             }
         }
@@ -93,6 +120,20 @@ namespace TimelapseCapture
             lock (_lock)
             {
                 if (!IsRunning) return;
+
+                // Smart interval: adapt the cadence to user activity, optionally skipping idle frames.
+                if (_smartEnabled && _activityMonitor != null)
+                {
+                    bool isActive = _activityMonitor.IsCurrentlyActive();
+                    if (!isActive && _skipIdleFrames)
+                    {
+                        _timer?.Change(_activeIntervalMs, _activeIntervalMs);
+                        return; // skip this frame while idle
+                    }
+                    int targetMs = isActive ? _activeIntervalMs : _baseIntervalMs;
+                    _timer?.Change(targetMs, targetMs);
+                }
+
                 try
                 {
                     long next = (_session?.FramesCaptured ?? 0) + 1;

@@ -121,6 +121,14 @@
                             <TextBlock Grid.Column="2" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
                                        Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="Video fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
+                            <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                            <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
+                            <CheckBox Content="PNG frames" IsChecked="{Binding UsePng}"
+                                      Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                        </StackPanel>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -131,6 +139,29 @@
                             <TextBlock Grid.Column="1" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
                                        VerticalAlignment="Center" Margin="12,0,0,0"/>
                         </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
+                        <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Active (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding ActiveIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                            <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"/>
+                        </Grid>
+                        <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
+                                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>

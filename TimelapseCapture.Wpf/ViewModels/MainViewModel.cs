@@ -66,6 +66,51 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
         }
 
+        public bool SmartEnabled
+        {
+            get => _settings.SmartIntervalEnabled;
+            set { if (_settings.SmartIntervalEnabled != value) { _settings.SmartIntervalEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public decimal ActiveIntervalSeconds
+        {
+            get => _settings.ActiveIntervalSeconds;
+            set { var v = value < 0.1m ? 0.1m : value; if (_settings.ActiveIntervalSeconds != v) { _settings.ActiveIntervalSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public int IdleThresholdSeconds
+        {
+            get => _settings.IdleThresholdSeconds;
+            set { var v = value < 1 ? 1 : value; if (_settings.IdleThresholdSeconds != v) { _settings.IdleThresholdSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public bool SkipIdleFrames
+        {
+            get => _settings.SkipIdleFrames;
+            set { if (_settings.SkipIdleFrames != value) { _settings.SkipIdleFrames = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        private int _encodeFps = 30;
+        public int EncodeFps { get => _encodeFps; set => SetProperty(ref _encodeFps, value < 1 ? 1 : value); }
+
+        private int _encodeCrf = 23;
+        public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
+
+        public bool UsePng
+        {
+            get => string.Equals(_settings.Format, "PNG", StringComparison.OrdinalIgnoreCase);
+            set
+            {
+                var fmt = value ? "PNG" : "JPEG";
+                if (!string.Equals(_settings.Format, fmt, StringComparison.OrdinalIgnoreCase))
+                {
+                    _settings.Format = fmt;
+                    SettingsManager.Save(_settings);
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         private string _ffmpegStatus = "Checking…";
         public string FfmpegStatus { get => _ffmpegStatus; set => SetProperty(ref _ffmpegStatus, value); }
 
@@ -238,7 +283,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
-            _engine.Start(_sessionFolder, _session, _region.Value, _settings.IntervalSeconds, _settings.Format ?? "JPEG");
+            _engine.Start(_sessionFolder, _session, _region.Value, _settings.IntervalSeconds, _settings.Format ?? "JPEG",
+                _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
+                _settings.IdleThresholdSeconds, _settings.SkipIdleFrames);
             IsCapturing = true;
         }
 
@@ -294,9 +341,8 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             IsEncoding = true;
             EncodeStatus = "Encoding…";
-            int fps = _session.VideoFps > 0 ? _session.VideoFps : 30;
 
-            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, fps, "medium", 23);
+            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, "medium", EncodeCrf);
 
             IsEncoding = false;
             if (result.Success)
