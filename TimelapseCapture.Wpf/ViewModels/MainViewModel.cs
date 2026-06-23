@@ -39,11 +39,29 @@ namespace TimelapseCapture.Wpf.ViewModels
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await Encode(), _ => CanEncode);
+            DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
+            BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
         }
 
         // ---- bound state ----
         private string _outputFolder;
         public string OutputFolder { get => _outputFolder; set => SetProperty(ref _outputFolder, value); }
+
+        public int IntervalSeconds
+        {
+            get => _settings.IntervalSeconds;
+            set
+            {
+                int v = value < 1 ? 1 : value;
+                if (_settings.IntervalSeconds != v)
+                {
+                    _settings.IntervalSeconds = v;
+                    SettingsManager.Save(_settings);
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(StatusText));
+                }
+            }
+        }
 
         private string _ffmpegStatus = "Checking…";
         public string FfmpegStatus { get => _ffmpegStatus; set => SetProperty(ref _ffmpegStatus, value); }
@@ -93,6 +111,13 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string _encodeStatus = "";
         public string EncodeStatus { get => _encodeStatus; set => SetProperty(ref _encodeStatus, value); }
 
+        private bool _isFfmpegBusy;
+        public bool IsFfmpegBusy
+        {
+            get => _isFfmpegBusy;
+            set { if (SetProperty(ref _isFfmpegBusy, value)) CommandManager.InvalidateRequerySuggested(); }
+        }
+
         public string StatusText =>
             IsEncoding ? "Encoding video…" :
             IsCapturing ? $"● Capturing every {_settings.IntervalSeconds}s…" :
@@ -112,6 +137,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand StopCommand { get; }
         public ICommand OpenFolderCommand { get; }
         public ICommand EncodeCommand { get; }
+        public ICommand DownloadFfmpegCommand { get; }
+        public ICommand BrowseFfmpegCommand { get; }
 
         private void ChooseFolder()
         {
@@ -262,10 +289,56 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
         }
 
+        private async Task DownloadFfmpeg()
+        {
+            string target = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+            IsFfmpegBusy = true;
+            FfmpegStatus = "Downloading…";
+            try
+            {
+                var path = await FfmpegDownloader.EnsureFfmpegPresentAsync(target, (d, t, status) =>
+                {
+                    if (!string.IsNullOrEmpty(status))
+                        Application.Current?.Dispatcher.BeginInvoke(new Action(() => FfmpegStatus = status));
+                });
+                if (!string.IsNullOrEmpty(path))
+                {
+                    _settings.FfmpegPath = path;
+                    SettingsManager.Save(_settings);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Wpf", $"FFmpeg download failed: {ex.Message}");
+            }
+            finally
+            {
+                IsFfmpegBusy = false;
+                RefreshFfmpegStatus();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        private void BrowseFfmpeg()
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title = "Select ffmpeg.exe",
+                Filter = "ffmpeg|ffmpeg.exe|Executable files|*.exe|All files|*.*",
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                _settings.FfmpegPath = dlg.FileName;
+                SettingsManager.Save(_settings);
+                RefreshFfmpegStatus();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
         private void RefreshFfmpegStatus()
         {
             var path = FfmpegRunner.FindFfmpeg(_settings.FfmpegPath);
-            FfmpegStatus = string.IsNullOrEmpty(path) ? "Not found — Settings ▸ Download" : "Ready";
+            FfmpegStatus = string.IsNullOrEmpty(path) ? "Not found" : "Ready";
         }
 
         public void Dispose() => _engine.Dispose();

@@ -99,6 +99,11 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="CAPTURE" Style="{StaticResource CardTitle}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"/>
+                            <TextBlock Text="seconds" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </StackPanel>
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14" TextWrapping="Wrap"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -131,14 +136,22 @@
             <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
                 <StackPanel>
                     <TextBlock Text="STATUS" Style="{StaticResource CardTitle}"/>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
-                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
-                    </Grid>
+                    <StackPanel Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="64"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="64,8,0,0">
+                            <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                    Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
+                            <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                    Command="{Binding BrowseFfmpegCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="64"/>
