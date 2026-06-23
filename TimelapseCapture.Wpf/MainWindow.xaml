@@ -66,14 +66,17 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Content="New Session" Style="{StaticResource BtnPrimary}"
                                     Command="{Binding NewSessionCommand}"/>
-                            <Button Grid.Column="1" Content="&#128194;  Open Folder" Style="{StaticResource BtnBase}"
+                            <Button Grid.Column="1" Content="Load" Style="{StaticResource BtnBase}"
+                                    Command="{Binding LoadSessionCommand}" Margin="8,0,0,0"/>
+                            <Button Grid.Column="2" Content="&#128194;  Open Folder" Style="{StaticResource BtnBase}"
                                     Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"
                                     ToolTip="Open the session folder in Explorer"/>
-                            <TextBlock Grid.Column="2" Text="{Binding SessionName}" Style="{StaticResource Body}"
+                            <TextBlock Grid.Column="3" Text="{Binding SessionName}" Style="{StaticResource Body}"
                                        VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
                         </Grid>
                         <Grid Margin="0,14,0,0">

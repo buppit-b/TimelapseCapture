@@ -34,6 +34,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
+            LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -133,6 +134,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         // ---- commands ----
         public ICommand ChooseFolderCommand { get; }
         public ICommand NewSessionCommand { get; }
+        public ICommand LoadSessionCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand StartCommand { get; }
@@ -177,6 +179,36 @@ namespace TimelapseCapture.Wpf.ViewModels
                 MessageBox.Show($"Failed to create session:\n{ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void LoadSession()
+        {
+            string capturesRoot = Path.Combine(_settings.SaveFolder ?? "", "captures");
+            var dlg = new OpenFolderDialog
+            {
+                Title = "Select a session folder to load",
+                InitialDirectory = Directory.Exists(capturesRoot) ? capturesRoot : (_settings.SaveFolder ?? ""),
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            var session = SessionManager.LoadSession(dlg.FolderName);
+            if (session == null)
+            {
+                MessageBox.Show("That folder doesn't contain a valid session (no session.json).",
+                    "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _session = session;
+            _sessionFolder = dlg.FolderName;
+            _region = session.CaptureRegion;
+            SessionName = session.Name ?? "Session";
+            RegionText = _region.HasValue
+                ? $"{_region.Value.Width}×{_region.Value.Height} at ({_region.Value.X},{_region.Value.Y})"
+                : "Not selected";
+            FrameCount = (int)session.FramesCaptured;
+            OnPropertyChanged(nameof(StatusText));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private void SelectFullScreen()
