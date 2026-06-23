@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 
@@ -26,8 +27,9 @@ namespace TimelapseCapture
         /// <param name="targetPath">Target directory for ffmpeg installation</param>
         /// <param name="progressCallback">Optional callback for progress updates</param>
         /// <returns>Path to ffmpeg.exe if successful, null otherwise</returns>
-        public static async Task<string?> EnsureFfmpegPresentAsync(string? targetPath, ProgressCallback? progressCallback = null)
+        public static async Task<string?> EnsureFfmpegPresentAsync(string? targetPath, ProgressCallback? progressCallback = null, CancellationToken cancellationToken = default)
         {
+            string? zipPath = null;
             try
             {
                 if (string.IsNullOrWhiteSpace(targetPath))
@@ -45,24 +47,29 @@ namespace TimelapseCapture
 
                 progressCallback?.Invoke(0, 0, "Creating FFmpeg directory...");
                 Directory.CreateDirectory(targetPath);
-                string zipPath = Path.Combine(targetPath, "ffmpeg.zip");
+                zipPath = Path.Combine(targetPath, "ffmpeg.zip");
 
                 // Download with retries
                 bool downloadSuccess = false;
                 for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     try
                     {
                         progressCallback?.Invoke(0, 0, $"Downloading FFmpeg (attempt {attempt}/{MAX_RETRIES})...");
-                        await DownloadFileWithProgressAsync(FFMPEG_URL, zipPath, progressCallback);
+                        await DownloadFileWithProgressAsync(FFMPEG_URL, zipPath, progressCallback, cancellationToken);
                         downloadSuccess = true;
                         break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw; // user cancelled — do not retry
                     }
                     catch (Exception ex) when (attempt < MAX_RETRIES)
                     {
                         Debug.WriteLine($"Download attempt {attempt} failed: {ex.Message}");
                         progressCallback?.Invoke(0, 0, $"Download failed, retrying... ({attempt}/{MAX_RETRIES})");
-                        await Task.Delay(2000); // Wait before retry
+                        await Task.Delay(2000, cancellationToken); // Wait before retry
                     }
                 }
 
@@ -78,6 +85,7 @@ namespace TimelapseCapture
                     throw new InvalidDataException($"Downloaded file is invalid or too small ({fileInfo.Length} bytes)");
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 progressCallback?.Invoke(0, 0, "Extracting FFmpeg...");
                 await Task.Run(() =>
                 {
@@ -118,6 +126,12 @@ namespace TimelapseCapture
                 progressCallback?.Invoke(0, 0, "✅ FFmpeg ready!");
                 return exePath;
             }
+            catch (OperationCanceledException)
+            {
+                progressCallback?.Invoke(0, 0, "Download cancelled");
+                try { if (zipPath != null && File.Exists(zipPath)) File.Delete(zipPath); } catch { /* best effort */ }
+                return null;
+            }
             catch (HttpRequestException httpEx)
             {
                 Debug.WriteLine($"Network error downloading FFmpeg: {httpEx.Message}");
@@ -141,30 +155,46 @@ namespace TimelapseCapture
         /// <summary>
         /// Download a file with progress reporting.
         /// </summary>
-        private static async Task DownloadFileWithProgressAsync(string url, string destinationPath, ProgressCallback? progressCallback)
+        private static async Task DownloadFileWithProgressAsync(string url, string destinationPath,
+            ProgressCallback? progressCallback, CancellationToken cancellationToken)
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
 
-            using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             long? totalBytes = response.Content.Headers.ContentLength;
-            using var contentStream = await response.Content.ReadAsStreamAsync();
-            using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+            using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            // 80 KB buffer + time-throttled progress: far fewer reads and UI updates than the old
+            // 8 KB / per-read reporting, which flooded the UI thread and slowed the download.
+            using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
 
-            var buffer = new byte[8192];
+            var buffer = new byte[81920];
             long bytesDownloaded = 0;
             int bytesRead;
 
-            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            var sw = Stopwatch.StartNew();
+            long lastReportMs = 0;
+            long lastReportBytes = 0;
+
+            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
             {
-                await fileStream.WriteAsync(buffer, 0, bytesRead);
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
                 bytesDownloaded += bytesRead;
 
-                if (totalBytes.HasValue && progressCallback != null)
+                long nowMs = sw.ElapsedMilliseconds;
+                if (progressCallback != null && nowMs - lastReportMs >= 200)
                 {
-                    progressCallback(bytesDownloaded, totalBytes.Value, 
-                        $"Downloading... {bytesDownloaded / 1_000_000}MB / {totalBytes.Value / 1_000_000}MB");
+                    double intervalSec = (nowMs - lastReportMs) / 1000.0;
+                    double mbps = intervalSec > 0 ? (bytesDownloaded - lastReportBytes) / 1_000_000.0 / intervalSec : 0;
+                    lastReportMs = nowMs;
+                    lastReportBytes = bytesDownloaded;
+
+                    string status = (totalBytes.HasValue && totalBytes.Value > 0)
+                        ? $"Downloading… {bytesDownloaded / 1_000_000}/{totalBytes.Value / 1_000_000} MB " +
+                          $"({bytesDownloaded * 100 / totalBytes.Value}%, {mbps:F1} MB/s)"
+                        : $"Downloading… {bytesDownloaded / 1_000_000} MB ({mbps:F1} MB/s)";
+                    progressCallback(bytesDownloaded, totalBytes ?? 0, status);
                 }
             }
         }

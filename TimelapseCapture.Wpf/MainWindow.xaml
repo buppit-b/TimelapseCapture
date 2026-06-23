@@ -149,7 +149,9 @@
                             <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
                                     Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
                             <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
-                                    Command="{Binding BrowseFfmpegCommand}"/>
+                                    Command="{Binding BrowseFfmpegCommand}" Margin="0,0,6,0"/>
+                            <Button Content="Cancel" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                    Command="{Binding CancelDownloadCommand}"/>
                         </StackPanel>
                     </StackPanel>
                     <Grid Margin="0,0,0,10">

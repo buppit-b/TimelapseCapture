@@ -18,6 +18,7 @@ namespace TimelapseCapture.Wpf.ViewModels
     {
         private readonly CaptureSettings _settings;
         private readonly CaptureEngine _engine = new CaptureEngine();
+        private System.Threading.CancellationTokenSource? _ffmpegCts;
         private SessionInfo? _session;
         private string? _sessionFolder;
         private Rectangle? _region;
@@ -41,6 +42,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             EncodeCommand = new RelayCommand(async _ => await Encode(), _ => CanEncode);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
+            CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
         }
 
         // ---- bound state ----
@@ -139,6 +141,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand EncodeCommand { get; }
         public ICommand DownloadFfmpegCommand { get; }
         public ICommand BrowseFfmpegCommand { get; }
+        public ICommand CancelDownloadCommand { get; }
 
         private void ChooseFolder()
         {
@@ -292,15 +295,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         private async Task DownloadFfmpeg()
         {
             string target = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+            _ffmpegCts = new System.Threading.CancellationTokenSource();
             IsFfmpegBusy = true;
-            FfmpegStatus = "Downloading…";
+            FfmpegStatus = "Starting download…";
             try
             {
                 var path = await FfmpegDownloader.EnsureFfmpegPresentAsync(target, (d, t, status) =>
                 {
                     if (!string.IsNullOrEmpty(status))
                         Application.Current?.Dispatcher.BeginInvoke(new Action(() => FfmpegStatus = status));
-                });
+                }, _ffmpegCts.Token);
                 if (!string.IsNullOrEmpty(path))
                 {
                     _settings.FfmpegPath = path;
@@ -313,6 +317,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             finally
             {
+                _ffmpegCts?.Dispose();
+                _ffmpegCts = null;
                 IsFfmpegBusy = false;
                 RefreshFfmpegStatus();
                 CommandManager.InvalidateRequerySuggested();
