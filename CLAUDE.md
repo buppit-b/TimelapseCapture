@@ -143,14 +143,19 @@ doesn't obviously belong to one file.
   - Fixed 3 reviewed bugs: atomic writes for `settings.json` and `session.json`
     (no more corruption on crash/power-loss), and `ffmpeg -version` validation
     no longer deadlocks/false-rejects a valid ffmpeg.
+  - Re-ran the full review and fixed 19 confirmed findings: startup-crash guards
+    for corrupt settings/session files, session-folder/active-session integrity,
+    a close-while-capturing data race, a capture-thread UI-control read, a wizard
+    download crash, atomic ffmpeg output handling, bounded logging, and several
+    leaks. Build green, 8/8 tests pass.
 - **Tests — thin (real gap):** `TimelapseCapture.Tests/BasicTests.cs` covers only
   `SessionManager` + `ValidationHelper`. **Not covered:** capture engine,
   region-sync invariant, `ActivityMonitor`, FFmpeg pipeline. Prioritize those.
 - **Open / next:**
-  - A full multi-agent code review ran but its verification pass was cut off by a
-    usage limit, so only 3 findings were confirmed and fixed; ~30 raw findings
-    (threading, leaks, lifecycle, sessions, new-UI null-derefs) were **not**
-    re-verified. Re-running the review is worthwhile.
+  - The full multi-agent review is now complete (21 confirmed findings); 19 are
+    fixed. **2 low-priority items are intentionally deferred pending a product
+    decision:** ffmpeg encode has no timeout/cancel (a hung ffmpeg hangs the
+    encode), and "Download FFmpeg" silently overrides a custom ffmpeg path.
   - UI rework Phases 2–4 (compact session bar, collapsible Smart Interval panel,
     encoding-settings dialog) are planned, not built — see
     `docs/development/claude/UI_WORKFLOW_REORGANIZATION.md` before proposing a
@@ -159,6 +164,12 @@ doesn't obviously belong to one file.
 ---
 
 ## Issue log (newest first)
+
+#### Full code review — 21 findings, 19 fixed (2026-06-23)
+- A verified multi-agent review found 21 real issues; 19 fixed across crashes on
+  bad settings/session files, a close-time `session.json` race, a capture-thread
+  control read, a wizard download crash, and ffmpeg/logging/leak hardening. 2 low
+  items deferred for a product decision (encode timeout, ffmpeg-download path).
 
 #### Build break from dead UI scaffolding (FIXED — 2026-06-23)
 - Constructor called `InitializeCollapsiblePanels()` / `RefreshUIState()` which
