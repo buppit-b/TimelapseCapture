@@ -1,17 +1,25 @@
+using System;
+using System.Drawing;
+using System.IO;
+using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
-using TimelapseCapture; // Core: SettingsManager, CaptureSettings, FfmpegRunner, SessionManager
+using TimelapseCapture; // Core: settings, sessions, ffmpeg, capture engine, screen helper
 
 namespace TimelapseCapture.Wpf.ViewModels
 {
     /// <summary>
-    /// Main window view-model. Connected to the reused TimelapseCapture.Core services so the WPF
-    /// shell shows real state (settings, ffmpeg availability) rather than mock data. Capture /
-    /// region / encode wiring is built out incrementally.
+    /// Main window view-model. Drives the first working vertical slice on top of the reused
+    /// TimelapseCapture.Core engine: choose folder → new session → full screen → start/stop,
+    /// with a live frame count. Region drag-select and encode are layered on next.
     /// </summary>
-    public class MainViewModel : ViewModelBase
+    public class MainViewModel : ViewModelBase, IDisposable
     {
         private readonly CaptureSettings _settings;
+        private readonly CaptureEngine _engine = new CaptureEngine();
+        private SessionInfo? _session;
+        private string? _sessionFolder;
+        private Rectangle? _region;
 
         public MainViewModel()
         {
@@ -19,52 +27,139 @@ namespace TimelapseCapture.Wpf.ViewModels
             _outputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
             RefreshFfmpegStatus();
 
+            _engine.FrameCaptured += OnFrameCaptured;
+            _engine.CaptureFailed += OnCaptureFailed;
+
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
+            NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
+            FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
+            StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
+            StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
         }
 
+        // ---- bound state ----
         private string _outputFolder;
-        public string OutputFolder
-        {
-            get => _outputFolder;
-            set => SetProperty(ref _outputFolder, value);
-        }
+        public string OutputFolder { get => _outputFolder; set => SetProperty(ref _outputFolder, value); }
 
         private string _ffmpegStatus = "Checking…";
-        public string FfmpegStatus
+        public string FfmpegStatus { get => _ffmpegStatus; set => SetProperty(ref _ffmpegStatus, value); }
+
+        private string _sessionName = "No active session";
+        public string SessionName { get => _sessionName; set => SetProperty(ref _sessionName, value); }
+
+        private string _regionText = "Not selected";
+        public string RegionText { get => _regionText; set => SetProperty(ref _regionText, value); }
+
+        private int _frameCount;
+        public int FrameCount
         {
-            get => _ffmpegStatus;
-            set => SetProperty(ref _ffmpegStatus, value);
+            get => _frameCount;
+            set { if (SetProperty(ref _frameCount, value)) OnPropertyChanged(nameof(FrameCountText)); }
+        }
+        public string FrameCountText => $"{_frameCount} frames";
+
+        private bool _isCapturing;
+        public bool IsCapturing
+        {
+            get => _isCapturing;
+            set
+            {
+                if (SetProperty(ref _isCapturing, value))
+                {
+                    OnPropertyChanged(nameof(StatusText));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
-        private bool _ffmpegReady;
-        public bool FfmpegReady
-        {
-            get => _ffmpegReady;
-            set => SetProperty(ref _ffmpegReady, value);
-        }
+        public string StatusText =>
+            IsCapturing ? $"● Capturing every {_settings.IntervalSeconds}s…" :
+            _session == null ? "Create a session to begin." :
+            _region.HasValue ? "Ready to capture." :
+            "Select a region (Full Screen for now).";
 
-        public string SessionName => "No active session";
+        private bool HasOutputFolder =>
+            !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
-        public string StatusText => "Choose an output folder and create a session to begin.";
-
+        // ---- commands ----
         public ICommand ChooseFolderCommand { get; }
+        public ICommand NewSessionCommand { get; }
+        public ICommand FullScreenCommand { get; }
+        public ICommand StartCommand { get; }
+        public ICommand StopCommand { get; }
 
         private void ChooseFolder()
         {
             var dlg = new OpenFolderDialog { Title = "Select output folder for captures" };
             if (dlg.ShowDialog() == true)
             {
-                OutputFolder = dlg.FolderName;
                 _settings.SaveFolder = dlg.FolderName;
                 SettingsManager.Save(_settings);
+                OutputFolder = dlg.FolderName;
+                CommandManager.InvalidateRequerySuggested();
             }
         }
+
+        private void NewSession()
+        {
+            try
+            {
+                string capturesRoot = Path.Combine(_settings.SaveFolder!, "captures");
+                string name = $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
+                _sessionFolder = SessionManager.CreateNamedSession(
+                    capturesRoot, name, _settings.IntervalSeconds, null, _settings.Format ?? "JPEG", _settings.JpegQuality);
+                _session = SessionManager.LoadSession(_sessionFolder);
+                _region = null;
+
+                SessionName = _session?.Name ?? name;
+                RegionText = "Not selected";
+                FrameCount = (int)(_session?.FramesCaptured ?? 0);
+                OnPropertyChanged(nameof(StatusText));
+                CommandManager.InvalidateRequerySuggested();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to create session:\n{ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SelectFullScreen()
+        {
+            var r = ScreenHelper.PrimaryScreenBounds();
+            r.Width -= r.Width % 2;   // even dimensions required by the H.264 encoder
+            r.Height -= r.Height % 2;
+            _region = r;
+            RegionText = $"{r.Width}×{r.Height} (full screen)";
+            OnPropertyChanged(nameof(StatusText));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void StartCapture()
+        {
+            if (_session == null || _sessionFolder == null || !_region.HasValue) return;
+            _engine.Start(_sessionFolder, _session, _region.Value, _settings.IntervalSeconds, _settings.Format ?? "JPEG");
+            IsCapturing = true;
+        }
+
+        private void StopCapture()
+        {
+            _engine.Stop();
+            IsCapturing = false;
+        }
+
+        private void OnFrameCaptured(int count)
+            => Application.Current?.Dispatcher.BeginInvoke(new Action(() => FrameCount = count));
+
+        private void OnCaptureFailed(string message)
+            => Logger.Log("Wpf", $"Capture error: {message}");
 
         private void RefreshFfmpegStatus()
         {
             var path = FfmpegRunner.FindFfmpeg(_settings.FfmpegPath);
-            FfmpegReady = !string.IsNullOrEmpty(path);
-            FfmpegStatus = FfmpegReady ? "Ready" : "Not found — download or browse in Settings";
+            FfmpegStatus = string.IsNullOrEmpty(path) ? "Not found — Settings ▸ Download" : "Ready";
         }
+
+        public void Dispose() => _engine.Dispose();
     }
 }
