@@ -85,8 +85,12 @@
                             <TextBlock Grid.Column="0" Text="Region" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
                                        Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                            <Button Grid.Column="2" Content="Full Screen" Style="{StaticResource BtnBase}"
-                                    Command="{Binding FullScreenCommand}"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Content="Select Region" Style="{StaticResource BtnBase}"
+                                        Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Full Screen" Style="{StaticResource BtnBase}"
+                                        Command="{Binding FullScreenCommand}"/>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>

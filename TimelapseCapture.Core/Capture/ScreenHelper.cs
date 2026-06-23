@@ -27,5 +27,18 @@ namespace TimelapseCapture
             => new Rectangle(
                 GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
                 GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN));
+
+        [DllImport("user32.dll")] private static extern uint GetDpiForSystem();
+
+        /// <summary>
+        /// System DPI scale factor (1.0 = 100%, 1.5 = 150%). Used to map WPF device-independent
+        /// units to the physical pixels that screen capture works in. Correct for single-monitor
+        /// or uniform-DPI setups; mixed per-monitor DPI may need a per-monitor refinement.
+        /// </summary>
+        public static double SystemDpiScale()
+        {
+            try { return GetDpiForSystem() / 96.0; }
+            catch { return 1.0; }
+        }
     }
 }

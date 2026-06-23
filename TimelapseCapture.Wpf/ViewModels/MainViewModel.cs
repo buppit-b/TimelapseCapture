@@ -33,6 +33,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
+            SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
@@ -86,6 +87,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand ChooseFolderCommand { get; }
         public ICommand NewSessionCommand { get; }
         public ICommand FullScreenCommand { get; }
+        public ICommand SelectRegionCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
         public ICommand OpenFolderCommand { get; }
@@ -135,6 +137,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             RegionText = $"{r.Width}×{r.Height} (full screen)";
             OnPropertyChanged(nameof(StatusText));
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void SelectRegion()
+        {
+            var overlay = new RegionSelectOverlay();
+            if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
+            {
+                var r = overlay.SelectedRegion.Value;
+                _region = r;
+                RegionText = $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
+                OnPropertyChanged(nameof(StatusText));
+                CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         private void StartCapture()
