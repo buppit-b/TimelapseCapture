@@ -723,8 +723,8 @@ namespace TimelapseCapture
                         "Download Complete",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
-                    
-                    UpdateReadinessPanel();
+
+                    RefreshUiState();
                 }
                 else
                 {
@@ -1191,10 +1191,8 @@ namespace TimelapseCapture
             }
 
             SaveSettings();
-            UpdateStatusDisplay();
             UpdateCaptureTimer();
-            UpdateSessionInfoPanel();
-            UpdateReadinessPanel();
+            RefreshUiState();
 
             string sessionMessage = $"Session '{session.Name}' loaded!\n\n" +
                 $"Frames: {session.FramesCaptured}\n";
@@ -1312,10 +1310,8 @@ namespace TimelapseCapture
                         if (txtSessionName != null)
                             txtSessionName.Text = _activeSession?.Name ?? sessionName;
 
-                        UpdateStatusDisplay();
                         UpdateCaptureTimer();
-                        UpdateSessionInfoPanel();
-                        UpdateReadinessPanel();
+                        RefreshUiState();
 
                         // Show success message
                         string message = $"✅ New session '{_activeSession?.Name ?? sessionName}' created!\n\n";
@@ -1790,10 +1786,9 @@ namespace TimelapseCapture
                 SessionManager.SaveSession(_activeSessionFolder, _activeSession);
             }
 
-            UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateRegionOverlay();
-            UpdateReadinessPanel();
+            RefreshUiState();
             
             // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
@@ -1918,10 +1913,9 @@ namespace TimelapseCapture
             }
 
             Show();
-            UpdateStatusDisplay();
             UpdateCaptureTimer();
             UpdateRegionOverlay();
-            UpdateReadinessPanel();
+            RefreshUiState();
             
             // Note: SetCurrentRegion() already called UpdateSessionInfoPanel()
         }
@@ -2013,7 +2007,7 @@ namespace TimelapseCapture
                     if (lblFolder != null) lblFolder.Text = "Save to: " + settings.SaveFolder;
                     SaveSettingsImmediate(); // ✅ Bypass debounce for folder selection
                     CheckForActiveSession();
-                    UpdateReadinessPanel();
+                    RefreshUiState();
                     
                     // ✅ FIX Issue #7: Reset error counter when user changes settings
                     // User may be fixing the cause of previous errors
@@ -3788,7 +3782,7 @@ namespace TimelapseCapture
         {
             _isEncoding = false;
             UpdateEncodingUI(false);
-            UpdateStatusDisplay();
+            RefreshUiState();
         }
 
 

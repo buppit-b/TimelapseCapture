@@ -31,6 +31,22 @@ namespace TimelapseCapture
             // Guided mode enabled - implement progressive disclosure
             UpdateControlStates();
         }
+
+        /// <summary>
+        /// Single entry point to refresh all derived UI state after any state transition
+        /// (session / region / output / ffmpeg / capture / encode changes). Centralizing this
+        /// prevents the class of bug where one transition path forgets to re-enable dependent
+        /// controls (e.g. region buttons staying disabled after a new session is created).
+        /// UI-THREAD ONLY — never call from the capture timer thread.
+        /// </summary>
+        private void RefreshUiState()
+        {
+            UpdateGuidedModeUI();      // -> EnableAllControls() or UpdateControlStates()
+            UpdateReadinessPanel();
+            UpdateSessionInfoPanel();
+            UpdateMenuStates();
+            UpdateStatusDisplay();
+        }
         
         /// <summary>
         /// Initialize the tooltip system for guided setup.

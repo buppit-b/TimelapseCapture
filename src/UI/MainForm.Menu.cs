@@ -224,11 +224,8 @@ namespace TimelapseCapture
                 _activeSession = null;
                 _activeSessionFolder = null;
                 ClearCurrentRegion();
-                UpdateStatusDisplay();
                 UpdateCaptureTimer();
-                UpdateSessionInfoPanel();
-                UpdateReadinessPanel();
-                UpdateMenuStates();
+                RefreshUiState();
                 
                 Logger.Log("Session", "Session closed by user");
             }
@@ -435,11 +432,8 @@ namespace TimelapseCapture
                             SessionManager.SaveSession(_activeSessionFolder, _activeSession);
                         }
                         
-                        UpdateStatusDisplay();
                         UpdateCaptureTimer();
-                        UpdateSessionInfoPanel();
-                        UpdateReadinessPanel();
-                        UpdateMenuStates();
+                        RefreshUiState();
                         
                         Logger.Log("Session", $"New session created via wizard: {wizard.SessionName}");
                         
