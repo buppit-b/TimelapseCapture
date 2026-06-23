@@ -35,6 +35,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
+            OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
         }
 
         // ---- bound state ----
@@ -87,6 +88,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand FullScreenCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
+        public ICommand OpenFolderCommand { get; }
 
         private void ChooseFolder()
         {
@@ -146,6 +148,30 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             _engine.Stop();
             IsCapturing = false;
+        }
+
+        private bool CanOpenFolder =>
+            (_sessionFolder != null && Directory.Exists(_sessionFolder)) || HasOutputFolder;
+
+        private void OpenSessionFolder()
+        {
+            // Open the active session folder if there is one, else the configured output folder.
+            string? path = (_sessionFolder != null && Directory.Exists(_sessionFolder))
+                ? _sessionFolder
+                : (HasOutputFolder ? _settings.SaveFolder : null);
+            if (string.IsNullOrEmpty(path)) return;
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Wpf", $"Open folder failed: {ex.Message}");
+            }
         }
 
         private void OnFrameCaptured(int count)
