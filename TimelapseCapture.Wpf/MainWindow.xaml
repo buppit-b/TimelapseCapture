@@ -175,39 +175,14 @@
                                        Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}">
-                            <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
-                                     ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
-                            <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
-                            <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
-                                     ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
-                            <TextBlock Text="JPEG Q" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                            <TextBlock Text="Frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBlock Text="JPEG Q" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding JpegQuality}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
                                      ToolTip="JPEG frame quality 1–100 (higher = better, larger). Ignored when capturing PNG."/>
                             <CheckBox Content="PNG" IsChecked="{Binding UsePng}"
                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
                                       ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG. Frame quality is the ceiling for the video — for maximum fidelity use PNG with a low CRF."/>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
-                                    ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
-                            <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
-                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=ultrafast}"/>
-                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Medium"
-                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
-                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
-                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
-                        </StackPanel>
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
-                                    Command="{Binding EncodeCommand}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
-                                       VerticalAlignment="Center" Margin="12,0,0,0"/>
-                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -267,6 +242,36 @@
                                 Command="{Binding CancelDownloadCommand}"
                                 Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
+
+                    <Border Height="1" Background="{StaticResource StrokeBrush}" Margin="0,14,0,0"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}">
+                        <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                 ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
+                        <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                        <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                 ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
+                        <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=ultrafast}"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Medium"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
+                    </StackPanel>
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
+                                Command="{Binding EncodeCommand}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
+                                   VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
