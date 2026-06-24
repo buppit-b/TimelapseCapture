@@ -65,6 +65,7 @@ namespace TimelapseCapture.Wpf
         public string DateText { get; }
         public string FramesText { get; }
         public string SizeText { get; }
+        public string Detail { get; }
         public DateTime SortKey { get; }
         public ImageSource? Thumbnail { get; }
 
@@ -86,6 +87,7 @@ namespace TimelapseCapture.Wpf
             SizeText = s.CaptureRegion.HasValue
                 ? $"{s.CaptureRegion.Value.Width}×{s.CaptureRegion.Value.Height}"
                 : "no region";
+            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}";
         }
 
         // Load the most recent frame as a small, frozen thumbnail (null if the session has no frames).

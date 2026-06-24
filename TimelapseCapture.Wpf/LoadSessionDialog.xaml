@@ -56,10 +56,8 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
                                                FontFamily="Consolas" FontSize="14"/>
-                                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontFamily="Consolas"
-                                               FontSize="11" Margin="0,3,0,0">
-                                        <Run Text="{Binding DateText}"/><Run Text="   ·   "/><Run Text="{Binding FramesText}"/><Run Text="   ·   "/><Run Text="{Binding SizeText}"/>
-                                    </TextBlock>
+                                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontFamily="Consolas" FontSize="11" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </DataTemplate>
