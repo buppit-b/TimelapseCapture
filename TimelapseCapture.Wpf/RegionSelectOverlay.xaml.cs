@@ -17,13 +17,20 @@ namespace TimelapseCapture.Wpf
         private bool _dragging;
         private readonly double _scale;
         private readonly System.Drawing.Rectangle _vs;
+        private readonly int _ratioW;
+        private readonly int _ratioH;
 
         /// <summary>The selected region in physical pixels, or null if cancelled.</summary>
         public System.Drawing.Rectangle? SelectedRegion { get; private set; }
 
-        public RegionSelectOverlay()
+        /// <param name="ratioW">Aspect-ratio width component (0 = free / no constraint).</param>
+        /// <param name="ratioH">Aspect-ratio height component (0 = free / no constraint).</param>
+        public RegionSelectOverlay(int ratioW = 0, int ratioH = 0)
         {
             InitializeComponent();
+
+            _ratioW = ratioW;
+            _ratioH = ratioH;
 
             _scale = ScreenHelper.SystemDpiScale();
             _vs = ScreenHelper.VirtualScreenBounds();
@@ -54,6 +61,7 @@ namespace TimelapseCapture.Wpf
             var p = e.GetPosition(canvas);
             double x = Math.Min(_start.X, p.X), y = Math.Min(_start.Y, p.Y);
             double w = Math.Abs(p.X - _start.X), h = Math.Abs(p.Y - _start.Y);
+            (w, h) = Constrain(w, h);
 
             Canvas.SetLeft(selRect, x);
             Canvas.SetTop(selRect, y);
@@ -75,6 +83,7 @@ namespace TimelapseCapture.Wpf
             var p = e.GetPosition(canvas);
             double x = Math.Min(_start.X, p.X), y = Math.Min(_start.Y, p.Y);
             double w = Math.Abs(p.X - _start.X), h = Math.Abs(p.Y - _start.Y);
+            (w, h) = Constrain(w, h);
 
             if (w < 5 || h < 5) { Cancel(); return; }
 
@@ -89,6 +98,16 @@ namespace TimelapseCapture.Wpf
             SelectedRegion = new System.Drawing.Rectangle(px, py, Math.Max(2, pw), Math.Max(2, ph));
             DialogResult = true;
             Close();
+        }
+
+        // Shrink (w,h) to the locked aspect ratio, keeping the box inside the drag. Free = unchanged.
+        private (double w, double h) Constrain(double w, double h)
+        {
+            if (_ratioW <= 0 || _ratioH <= 0 || w <= 0 || h <= 0) return (w, h);
+            double target = (double)_ratioW / _ratioH;
+            double current = w / h;
+            if (current > target) return (h * target, h); // too wide → limit width to the height
+            return (w, w / target);                        // too tall → limit height to the width
         }
 
         private void Cancel()

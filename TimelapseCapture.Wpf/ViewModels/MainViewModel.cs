@@ -123,6 +123,17 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (!string.Equals(_settings.EncodePreset, value, StringComparison.OrdinalIgnoreCase)) { _settings.EncodePreset = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public int AspectRatioIndex
+        {
+            get => _settings.AspectRatioIndex;
+            set
+            {
+                var all = AspectRatio.CommonRatios;
+                var v = (value < 0 || value >= all.Length) ? 0 : value;
+                if (_settings.AspectRatioIndex != v) { _settings.AspectRatioIndex = v; SettingsManager.Save(_settings); OnPropertyChanged(); }
+            }
+        }
+
         public bool UsePng
         {
             get => string.Equals(_settings.Format, "PNG", StringComparison.OrdinalIgnoreCase);
@@ -417,7 +428,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void SelectRegion()
         {
             if (!ConfirmRegionChange()) return;
-            var overlay = new RegionSelectOverlay();
+            var all = AspectRatio.CommonRatios;
+            var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
+            var overlay = new RegionSelectOverlay(ar.Width, ar.Height);
             if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
             {
                 var r = overlay.SelectedRegion.Value;

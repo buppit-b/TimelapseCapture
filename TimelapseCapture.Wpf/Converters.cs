@@ -16,6 +16,11 @@ namespace TimelapseCapture.Wpf
             => string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.OrdinalIgnoreCase);
 
         public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-            => (value is bool b && b) ? (parameter ?? Binding.DoNothing) : Binding.DoNothing;
+        {
+            if (!(value is bool b && b) || parameter == null) return Binding.DoNothing;
+            // Coerce to the target property's type so this works for both string and int properties.
+            if (targetType == typeof(int) && int.TryParse(parameter.ToString(), out var i)) return i;
+            return parameter;
+        }
     }
 }

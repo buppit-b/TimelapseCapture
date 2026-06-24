@@ -98,6 +98,20 @@
                                         ToolTip="Toggle an on-screen outline of the capture region."/>
                             </StackPanel>
                         </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                    ToolTip="Lock the next region selection to this shape. Free = drag any size.">
+                            <TextBlock Text="Ratio" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="Free"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="16:9"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="4:3"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=2}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="1:1"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=3}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="9:16"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=5}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
