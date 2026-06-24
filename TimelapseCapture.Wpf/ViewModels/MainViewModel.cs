@@ -45,6 +45,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
+            EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
@@ -295,6 +296,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand LoadSessionCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
+        public ICommand EditRegionCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
         public ICommand OpenFolderCommand { get; }
@@ -417,12 +419,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             var r = ScreenHelper.PrimaryScreenBounds();
             r.Width -= r.Width % 2;   // even dimensions required by the H.264 encoder
             r.Height -= r.Height % 2;
-            _region = r;
-            RegionText = $"{r.Width}×{r.Height} (full screen)";
-            OnPropertyChanged(nameof(StatusText));
-            OnPropertyChanged(nameof(RegionNeeded));
-            CommandManager.InvalidateRequerySuggested();
-            UpdateOverlay();
+            ApplyRegion(r, $"{r.Width}×{r.Height} (full screen)");
         }
 
         private void SelectRegion()
@@ -432,15 +429,26 @@ namespace TimelapseCapture.Wpf.ViewModels
             var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
             var overlay = new RegionSelectOverlay(ar.Width, ar.Height);
             if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
-            {
-                var r = overlay.SelectedRegion.Value;
-                _region = r;
-                RegionText = $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
-                OnPropertyChanged(nameof(StatusText));
-                OnPropertyChanged(nameof(RegionNeeded));
-                CommandManager.InvalidateRequerySuggested();
-                UpdateOverlay();
-            }
+                ApplyRegion(overlay.SelectedRegion.Value);
+        }
+
+        private void EditRegion()
+        {
+            if (!_region.HasValue) return;
+            if (!ConfirmRegionChange()) return;
+            var dlg = new RegionEditOverlay(_region.Value);
+            if (dlg.ShowDialog() == true && dlg.SelectedRegion.HasValue)
+                ApplyRegion(dlg.SelectedRegion.Value);
+        }
+
+        private void ApplyRegion(System.Drawing.Rectangle r, string? label = null)
+        {
+            _region = r;
+            RegionText = label ?? $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
+            OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(RegionNeeded));
+            CommandManager.InvalidateRequerySuggested();
+            UpdateOverlay();
         }
 
         private void StartCapture()

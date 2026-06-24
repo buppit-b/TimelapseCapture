@@ -93,6 +93,9 @@
                                         Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
                                 <Button Content="Full Screen" Style="{StaticResource BtnRegion}"
                                         Command="{Binding FullScreenCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Edit" Style="{StaticResource BtnBase}"
+                                        Command="{Binding EditRegionCommand}" Margin="0,0,8,0"
+                                        ToolTip="Adjust the current region on screen — drag to move, drag the handles to resize."/>
                                 <Button Content="{Binding ShowButtonText}" Style="{StaticResource BtnOverlay}"
                                         Command="{Binding ShowOverlayCommand}"
                                         ToolTip="Toggle an on-screen outline of the capture region."/>
