@@ -114,7 +114,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
 
         private int _encodeFps = 30;
-        public int EncodeFps { get => _encodeFps; set => SetProperty(ref _encodeFps, value < 1 ? 1 : value); }
+        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, value < 1 ? 1 : value)) RefreshStats(); } }
 
         private int _encodeCrf = 23;
         public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
@@ -899,7 +899,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
                 double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
                 CaptureProgress = pct;
-                ProgressText = $"{_frameCount} / {projectedFrames} frames ({pct:F0}% of target)";
+                ProgressText = $"{_frameCount} / {projectedFrames} frames · {pct:F0}% of a {_desiredVideoSeconds}s video @ {Math.Max(1, EncodeFps)}fps";
 
                 double vidLen = EncodeFps > 0 ? _frameCount / (double)EncodeFps : 0;
                 VideoLengthText = $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";

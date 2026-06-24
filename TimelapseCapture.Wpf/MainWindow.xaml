@@ -245,56 +245,28 @@
                 </Border>
             </StackPanel>
 
-            <!-- Right column: status + stats -->
+            <!-- Right column: encoder + stats + preview -->
             <StackPanel Grid.Column="1">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="STATUS" Style="{StaticResource CardTitle}"/>
-                    <StackPanel Margin="0,0,0,12">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="64"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
-                        </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
-                                    Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
-                            <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
-                                    Command="{Binding BrowseFfmpegCommand}" Margin="0,0,6,0"/>
-                            <Button Content="Cancel" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
-                                    Command="{Binding CancelDownloadCommand}"
-                                    Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
-                        </StackPanel>
-                    </StackPanel>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Session" Style="{StaticResource Muted}"/>
-                        <TextBlock Grid.Column="1" Text="{Binding SessionName}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
-                    </Grid>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Region" Style="{StaticResource Muted}"/>
-                        <TextBlock Grid.Column="1" Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
-                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                    </Grid>
+                    <TextBlock Text="ENCODER" Style="{StaticResource CardTitle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="64"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Frames" Style="{StaticResource Muted}"/>
-                        <TextBlock Grid.Column="1" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="12"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
                     </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
+                        <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding BrowseFfmpegCommand}" Margin="0,0,6,0"/>
+                        <Button Content="Cancel" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding CancelDownloadCommand}"
+                                Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
