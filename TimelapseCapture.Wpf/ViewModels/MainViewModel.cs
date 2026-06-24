@@ -44,6 +44,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
+            RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -305,6 +306,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand ChooseFolderCommand { get; }
         public ICommand NewSessionCommand { get; }
         public ICommand LoadSessionCommand { get; }
+        public ICommand RenameSessionCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand EditRegionCommand { get; }
@@ -383,6 +385,29 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
             UpdatePreview();
+        }
+
+        private void RenameSession()
+        {
+            if (_session == null || _sessionFolder == null) return;
+            var dlg = new TextPromptDialog("Rename session", "Session name", _session.Name ?? "")
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Value)) return;
+            try
+            {
+                var s = SessionManager.LoadSession(_sessionFolder) ?? _session;
+                s.Name = dlg.Value;                              // rename the display name, not the folder
+                SessionManager.SaveSession(_sessionFolder, s);
+                _session = s;
+                SessionName = s.Name;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Couldn't rename the session: {ex.Message}", "Rename",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private bool ConfirmRegionChange()

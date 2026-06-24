@@ -54,11 +54,9 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
-            <Border HorizontalAlignment="Right" Background="{StaticResource SurfaceAltBrush}"
-                    CornerRadius="14" Padding="12,6"
-                    BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
-                <TextBlock Text="{Binding SessionName}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-            </Border>
+            <Button HorizontalAlignment="Right" Style="{StaticResource BtnBase}"
+                    Content="{Binding SessionName}" Command="{Binding RenameSessionCommand}"
+                    ToolTip="Click to rename this session"/>
         </Grid>
 
         <!-- Content -->
