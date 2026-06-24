@@ -68,6 +68,31 @@ Ranked roughly by value for the artist use case. None are committed yet.
 - **Pre-0.9 sessions have no saved region** — sessions captured before region
   persistence load as "Not selected"; pick the region once and it sticks.
 
+### Audit candidates (2026-06-25 — found by the hardening workflow, NOT yet verified)
+
+The audit's adversarial-verify pass ran out of session budget, so these are
+*candidate* findings to confirm-then-fix next. Encode investigation is **complete**:
+CRF/preset reach ffmpeg correctly and behave as expected (empirically measured);
+no bug — the confusion was frames-on-disk vs final-video (now clarified in the UI).
+Already fixed this pass: stuck `IsEncoding` on encode exception, partial `.mp4`
+left on cancel/fail.
+
+Still to verify/fix (roughly by value):
+- **Sessions never marked `Active=false`** on clean stop → groundwork for crash
+  recovery and the "at most one Active" invariant.
+- **Concurrent `session.json` writes** — engine `IncrementFrameCount` vs VM
+  `PersistRegion`/`PersistTotalTime`/rename can race (no cross-process lock).
+- **Encode breaks on gapped/renumbered frames** — image2 `%05d` + hardcoded
+  `-start_number 1` stops at the first gap; matters once frame-cull/editing lands.
+- **Mixed-extension session** encodes only one extension (image2 picks one).
+- **Output filename collision** at 1-second granularity (two encodes same second).
+- **`MainViewModel`/engine not disposed** on app exit (timer/overlay teardown).
+- **`System.Threading.Timer` re-entrancy** if a capture takes longer than the interval.
+- **New Session spam** creates orphaned empty folders (guard: reuse a 0-frame session).
+- **Numeric fields accept junk** (interval/fps/crf/jpeg-q/target) — validation pass.
+- **Mixed-DPI**: a single system-DPI is used for all monitors (region/cursor offset).
+- **ffmpeg path** accepts any binary without validation.
+
 ---
 
 **Maintainer:** Spike (+ Claude) · see `CHANGELOG.md` for released changes.
