@@ -502,6 +502,21 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
         }
 
+        // Toggle the session's Active flag on disk (capture lifecycle: true on start, false on clean stop).
+        private void SetSessionActive(bool active)
+        {
+            if (_sessionFolder == null) return;
+            try
+            {
+                var s = SessionManager.LoadSession(_sessionFolder);
+                if (s == null) return;
+                s.Active = active;
+                SessionManager.SaveSession(_sessionFolder, s);
+                _session = s;
+            }
+            catch { /* best-effort */ }
+        }
+
         private void RenameSession()
         {
             if (_session == null || _sessionFolder == null) return;
@@ -659,6 +674,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
             PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
+            SetSessionActive(true);       // a session left Active at launch = the app died mid-capture
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
@@ -692,6 +708,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 var s = SessionManager.LoadSession(_sessionFolder);
                 if (s == null) return;
                 s.TotalCaptureSeconds = _accumulatedSeconds;
+                s.Active = false; // clean stop — mark inactive so it isn't seen as interrupted
                 SessionManager.SaveSession(_sessionFolder, s);
                 _session = s;
             }
