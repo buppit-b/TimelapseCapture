@@ -172,7 +172,22 @@ throughout · pulse/highlight cues for the next required action ·
 **in-app session picker** (dark list: name · date · frames · size, replaces the
 native folder browser) · **encode preset** (Fast/Medium/Slow segmented control) ·
 **aspect-ratio lock** on region select (Free/16:9/4:3/1:1/9:16) · **editable region
-overlay** ("Edit" → drag to move, 8 handles to resize, Apply/Cancel).
+overlay** ("Edit" → drag to move, 8 handles to resize, Apply/Cancel; corners keep
+the locked ratio, edges free, Shift frees) · **live preview** of the latest frame
+(bottom-right) · **pulsing red ● REC** header indicator · **rename session** (click
+the header name) · **settings cog** (⚙ → SettingsDialog, "always on top" so far).
+
+**Smart interval semantics (corrected — don't re-invert):** the main **Interval**
+is the *working/active* rate; when idle, capture slows to **Idle rate**
+(`IdleIntervalSeconds`, clamped to never be faster than the working rate) or skips.
+Engine: active → `_baseIntervalMs`; idle → `max(base, _idleIntervalMs)` or skip.
+The old model (idle used the main interval, "Active (s)" was the active rate) let a
+fast main interval capture *more* while idle — that was the bug. `ActiveIntervalSeconds`
+remains in settings as dead/legacy (WinForms); WPF uses `IdleIntervalSeconds`.
+
+**WPF binding gotcha:** `<Run Text="{Binding ...}">` defaults to **TwoWay** and
+throws on read-only props (crashed the session picker). Bind one `TextBlock.Text`
+to a precomputed string instead of multiple `Run`s.
 
 The original parity-plus-polish list is **complete**. Reusable bits added this
 session: a dark **segmented control** (`Seg` style + `StringEqualsConverter`, in
