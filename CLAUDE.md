@@ -25,7 +25,8 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 8 tests, cover `SessionManager` + `ValidationHelper`.
+- **`TimelapseCapture.Tests`** — 12 tests, cover `SessionManager`, `ValidationHelper`,
+  and `ScreenHelper` (region-relocate geometry).
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
 - **Build:** `dotnet build TimelapseCapture.sln`
@@ -55,7 +56,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 8/8.
+- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 12/12.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
