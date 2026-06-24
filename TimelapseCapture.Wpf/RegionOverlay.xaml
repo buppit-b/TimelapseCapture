@@ -1,0 +1,9 @@
+<Window x:Class="TimelapseCapture.Wpf.RegionOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" IsHitTestVisible="False"
+        Focusable="False" ResizeMode="NoResize" WindowStartupLocation="Manual">
+    <!-- 2px border occupies the ring just OUTSIDE the capture region, so it isn't recorded. -->
+    <Border BorderBrush="#3FB950" BorderThickness="2" Background="Transparent"/>
+</Window>

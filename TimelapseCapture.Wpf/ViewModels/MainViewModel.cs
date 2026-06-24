@@ -20,6 +20,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private readonly CaptureSettings _settings;
         private readonly CaptureEngine _engine = new CaptureEngine();
         private System.Threading.CancellationTokenSource? _ffmpegCts;
+        private RegionOverlay? _overlay;
         private SessionInfo? _session;
         private string? _sessionFolder;
         private Rectangle? _region;
@@ -47,6 +48,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
+            ShowOverlayCommand = new RelayCommand(_ => ToggleOverlay(), _ => _region.HasValue || _isOverlayShown);
 
             _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _statsTimer.Tick += (s, e) => RefreshStats();
@@ -194,6 +196,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         /// <summary>Capture settings are editable only when not capturing.</summary>
         public bool NotCapturing => !IsCapturing;
 
+        private bool _isOverlayShown;
+        public bool IsOverlayShown { get => _isOverlayShown; set => SetProperty(ref _isOverlayShown, value); }
+
         private int _desiredVideoSeconds = 30;
 
         // Planned capture length used for storage projection. Accepts "30s", "5m", "2h" (default seconds).
@@ -243,6 +248,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand DownloadFfmpegCommand { get; }
         public ICommand BrowseFfmpegCommand { get; }
         public ICommand CancelDownloadCommand { get; }
+        public ICommand ShowOverlayCommand { get; }
 
         private void ChooseFolder()
         {
@@ -312,6 +318,35 @@ namespace TimelapseCapture.Wpf.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+        private void ToggleOverlay()
+        {
+            if (_isOverlayShown)
+            {
+                _overlay?.Close();
+                _overlay = null;
+                IsOverlayShown = false;
+            }
+            else if (_region.HasValue)
+            {
+                _overlay ??= new RegionOverlay();
+                _overlay.ShowForRegion(_region.Value);
+                IsOverlayShown = true;
+            }
+        }
+
+        private void UpdateOverlay()
+        {
+            if (!_isOverlayShown) return;
+            if (_region.HasValue && _overlay != null)
+                _overlay.ShowForRegion(_region.Value);
+            else
+            {
+                _overlay?.Close();
+                _overlay = null;
+                IsOverlayShown = false;
+            }
+        }
+
         private void SelectFullScreen()
         {
             var r = ScreenHelper.PrimaryScreenBounds();
@@ -322,6 +357,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
+            UpdateOverlay();
         }
 
         private void SelectRegion()
@@ -335,6 +371,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(RegionNeeded));
                 CommandManager.InvalidateRequerySuggested();
+                UpdateOverlay();
             }
         }
 
@@ -509,6 +546,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             FfmpegStatus = string.IsNullOrEmpty(path) ? "Not found" : "Ready";
         }
 
-        public void Dispose() => _engine.Dispose();
+        public void Dispose()
+        {
+            _engine.Dispose();
+            _overlay?.Close();
+        }
     }
 }

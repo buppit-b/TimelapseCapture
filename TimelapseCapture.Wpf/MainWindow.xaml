@@ -92,7 +92,10 @@
                                 <Button Content="Select Region" Style="{StaticResource BtnRegion}"
                                         Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
                                 <Button Content="Full Screen" Style="{StaticResource BtnRegion}"
-                                        Command="{Binding FullScreenCommand}"/>
+                                        Command="{Binding FullScreenCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Show" Style="{StaticResource BtnBase}"
+                                        Command="{Binding ShowOverlayCommand}"
+                                        ToolTip="Toggle an on-screen outline of the capture region."/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
