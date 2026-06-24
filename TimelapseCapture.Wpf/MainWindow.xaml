@@ -69,7 +69,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Content="New Session" Style="{StaticResource BtnPrimary}"
+                            <Button Grid.Column="0" Content="New Session" Style="{StaticResource BtnPrimaryPulse}"
                                     Command="{Binding NewSessionCommand}"/>
                             <Button Grid.Column="1" Content="Load" Style="{StaticResource BtnBase}"
                                     Command="{Binding LoadSessionCommand}" Margin="8,0,0,0"/>
@@ -104,7 +104,8 @@
                         <TextBlock Text="CAPTURE" Style="{StaticResource CardTitle}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"/>
+                            <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                     IsEnabled="{Binding NotCapturing}"/>
                             <TextBlock Text="seconds" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14" TextWrapping="Wrap"/>
@@ -126,7 +127,7 @@
                             <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
                             <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"/>
                             <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
-                            <CheckBox Content="PNG frames" IsChecked="{Binding UsePng}"
+                            <CheckBox Content="PNG frames" IsChecked="{Binding UsePng}" IsEnabled="{Binding NotCapturing}"
                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
                         </StackPanel>
                         <Grid Margin="0,12,0,0">
@@ -143,7 +144,7 @@
                 </Border>
 
                 <Border Style="{StaticResource Card}">
-                    <StackPanel>
+                    <StackPanel IsEnabled="{Binding NotCapturing}">
                         <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
                                   Foreground="{StaticResource TextPrimaryBrush}"/>
@@ -166,8 +167,9 @@
                 </Border>
             </StackPanel>
 
-            <!-- Right column: status -->
-            <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+            <!-- Right column: status + stats -->
+            <StackPanel Grid.Column="1">
+            <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="STATUS" Style="{StaticResource CardTitle}"/>
                     <StackPanel Margin="0,0,0,12">
@@ -216,6 +218,27 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Target len (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding DesiredVideoSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding StorageInfo}" FontFamily="Consolas" FontSize="11"
+                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" LineHeight="18"/>
+                    <TextBlock Text="{Binding VideoLengthText}" FontFamily="Consolas" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding ResourcesInfo}" FontFamily="Consolas" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Elapsed" Style="{StaticResource Muted}" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

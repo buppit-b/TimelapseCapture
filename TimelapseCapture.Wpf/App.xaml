@@ -89,6 +89,26 @@
                 <Setter Property="FontWeight" Value="SemiBold"/>
             </Style>
 
+            <!-- Primary button that "breathes" (pulses) when it's the next required action. -->
+            <Style x:Key="BtnPrimaryPulse" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding SessionNeeded}" Value="True">
+                        <DataTrigger.EnterActions>
+                            <BeginStoryboard Name="pulseSb">
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                     From="1.0" To="0.5" Duration="0:0:0.9"
+                                                     AutoReverse="True" RepeatBehavior="Forever"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <StopStoryboard BeginStoryboardName="pulseSb"/>
+                        </DataTrigger.ExitActions>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
             <!-- A neutral button that turns accent when it's the action the user needs next. -->
             <Style x:Key="BtnRegion" TargetType="Button" BasedOn="{StaticResource BtnBase}">
                 <Style.Triggers>

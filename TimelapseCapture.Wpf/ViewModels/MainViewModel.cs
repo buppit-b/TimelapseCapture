@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using TimelapseCapture; // Core: settings, sessions, ffmpeg, capture engine, screen helper
 
@@ -22,6 +23,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         private SessionInfo? _session;
         private string? _sessionFolder;
         private Rectangle? _region;
+        private DateTime? _captureStart;
+        private readonly DispatcherTimer _statsTimer;
 
         public MainViewModel()
         {
@@ -44,6 +47,11 @@ namespace TimelapseCapture.Wpf.ViewModels
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
+
+            _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _statsTimer.Tick += (s, e) => RefreshStats();
+            _statsTimer.Start();
+            RefreshStats();
         }
 
         // ---- bound state ----
@@ -138,6 +146,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 {
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(RegionNeeded));
+                    OnPropertyChanged(nameof(NotCapturing));
+                    OnPropertyChanged(nameof(SessionNeeded));
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -176,6 +186,31 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         /// <summary>True when a session exists but no region is chosen yet — used to highlight the region buttons.</summary>
         public bool RegionNeeded => _session != null && !_region.HasValue && !IsCapturing;
+
+        /// <summary>True when no session yet — used to pulse the New Session button.</summary>
+        public bool SessionNeeded => _session == null && !IsCapturing;
+
+        /// <summary>Capture settings are editable only when not capturing.</summary>
+        public bool NotCapturing => !IsCapturing;
+
+        private int _desiredVideoSeconds = 30;
+        public int DesiredVideoSeconds
+        {
+            get => _desiredVideoSeconds;
+            set { SetProperty(ref _desiredVideoSeconds, value < 1 ? 1 : value); RefreshStats(); }
+        }
+
+        private string _storageInfo = "";
+        public string StorageInfo { get => _storageInfo; set => SetProperty(ref _storageInfo, value); }
+
+        private string _resourcesInfo = "";
+        public string ResourcesInfo { get => _resourcesInfo; set => SetProperty(ref _resourcesInfo, value); }
+
+        private string _videoLengthText = "";
+        public string VideoLengthText { get => _videoLengthText; set => SetProperty(ref _videoLengthText, value); }
+
+        private string _elapsedText = "00:00";
+        public string ElapsedText { get => _elapsedText; set => SetProperty(ref _elapsedText, value); }
 
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
@@ -294,6 +329,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder, _session, _region.Value, _settings.IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames);
+            _captureStart = DateTime.Now;
             IsCapturing = true;
         }
 
@@ -425,6 +461,31 @@ namespace TimelapseCapture.Wpf.ViewModels
                 RefreshFfmpegStatus();
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+
+        private void RefreshStats()
+        {
+            try
+            {
+                int w = _region?.Width ?? 0;
+                int h = _region?.Height ?? 0;
+                int projected = Math.Max(_frameCount, DesiredVideoSeconds * Math.Max(1, EncodeFps));
+                StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
+                    _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projected);
+                ResourcesInfo = SystemMonitor.GetResourcesInfoString();
+
+                double vidLen = EncodeFps > 0 ? _frameCount / (double)EncodeFps : 0;
+                VideoLengthText = $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
+
+                if (IsCapturing && _captureStart.HasValue)
+                {
+                    var e = DateTime.Now - _captureStart.Value;
+                    ElapsedText = e.TotalHours >= 1
+                        ? $"{(int)e.TotalHours}:{e.Minutes:D2}:{e.Seconds:D2}"
+                        : $"{e.Minutes:D2}:{e.Seconds:D2}";
+                }
+            }
+            catch { /* stats are best-effort */ }
         }
 
         private void RefreshFfmpegStatus()
