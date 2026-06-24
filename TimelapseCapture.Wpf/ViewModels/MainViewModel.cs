@@ -328,14 +328,10 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void LoadSession()
         {
             string capturesRoot = Path.Combine(_settings.SaveFolder ?? "", "captures");
-            var dlg = new OpenFolderDialog
-            {
-                Title = "Select a session folder to load",
-                InitialDirectory = Directory.Exists(capturesRoot) ? capturesRoot : (_settings.SaveFolder ?? ""),
-            };
-            if (dlg.ShowDialog() != true) return;
+            var dlg = new LoadSessionDialog(capturesRoot) { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true || dlg.SelectedFolder == null) return;
 
-            var session = SessionManager.LoadSession(dlg.FolderName);
+            var session = SessionManager.LoadSession(dlg.SelectedFolder);
             if (session == null)
             {
                 MessageBox.Show("That folder doesn't contain a valid session (no session.json).",
@@ -344,7 +340,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
 
             _session = session;
-            _sessionFolder = dlg.FolderName;
+            _sessionFolder = dlg.SelectedFolder;
             _region = session.CaptureRegion;
             _accumulatedSeconds = 0;
             SessionName = session.Name ?? "Session";
