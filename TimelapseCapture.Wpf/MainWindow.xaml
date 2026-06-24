@@ -22,6 +22,37 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#128247;" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                <!-- Classic red recording indicator -->
+                <Border Margin="14,0,0,0" Background="#22E5534B" CornerRadius="10" Padding="9,3"
+                        BorderBrush="{StaticResource DangerBrush}" BorderThickness="1" VerticalAlignment="Center"
+                        Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Fill="{StaticResource DangerBrush}" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard Name="recPulse">
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                         From="1" To="0.2" Duration="0:0:0.7"
+                                                                         AutoReverse="True" RepeatBehavior="Forever"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="recPulse"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="REC" Foreground="{StaticResource DangerBrush}" FontFamily="Consolas"
+                                   FontWeight="Bold" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
             <Border HorizontalAlignment="Right" Background="{StaticResource SurfaceAltBrush}"
                     CornerRadius="14" Padding="12,6"
@@ -306,6 +337,22 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+                <!-- Preview -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="PREVIEW" Style="{StaticResource CardTitle}"/>
+                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{StaticResource StrokeBrush}"
+                                BorderThickness="1" Height="150" ClipToBounds="True">
+                            <Grid>
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
+                                <TextBlock Text="No frames captured yet" Style="{StaticResource Muted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding NoPreview, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
     </Grid>

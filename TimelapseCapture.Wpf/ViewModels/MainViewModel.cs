@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using TimelapseCapture; // Core: settings, sessions, ffmpeg, capture engine, screen helper
@@ -287,6 +288,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string _smartStatus = "";
         public string SmartStatus { get => _smartStatus; set => SetProperty(ref _smartStatus, value); }
 
+        private ImageSource? _previewImage;
+        public ImageSource? PreviewImage
+        {
+            get => _previewImage;
+            set { if (SetProperty(ref _previewImage, value)) OnPropertyChanged(nameof(NoPreview)); }
+        }
+        public bool NoPreview => _previewImage == null;
+
+        private void UpdatePreview() => PreviewImage = FramePreview.LoadLatest(_sessionFolder, 260);
+
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
@@ -329,6 +340,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _session = SessionManager.LoadSession(_sessionFolder);
                 _region = null;
                 _accumulatedSeconds = 0;
+                PreviewImage = null;
 
                 SessionName = _session?.Name ?? name;
                 RegionText = "Not selected";
@@ -370,6 +382,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
+            UpdatePreview();
         }
 
         private bool ConfirmRegionChange()
@@ -475,6 +488,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             SmartStatus = "";
             IsCapturing = false;
             PersistTotalTime();
+            UpdatePreview();
         }
 
         // Persist cumulative capture time to the session without clobbering the engine's on-disk
@@ -664,6 +678,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                         _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames);
                     ResourcesInfo = SystemMonitor.GetResourcesInfoString();
                 }
+
+                if (IsCapturing) UpdatePreview();
             }
             catch { /* stats are best-effort */ }
         }
