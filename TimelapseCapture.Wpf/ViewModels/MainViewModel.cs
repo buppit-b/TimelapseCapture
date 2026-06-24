@@ -117,6 +117,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { var v = value < 1 ? 1 : (value > 100 ? 100 : value); if (_settings.JpegQuality != v) { _settings.JpegQuality = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public string EncodePreset
+        {
+            get => string.IsNullOrWhiteSpace(_settings.EncodePreset) ? "medium" : _settings.EncodePreset;
+            set { if (!string.Equals(_settings.EncodePreset, value, StringComparison.OrdinalIgnoreCase)) { _settings.EncodePreset = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public bool UsePng
         {
             get => string.Equals(_settings.Format, "PNG", StringComparison.OrdinalIgnoreCase);
@@ -504,7 +510,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             IsEncoding = true;
             EncodeStatus = "Encoding…";
 
-            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, "medium", EncodeCrf, _encodeCts.Token);
+            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf, _encodeCts.Token);
 
             bool cancelled = _encodeCts.IsCancellationRequested;
             _encodeCts.Dispose();

@@ -140,6 +140,16 @@
                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
                                       ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG."/>
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                    ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
+                            <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
+                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=ultrafast}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Medium"
+                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
+                                         IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
+                        </StackPanel>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

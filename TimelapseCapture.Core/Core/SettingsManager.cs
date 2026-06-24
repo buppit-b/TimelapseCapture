@@ -13,6 +13,7 @@ namespace TimelapseCapture
         public decimal IntervalSecondsExact { get; set; } = 0m;
         public string? Format { get; set; } = "JPEG";
         public int JpegQuality { get; set; } = 90;
+        public string EncodePreset { get; set; } = "medium"; // x264 preset: ultrafast..veryslow (speed vs file size)
         public Rectangle? Region { get; set; }
         public string? FfmpegPath { get; set; }
         public int AspectRatioIndex { get; set; } = 0; // Default to "Free" aspect ratio
