@@ -185,10 +185,9 @@ monitor offset) and the **aspect-ratio** constraint visuals. They build and the
 logic is straightforward, but interactive drag really wants a human eye — if a
 handle feels off or the box jumps, look at `RegionEditOverlay.OnMouseMove`.
 
-**Remaining ideas (optional, none requested as must-do):**
-- Session picker could show a last-frame thumbnail per row.
-- The deferred **aesthetic pass** (Spike wants it *later* — clean dark + terminal
-  vibe is in; richer styling is explicitly not now).
+**Remaining:** only the deferred **aesthetic pass** (Spike wants it *later* — clean
+dark + terminal vibe is in; richer styling is explicitly not now). The
+parity-plus-polish work is otherwise complete.
 
 ---
 
