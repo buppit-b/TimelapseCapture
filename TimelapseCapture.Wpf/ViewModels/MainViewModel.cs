@@ -714,23 +714,40 @@ namespace TimelapseCapture.Wpf.ViewModels
             IsEncoding = true;
             EncodeStatus = "Encoding…";
 
-            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf, _encodeCts.Token);
-
-            bool cancelled = _encodeCts.IsCancellationRequested;
-            _encodeCts.Dispose();
-            _encodeCts = null;
-            IsEncoding = false;
+            VideoEncoder.Result? result = null;
+            bool cancelled = false;
+            try
+            {
+                result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf, _encodeCts.Token);
+            }
+            catch (Exception ex)
+            {
+                EncodeStatus = "Encode failed";
+                MessageBox.Show($"Encode failed:\n{ex.Message}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // Always clear the encoding state, even if EncodeAsync threw, so the button can't stick.
+                cancelled = _encodeCts?.IsCancellationRequested ?? false;
+                _encodeCts?.Dispose();
+                _encodeCts = null;
+                IsEncoding = false;
+            }
+            if (result == null) return; // exception path already reported
 
             if (cancelled)
             {
+                TryDeletePartial(result.OutputPath);
                 EncodeStatus = "Encode cancelled";
                 return;
             }
             if (result.Success)
             {
-                EncodeStatus = "Encoded ✓";
+                long bytes = 0;
+                try { bytes = new FileInfo(result.OutputPath).Length; } catch { }
+                EncodeStatus = $"Encoded ✓ ({FormatBytes(bytes)})";
                 bool open = _settings.OpenFolderAfterEncode ||
-                    MessageBox.Show($"Video encoded:\n{result.OutputPath}\n\nOpen the output folder?",
+                    MessageBox.Show($"Video encoded ({FormatBytes(bytes)}):\n{result.OutputPath}\n\nOpen the output folder?",
                         "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes;
                 if (open)
                 {
@@ -747,9 +764,18 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             else
             {
+                TryDeletePartial(result.OutputPath);
                 EncodeStatus = "Encode failed";
                 MessageBox.Show($"Encode failed:\n{result.Error}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private static string FormatBytes(long b)
+            => b >= 1024 * 1024 ? $"{b / (1024.0 * 1024.0):F1} MB" : $"{b / 1024.0:F0} KB";
+
+        private static void TryDeletePartial(string path)
+        {
+            try { if (!string.IsNullOrEmpty(path) && File.Exists(path)) File.Delete(path); } catch { }
         }
 
         private async Task DownloadFfmpeg()
