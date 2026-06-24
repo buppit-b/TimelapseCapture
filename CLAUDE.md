@@ -34,6 +34,9 @@ front-end.** The two front-ends share one engine:
   (or launch `TimelapseCapture.Wpf/bin/Debug/net9.0-windows/TimelapseCapture.Wpf.exe`)
 - **Test:** `dotnet test TimelapseCapture.sln`
 - Windows only (.NET 9, `net9.0-windows`).
+- **Version:** `0.9.0` (SemVer; `<Version>` in both `.csproj`, shown in the Settings
+  cog). Pre-1.0 stays on `0.x`. See `ROADMAP.md` (versioning + 1.0 candidates + known
+  issues) and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
 
 > **Testing note:** computer-use/automation **cannot drive the dev-built exe**
 > (the resolver won't target it). The maintainer (Spike) runs each build by hand

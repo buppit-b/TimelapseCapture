@@ -8,6 +8,8 @@
     <RootNamespace>TimelapseCapture.Wpf</RootNamespace>
     <AssemblyName>TimelapseCapture.Wpf</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>Timelapse Capture</Product>
+    <Version>0.9.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
