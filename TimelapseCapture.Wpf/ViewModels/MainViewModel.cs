@@ -41,7 +41,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.CaptureFailed += OnCaptureFailed;
             _engine.SmartStatusChanged += OnSmartStatus;
 
-            ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
+            ChooseFolderCommand = new RelayCommand(_ => ChooseFolder(), _ => !IsCapturing);
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
@@ -515,7 +515,20 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void SelectFullScreen()
         {
             if (!ConfirmRegionChange()) return;
-            var r = ScreenHelper.PrimaryScreenBounds();
+
+            var monitors = ScreenHelper.Monitors();
+            System.Drawing.Rectangle r;
+            if (monitors.Count > 1)
+            {
+                var dlg = new MonitorPickerDialog(monitors) { Owner = Application.Current?.MainWindow };
+                if (dlg.ShowDialog() != true || dlg.SelectedBounds == null) return;
+                r = dlg.SelectedBounds.Value;
+            }
+            else
+            {
+                r = monitors[0].Bounds;
+            }
+
             r.Width -= r.Width % 2;   // even dimensions required by the H.264 encoder
             r.Height -= r.Height % 2;
             ApplyRegion(r, $"{r.Width}×{r.Height} (full screen)");

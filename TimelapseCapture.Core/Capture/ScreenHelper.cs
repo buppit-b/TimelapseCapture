@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
@@ -56,6 +57,47 @@ namespace TimelapseCapture
             int y = Math.Max(bounds.Top, Math.Min(saved.Y, bounds.Bottom - saved.Height));
             moved = true;
             return new Rectangle(x, y, saved.Width, saved.Height);
+        }
+
+        // ---- Monitor enumeration (physical-pixel bounds, same space as capture) ----
+
+        public sealed class MonitorInfo
+        {
+            public Rectangle Bounds { get; }
+            public bool IsPrimary { get; }
+            public MonitorInfo(Rectangle bounds, bool isPrimary) { Bounds = bounds; IsPrimary = isPrimary; }
+        }
+
+        [StructLayout(LayoutKind.Sequential)] private struct RECT { public int left, top, right, bottom; }
+        [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+        private const uint MONITORINFOF_PRIMARY = 1;
+        private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data);
+        [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
+        [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
+
+        /// <summary>All monitors in physical pixels (primary first). Falls back to the primary screen if enumeration fails.</summary>
+        public static IReadOnlyList<MonitorInfo> Monitors()
+        {
+            var list = new List<MonitorInfo>();
+            try
+            {
+                EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr hdc, ref RECT _, IntPtr d) =>
+                {
+                    var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                    if (GetMonitorInfo(h, ref mi))
+                    {
+                        var r = mi.rcMonitor;
+                        list.Add(new MonitorInfo(new Rectangle(r.left, r.top, r.right - r.left, r.bottom - r.top),
+                            (mi.dwFlags & MONITORINFOF_PRIMARY) != 0));
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+            catch { /* fall through to the fallback below */ }
+
+            if (list.Count == 0) list.Add(new MonitorInfo(PrimaryScreenBounds(), true));
+            list.Sort((a, b) => b.IsPrimary.CompareTo(a.IsPrimary)); // primary first
+            return list;
         }
 
         [DllImport("user32.dll")] private static extern uint GetDpiForSystem();
