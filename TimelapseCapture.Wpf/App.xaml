@@ -5,6 +5,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <!-- Palette -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#161616"/>
             <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F"/>
@@ -117,6 +118,17 @@
                         <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                         <Setter Property="Foreground" Value="White"/>
                         <Setter Property="FontWeight" Value="SemiBold"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Toggle button that turns accent when the overlay is shown. -->
+            <Style x:Key="BtnOverlay" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsOverlayShown}" Value="True">
+                        <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                        <Setter Property="Foreground" Value="White"/>
                     </DataTrigger>
                 </Style.Triggers>
             </Style>

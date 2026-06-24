@@ -217,7 +217,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         public bool NotCapturing => !IsCapturing;
 
         private bool _isOverlayShown;
-        public bool IsOverlayShown { get => _isOverlayShown; set => SetProperty(ref _isOverlayShown, value); }
+        public bool IsOverlayShown
+        {
+            get => _isOverlayShown;
+            set { if (SetProperty(ref _isOverlayShown, value)) OnPropertyChanged(nameof(ShowButtonText)); }
+        }
+        public string ShowButtonText => _isOverlayShown ? "Hide" : "Show";
 
         private int _desiredVideoSeconds = 30;
 

@@ -93,7 +93,7 @@
                                         Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
                                 <Button Content="Full Screen" Style="{StaticResource BtnRegion}"
                                         Command="{Binding FullScreenCommand}" Margin="0,0,8,0"/>
-                                <Button Content="Show" Style="{StaticResource BtnBase}"
+                                <Button Content="{Binding ShowButtonText}" Style="{StaticResource BtnOverlay}"
                                         Command="{Binding ShowOverlayCommand}"
                                         ToolTip="Toggle an on-screen outline of the capture region."/>
                             </StackPanel>
@@ -168,13 +168,18 @@
                                 <ColumnDefinition Width="60"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Active (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Grid.Column="1" Text="{Binding ActiveIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"/>
-                            <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"/>
+                            <TextBlock Grid.Column="0" Text="Active (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       ToolTip="How often to capture while you're actively using the mouse or keyboard — usually faster than the main interval."/>
+                            <TextBox Grid.Column="1" Text="{Binding ActiveIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
+                                     ToolTip="How often to capture while you're actively using the mouse or keyboard — usually faster than the main interval."/>
+                            <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"
+                                       ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
+                            <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
+                                     ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
                         </Grid>
                         <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
-                                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
+                                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"
+                                  ToolTip="When idle, skip capturing entirely instead of capturing at the slower main interval — saves space during long idle stretches."/>
                         </StackPanel>
                         <TextBlock Text="{Binding SmartStatus}" FontFamily="Consolas" FontSize="12"
                                    Foreground="{StaticResource AccentBrush}" Margin="0,12,0,0"/>
@@ -196,13 +201,14 @@
                             <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
                             <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="64,8,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
                                     Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
                             <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
                                     Command="{Binding BrowseFfmpegCommand}" Margin="0,0,6,0"/>
                             <Button Content="Cancel" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
-                                    Command="{Binding CancelDownloadCommand}"/>
+                                    Command="{Binding CancelDownloadCommand}"
+                                    Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                     </StackPanel>
                     <Grid Margin="0,0,0,10">
