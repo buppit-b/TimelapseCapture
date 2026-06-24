@@ -87,10 +87,13 @@ Small, single-maintainer app. The working bar:
   `RegionSelectOverlay`, `RegionEditOverlay`).
 - In the WPF VM the runtime region is `_region`. Every region source
   (`SelectRegion`, `SelectFullScreen`, `EditRegion`) funnels through the single
-  `ApplyRegion()` method, which updates `_region` + `RegionText` + the overlay.
-  `_region` is handed to the engine on `Start()` and the engine persists it into
-  `session.json`; load reads it back from the session. **Route any new region
-  source through `ApplyRegion()`** rather than poking `_region` directly.
+  `ApplyRegion()` method, which updates `_region` + `RegionText` + the overlay AND
+  persists the region into `session.json` via `PersistRegion()` (reload-set-save,
+  frame-count safe). Loading restores `_region` from `session.CaptureRegion`,
+  validated to still intersect a current monitor. **Route any new region source
+  through `ApplyRegion()`.** (The engine does NOT persist the region — `ApplyRegion`
+  does. An earlier version of this file wrongly said the engine saved it, and the
+  region was in fact never persisted, so loading a session always lost it.)
 - The on-screen overlay (`RegionOverlay`) draws its 2px outline in the ring
   **just outside** the region (and its dimension label **above** the top edge) so
   the outline is never captured into the frames. Don't move it onto the region.
