@@ -430,10 +430,24 @@ namespace TimelapseCapture.Wpf.ViewModels
                 Owner = Application.Current?.MainWindow
             };
             if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Value)) return;
+            var newName = dlg.Value.Trim();
             try
             {
+                // Rename the folder to match (sanitised + de-duplicated), then update the display name.
+                string? parent = Path.GetDirectoryName(_sessionFolder);
+                string safe = SanitizeFolderName(newName);
+                if (parent != null && safe.Length > 0 &&
+                    !string.Equals(Path.GetFileName(_sessionFolder), safe, StringComparison.OrdinalIgnoreCase))
+                {
+                    string target = Path.Combine(parent, safe);
+                    int n = 2;
+                    while (Directory.Exists(target)) target = Path.Combine(parent, $"{safe} ({n++})");
+                    Directory.Move(_sessionFolder, target);
+                    _sessionFolder = target;
+                }
+
                 var s = SessionManager.LoadSession(_sessionFolder) ?? _session;
-                s.Name = dlg.Value;                              // rename the display name, not the folder
+                s.Name = newName;                                // display name kept verbatim
                 SessionManager.SaveSession(_sessionFolder, s);
                 _session = s;
                 SessionName = s.Name;
@@ -443,6 +457,12 @@ namespace TimelapseCapture.Wpf.ViewModels
                 MessageBox.Show($"Couldn't rename the session: {ex.Message}", "Rename",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private static string SanitizeFolderName(string name)
+        {
+            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+            return name.Trim().TrimEnd('.', ' '); // Windows folder names can't end with a dot or space
         }
 
         private bool ConfirmRegionChange()
