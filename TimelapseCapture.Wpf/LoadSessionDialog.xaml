@@ -46,13 +46,21 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel>
-                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
-                                           FontFamily="Consolas" FontSize="14"/>
-                                <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontFamily="Consolas"
-                                           FontSize="11" Margin="0,3,0,0">
-                                    <Run Text="{Binding DateText}"/><Run Text="   ·   "/><Run Text="{Binding FramesText}"/><Run Text="   ·   "/><Run Text="{Binding SizeText}"/>
-                                </TextBlock>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="60" Height="36" Margin="0,0,12,0" CornerRadius="3"
+                                        Background="{StaticResource SurfaceAltBrush}"
+                                        BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                                        ClipToBounds="True" SnapsToDevicePixels="True">
+                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
+                                               FontFamily="Consolas" FontSize="14"/>
+                                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontFamily="Consolas"
+                                               FontSize="11" Margin="0,3,0,0">
+                                        <Run Text="{Binding DateText}"/><Run Text="   ·   "/><Run Text="{Binding FramesText}"/><Run Text="   ·   "/><Run Text="{Binding SizeText}"/>
+                                    </TextBlock>
+                                </StackPanel>
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using TimelapseCapture; // Core: SessionManager, SessionInfo
 
 namespace TimelapseCapture.Wpf
@@ -64,11 +66,13 @@ namespace TimelapseCapture.Wpf
         public string FramesText { get; }
         public string SizeText { get; }
         public DateTime SortKey { get; }
+        public ImageSource? Thumbnail { get; }
 
         public SessionListItem(string folder, SessionInfo s)
         {
             FolderPath = folder;
             Name = string.IsNullOrWhiteSpace(s.Name) ? Path.GetFileName(folder) : s.Name!;
+            Thumbnail = LoadThumbnail(folder);
 
             DateTime when = s.StartTime;
             if (when == default)
@@ -82,6 +86,37 @@ namespace TimelapseCapture.Wpf
             SizeText = s.CaptureRegion.HasValue
                 ? $"{s.CaptureRegion.Value.Width}×{s.CaptureRegion.Value.Height}"
                 : "no region";
+        }
+
+        // Load the most recent frame as a small, frozen thumbnail (null if the session has no frames).
+        private static ImageSource? LoadThumbnail(string folder)
+        {
+            try
+            {
+                string frames = SessionManager.GetFramesFolder(folder);
+                if (!Directory.Exists(frames)) return null;
+
+                string? last = null;
+                foreach (var f in Directory.GetFiles(frames))
+                {
+                    var ext = Path.GetExtension(f).ToLowerInvariant();
+                    if ((ext == ".jpg" || ext == ".jpeg" || ext == ".png") &&
+                        (last == null || string.CompareOrdinal(f, last) > 0))
+                        last = f;
+                }
+                if (last == null) return null;
+
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.UriSource = new Uri(last);
+                bmp.DecodePixelWidth = 120;                 // keep memory small
+                bmp.CacheOption = BitmapCacheOption.OnLoad;  // don't lock the file
+                bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                bmp.EndInit();
+                bmp.Freeze();
+                return bmp;
+            }
+            catch { return null; }
         }
     }
 }
