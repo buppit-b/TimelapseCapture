@@ -25,6 +25,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string? _sessionFolder;
         private Rectangle? _region;
         private DateTime? _captureStart;
+        private double _accumulatedSeconds; // total capture time across start/stop within this app run
+        private int _statsTick;
         private readonly DispatcherTimer _statsTimer;
 
         public MainViewModel()
@@ -35,6 +37,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             _engine.FrameCaptured += OnFrameCaptured;
             _engine.CaptureFailed += OnCaptureFailed;
+            _engine.SmartStatusChanged += OnSmartStatus;
 
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder());
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
@@ -50,7 +53,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
             ShowOverlayCommand = new RelayCommand(_ => ToggleOverlay(), _ => _region.HasValue || _isOverlayShown);
 
-            _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _statsTimer.Tick += (s, e) => RefreshStats();
             _statsTimer.Start();
             RefreshStats();
@@ -113,12 +116,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             set
             {
                 var fmt = value ? "PNG" : "JPEG";
-                if (!string.Equals(_settings.Format, fmt, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(_settings.Format, fmt, StringComparison.OrdinalIgnoreCase)) return;
+
+                if (_session != null && _frameCount > 0)
                 {
-                    _settings.Format = fmt;
-                    SettingsManager.Save(_settings);
-                    OnPropertyChanged();
+                    var r = MessageBox.Show(
+                        $"This session has {_frameCount} {(_settings.Format ?? "JPEG")} frame(s). Switching the frame format mid-session mixes file types and breaks encoding.\n\nSwitch anyway?",
+                        "Change format?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (r != MessageBoxResult.Yes) { OnPropertyChanged(); return; } // revert the checkbox
                 }
+
+                _settings.Format = fmt;
+                SettingsManager.Save(_settings);
+                OnPropertyChanged();
             }
         }
 
@@ -232,6 +242,18 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string _elapsedText = "00:00";
         public string ElapsedText { get => _elapsedText; set => SetProperty(ref _elapsedText, value); }
 
+        private string _totalElapsedText = "00:00";
+        public string TotalElapsedText { get => _totalElapsedText; set => SetProperty(ref _totalElapsedText, value); }
+
+        private double _captureProgress;
+        public double CaptureProgress { get => _captureProgress; set => SetProperty(ref _captureProgress, value); }
+
+        private string _progressText = "";
+        public string ProgressText { get => _progressText; set => SetProperty(ref _progressText, value); }
+
+        private string _smartStatus = "";
+        public string SmartStatus { get => _smartStatus; set => SetProperty(ref _smartStatus, value); }
+
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
@@ -272,6 +294,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     capturesRoot, name, _settings.IntervalSeconds, null, _settings.Format ?? "JPEG", _settings.JpegQuality);
                 _session = SessionManager.LoadSession(_sessionFolder);
                 _region = null;
+                _accumulatedSeconds = 0;
 
                 SessionName = _session?.Name ?? name;
                 RegionText = "Not selected";
@@ -308,6 +331,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _session = session;
             _sessionFolder = dlg.FolderName;
             _region = session.CaptureRegion;
+            _accumulatedSeconds = 0;
             SessionName = session.Name ?? "Session";
             RegionText = _region.HasValue
                 ? $"{_region.Value.Width}×{_region.Value.Height} at ({_region.Value.X},{_region.Value.Y})"
@@ -316,6 +340,18 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        private bool ConfirmRegionChange()
+        {
+            if (_session != null && _frameCount > 0)
+            {
+                var r = MessageBox.Show(
+                    $"This session already has {_frameCount} frame(s) at the current size.\n\nChanging the region will mix frame sizes and can break the final encode. Change it anyway?",
+                    "Change region?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                return r == MessageBoxResult.Yes;
+            }
+            return true;
         }
 
         private void ToggleOverlay()
@@ -349,6 +385,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void SelectFullScreen()
         {
+            if (!ConfirmRegionChange()) return;
             var r = ScreenHelper.PrimaryScreenBounds();
             r.Width -= r.Width % 2;   // even dimensions required by the H.264 encoder
             r.Height -= r.Height % 2;
@@ -362,6 +399,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void SelectRegion()
         {
+            if (!ConfirmRegionChange()) return;
             var overlay = new RegionSelectOverlay();
             if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
             {
@@ -382,12 +420,19 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames);
             _captureStart = DateTime.Now;
+            SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
             IsCapturing = true;
         }
 
         private void StopCapture()
         {
             _engine.Stop();
+            if (_captureStart.HasValue)
+            {
+                _accumulatedSeconds += (DateTime.Now - _captureStart.Value).TotalSeconds;
+                _captureStart = null;
+            }
+            SmartStatus = "";
             IsCapturing = false;
         }
 
@@ -420,6 +465,9 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void OnCaptureFailed(string message)
             => Logger.Log("Wpf", $"Capture error: {message}");
+
+        private void OnSmartStatus(string status)
+            => Application.Current?.Dispatcher.BeginInvoke(new Action(() => SmartStatus = status));
 
         private bool CanEncode => _session != null && _frameCount > 0 && !IsCapturing && !IsEncoding;
 
@@ -519,25 +567,38 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             try
             {
-                int w = _region?.Width ?? 0;
-                int h = _region?.Height ?? 0;
-                int projected = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
-                StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
-                    _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projected);
-                ResourcesInfo = SystemMonitor.GetResourcesInfoString();
+                _statsTick++;
+
+                // Elapsed (current run) + total across start/stop — updated every tick (1s) so it counts smoothly.
+                double current = (IsCapturing && _captureStart.HasValue) ? (DateTime.Now - _captureStart.Value).TotalSeconds : 0;
+                ElapsedText = FormatTime(current);
+                TotalElapsedText = FormatTime(_accumulatedSeconds + current);
+
+                int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
+                double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
+                CaptureProgress = pct;
+                ProgressText = $"{_frameCount} / {projectedFrames} frames ({pct:F0}% of target)";
 
                 double vidLen = EncodeFps > 0 ? _frameCount / (double)EncodeFps : 0;
                 VideoLengthText = $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
 
-                if (IsCapturing && _captureStart.HasValue)
+                // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.
+                if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StorageInfo))
                 {
-                    var e = DateTime.Now - _captureStart.Value;
-                    ElapsedText = e.TotalHours >= 1
-                        ? $"{(int)e.TotalHours}:{e.Minutes:D2}:{e.Seconds:D2}"
-                        : $"{e.Minutes:D2}:{e.Seconds:D2}";
+                    int w = _region?.Width ?? 0;
+                    int h = _region?.Height ?? 0;
+                    StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
+                        _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames);
+                    ResourcesInfo = SystemMonitor.GetResourcesInfoString();
                 }
             }
             catch { /* stats are best-effort */ }
+        }
+
+        private static string FormatTime(double seconds)
+        {
+            var t = TimeSpan.FromSeconds(seconds);
+            return t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}" : $"{t.Minutes:D2}:{t.Seconds:D2}";
         }
 
         private void RefreshFfmpegStatus()

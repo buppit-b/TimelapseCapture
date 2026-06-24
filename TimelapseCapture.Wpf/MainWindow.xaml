@@ -151,8 +151,9 @@
                 </Border>
 
                 <Border Style="{StaticResource Card}">
-                    <StackPanel IsEnabled="{Binding NotCapturing}">
+                    <StackPanel>
                         <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
+                        <StackPanel IsEnabled="{Binding NotCapturing}">
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
                                   Foreground="{StaticResource TextPrimaryBrush}"
                                   ToolTip="Capture at the Active interval while you're using the mouse/keyboard; fall back to the main interval (or skip frames) when idle."/>
@@ -171,6 +172,9 @@
                         </Grid>
                         <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding SmartStatus}" FontFamily="Consolas" FontSize="12"
+                                   Foreground="{StaticResource AccentBrush}" Margin="0,12,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -232,20 +236,40 @@
                     <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBox Text="{Binding TargetText}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
-                                 ToolTip="Planned capture length, used to project storage. e.g. 30s, 5m, 2h"/>
+                        <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                                 Width="64" TextAlignment="Center"
+                                 ToolTip="Planned capture length, used to project storage and progress. e.g. 30s, 5m, 2h"/>
                         <TextBlock Text="s/m/h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
                     </StackPanel>
+                    <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
+                                 Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceAltBrush}"
+                                 BorderThickness="0" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding ProgressText}" FontFamily="Consolas" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10"/>
                     <TextBlock Text="{Binding StorageInfo}" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" LineHeight="18"/>
                     <TextBlock Text="{Binding VideoLengthText}" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding ResourcesInfo}" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <TextBlock Text="Elapsed" Style="{StaticResource Muted}" Margin="0,0,8,0"/>
-                        <TextBlock Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
-                    </StackPanel>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Run" Style="{StaticResource Muted}"
+                                   ToolTip="Elapsed time of the current capture run."/>
+                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    </Grid>
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Total" Style="{StaticResource Muted}"
+                                   ToolTip="Total capture time across all start/stop runs this session."/>
+                        <TextBlock Grid.Column="1" Text="{Binding TotalElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    </Grid>
                 </StackPanel>
             </Border>
             </StackPanel>

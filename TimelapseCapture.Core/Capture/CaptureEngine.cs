@@ -42,6 +42,10 @@ namespace TimelapseCapture
         /// <summary>Raised when a capture/save fails (the engine keeps running). UI thread not guaranteed.</summary>
         public event Action<string>? CaptureFailed;
 
+        /// <summary>Raised (on change) with the smart-interval activity state, e.g. "Active" / "Idle — slowed". UI thread not guaranteed.</summary>
+        public event Action<string>? SmartStatusChanged;
+        private string _lastSmartStatus = "";
+
         public bool IsRunning { get; private set; }
 
         /// <summary>
@@ -85,6 +89,7 @@ namespace TimelapseCapture
                     _activityMonitor.Start();
                 }
 
+                _lastSmartStatus = "";
                 IsRunning = true;
                 int startMs = _smartEnabled ? _activeIntervalMs : _baseIntervalMs;
                 _timer = new Timer(OnTick, null, startMs, startMs);
@@ -116,6 +121,8 @@ namespace TimelapseCapture
         {
             int? newCount = null;
             string? error = null;
+            string? smartStatus = null;
+            bool skipFrame = false;
 
             lock (_lock)
             {
@@ -125,40 +132,49 @@ namespace TimelapseCapture
                 if (_smartEnabled && _activityMonitor != null)
                 {
                     bool isActive = _activityMonitor.IsCurrentlyActive();
+                    string status = isActive ? "Active" : (_skipIdleFrames ? "Idle — skipping frames" : "Idle — slowed");
+                    if (status != _lastSmartStatus) { _lastSmartStatus = status; smartStatus = status; }
+
                     if (!isActive && _skipIdleFrames)
                     {
                         _timer?.Change(_activeIntervalMs, _activeIntervalMs);
-                        return; // skip this frame while idle
+                        skipFrame = true;
                     }
-                    int targetMs = isActive ? _activeIntervalMs : _baseIntervalMs;
-                    _timer?.Change(targetMs, targetMs);
-                }
-
-                try
-                {
-                    long next = (_session?.FramesCaptured ?? 0) + 1;
-                    string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
-
-                    using (var bmp = CaptureRegion(_region))
+                    else
                     {
-                        if (bmp.Width == 0 || bmp.Height == 0)
-                            throw new InvalidOperationException("Captured bitmap is invalid");
-                        bmp.Save(file, _imageFormat);
+                        int targetMs = isActive ? _activeIntervalMs : _baseIntervalMs;
+                        _timer?.Change(targetMs, targetMs);
                     }
-
-                    SessionManager.IncrementFrameCount(_sessionFolder);
-                    _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
-                    newCount = (int)(_session?.FramesCaptured ?? next);
                 }
-                catch (Exception ex)
+
+                if (!skipFrame)
                 {
-                    Logger.Log("CaptureEngine", $"Capture failed: {ex.Message}");
-                    error = ex.Message;
+                    try
+                    {
+                        long next = (_session?.FramesCaptured ?? 0) + 1;
+                        string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
+
+                        using (var bmp = CaptureRegion(_region))
+                        {
+                            if (bmp.Width == 0 || bmp.Height == 0)
+                                throw new InvalidOperationException("Captured bitmap is invalid");
+                            bmp.Save(file, _imageFormat);
+                        }
+
+                        SessionManager.IncrementFrameCount(_sessionFolder);
+                        _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
+                        newCount = (int)(_session?.FramesCaptured ?? next);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log("CaptureEngine", $"Capture failed: {ex.Message}");
+                        error = ex.Message;
+                    }
                 }
             }
 
-            // Raise events outside the lock so subscribers (which may call Stop on another thread)
-            // can't deadlock against the capture lock.
+            // Raise events outside the lock so subscribers can't deadlock against the capture lock.
+            if (smartStatus != null) SmartStatusChanged?.Invoke(smartStatus);
             if (newCount.HasValue) FrameCaptured?.Invoke(newCount.Value);
             if (error != null) CaptureFailed?.Invoke(error);
         }
