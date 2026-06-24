@@ -18,7 +18,7 @@ namespace TimelapseCapture.Wpf.ViewModels
     /// </summary>
     public class MainViewModel : ViewModelBase, IDisposable
     {
-        private readonly CaptureSettings _settings;
+        private CaptureSettings _settings; // reassigned by Import settings
         private readonly CaptureEngine _engine = new CaptureEngine();
         private System.Threading.CancellationTokenSource? _ffmpegCts;
         private System.Threading.CancellationTokenSource? _encodeCts;
@@ -46,6 +46,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
+            ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
+            ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -309,6 +311,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand LoadSessionCommand { get; }
         public ICommand RenameSessionCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand ExportSettingsCommand { get; }
+        public ICommand ImportSettingsCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand EditRegionCommand { get; }
@@ -422,10 +426,39 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.CaptureCursor != value) { _settings.CaptureCursor = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public bool OpenFolderAfterEncode
+        {
+            get => _settings.OpenFolderAfterEncode;
+            set { if (_settings.OpenFolderAfterEncode != value) { _settings.OpenFolderAfterEncode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         private void OpenSettings()
         {
             var dlg = new SettingsDialog { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
+        }
+
+        private void ExportSettings()
+        {
+            var dlg = new SaveFileDialog { Title = "Export settings", Filter = "Settings (*.json)|*.json", FileName = "timelapse-settings.json" };
+            if (dlg.ShowDialog() != true) return;
+            try { SettingsManager.ExportTo(_settings, dlg.FileName); }
+            catch (Exception ex) { MessageBox.Show($"Couldn't export settings: {ex.Message}", "Export settings", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
+
+        private void ImportSettings()
+        {
+            var dlg = new OpenFileDialog { Title = "Import settings", Filter = "Settings (*.json)|*.json" };
+            if (dlg.ShowDialog() != true) return;
+            var imported = SettingsManager.LoadFrom(dlg.FileName);
+            if (imported == null)
+            {
+                MessageBox.Show("That file isn't a valid settings file.", "Import settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            _settings = imported;
+            SettingsManager.Save(_settings);
+            OnPropertyChanged(string.Empty); // refresh every binding against the new settings
         }
 
         private void RenameSession()
@@ -696,9 +729,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (result.Success)
             {
                 EncodeStatus = "Encoded ✓";
-                var open = MessageBox.Show($"Video encoded:\n{result.OutputPath}\n\nOpen the output folder?",
-                    "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
+                bool open = _settings.OpenFolderAfterEncode ||
+                    MessageBox.Show($"Video encoded:\n{result.OutputPath}\n\nOpen the output folder?",
+                        "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes;
+                if (open)
                 {
                     try
                     {

@@ -29,6 +29,7 @@ namespace TimelapseCapture
         public bool GuidedModeEnabled { get; set; } = true; // Progressive disclosure for new users
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
+        public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
     }
 
 
@@ -77,6 +78,24 @@ namespace TimelapseCapture
             {
                 // ignore
             }
+        }
+
+        /// <summary>Write settings to an arbitrary path (for export). Throws on failure.</summary>
+        public static void ExportTo(CaptureSettings settings, string path)
+        {
+            var opts = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText(path, JsonSerializer.Serialize(settings, opts));
+        }
+
+        /// <summary>Read settings from an arbitrary path (for import). Null if the file isn't valid settings.</summary>
+        public static CaptureSettings? LoadFrom(string path)
+        {
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<CaptureSettings>(File.ReadAllText(path), opts);
+            }
+            catch { return null; }
         }
 
         /// <summary>
