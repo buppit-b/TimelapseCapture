@@ -42,8 +42,8 @@ Ranked roughly by value for the artist use case. None are committed yet.
    (scrub the frames, delete fumbles) — makes finishing one step.
 4. **Unattended safety** — auto-stop on low disk space or an optional max duration;
    notification when a long run / encode finishes.
-5. **Crash recovery** — resume a session after an unexpected exit (sessions already
-   live on disk; detect an interrupted Active session and offer to continue).
+5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
+   and on launch the app offers to resume a session left recording when it died.
 6. **Timestamp / elapsed overlay** option burned into frames or the output video.
 7. **Multi-monitor / all-screens** capture as a region preset.
 8. **Output naming templates** and a chosen encode output path.
@@ -77,9 +77,10 @@ no bug — the confusion was frames-on-disk vs final-video (now clarified in the
 Already fixed this pass: stuck `IsEncoding` on encode exception, partial `.mp4`
 left on cancel/fail.
 
+Already fixed since the audit: sessions now manage their `Active` flag (start/stop)
+and crash recovery resumes an interrupted session on launch.
+
 Still to verify/fix (roughly by value):
-- **Sessions never marked `Active=false`** on clean stop → groundwork for crash
-  recovery and the "at most one Active" invariant.
 - **Concurrent `session.json` writes** — engine `IncrementFrameCount` vs VM
   `PersistRegion`/`PersistTotalTime`/rename can race (no cross-process lock).
 - **Encode breaks on gapped/renumbered frames** — image2 `%05d` + hardcoded
