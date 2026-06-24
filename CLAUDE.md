@@ -83,11 +83,14 @@ Small, single-maintainer app. The working bar:
 ### 2. Region / DPI
 
 - Capture works in **physical pixels**; WPF works in **DIPs**. Convert with
-  `ScreenHelper.SystemDpiScale()` (see `RegionOverlay.ShowForRegion` and
-  `RegionSelectOverlay`).
-- In the WPF VM the region lives in three mirrored spots that must stay in sync:
-  `_region` (runtime), `_session.CaptureRegion`, `_settings.Region`. They're set
-  together in `SelectRegion` / `SelectFullScreen` / load — keep them consistent.
+  `ScreenHelper.SystemDpiScale()` (see `RegionOverlay.ShowForRegion`,
+  `RegionSelectOverlay`, `RegionEditOverlay`).
+- In the WPF VM the runtime region is `_region`. Every region source
+  (`SelectRegion`, `SelectFullScreen`, `EditRegion`) funnels through the single
+  `ApplyRegion()` method, which updates `_region` + `RegionText` + the overlay.
+  `_region` is handed to the engine on `Start()` and the engine persists it into
+  `session.json`; load reads it back from the session. **Route any new region
+  source through `ApplyRegion()`** rather than poking `_region` directly.
 - The on-screen overlay (`RegionOverlay`) draws its 2px outline in the ring
   **just outside** the region (and its dimension label **above** the top edge) so
   the outline is never captured into the frames. Don't move it onto the region.
@@ -164,44 +167,44 @@ encode") · ffmpeg download (speed + cancel) / browse / custom-path-override war
 memory) · **% progress vs target** + live target field (s/m/h) · **Run + Total
 elapsed** (Total accumulates across stop/start within a run) · lock settings during
 capture · **mid-session change warnings** (region/format with frames) · tooltips
-throughout · pulse/highlight cues for the next required action.
+throughout · pulse/highlight cues for the next required action ·
+**in-app session picker** (dark list: name · date · frames · size, replaces the
+native folder browser) · **encode preset** (Fast/Medium/Slow segmented control) ·
+**aspect-ratio lock** on region select (Free/16:9/4:3/1:1/9:16) · **editable region
+overlay** ("Edit" → drag to move, 8 handles to resize, Apply/Cancel).
 
-**Still on the list (next thread, in priority order):**
-1. **Encode preset** (ultrafast→slow). Needs a dark dropdown (see note below).
-2. **Aspect-ratio lock** on region select (16:9, 4:3, …). `Core/Capture/AspectRatio.cs`
-   exists; `RegionSelectOverlay` would constrain the drag. Same dropdown need.
-3. **Editable overlay (toggle "edit mode")** — Spike's idea: drag/resize the
-   capture region directly from the on-screen box, **as a toggleable mode** so it
-   doesn't fight the click-through (WS_EX_TRANSPARENT). When edit-mode is on, drop
-   the transparent ex-style and show 8 resize handles + a move grab in the center;
-   on change, convert DIPs→physical px and update `_region`/session/settings (route
-   through the same path as `SelectRegion`, and re-run `ConfirmRegionChange()` if
-   frames exist). This is the meatiest remaining piece — give it a dedicated step.
+The original parity-plus-polish list is **complete**. Reusable bits added this
+session: a dark **segmented control** (`Seg` style + `StringEqualsConverter`, in
+`App.xaml`/`Converters.cs`) — prefer it over a ComboBox for any future discrete
+pick; and `RegionEditOverlay` for on-screen region editing.
 
-> **Dropdown note:** there's no dark `ComboBox` style yet, and the default WPF
-> ComboBox renders light/jarring on the dark theme. Either add a proper dark
-> ComboBox `ControlTemplate` to `App.xaml`, or model preset as a small slider +
-> name label (0–3, "Preset: Medium") which themes more easily. `VideoEncoder`
-> currently hardcodes preset `"medium"` — thread the chosen value through
-> `MainViewModel.Encode()` → `VideoEncoder.EncodeAsync(..., preset, ...)`.
+**Needs hands-on verification (built, not screen-tested by Claude):** the
+**editable overlay** drag/resize math (handle hit-testing, DPI conversion, multi-
+monitor offset) and the **aspect-ratio** constraint visuals. They build and the
+logic is straightforward, but interactive drag really wants a human eye — if a
+handle feels off or the box jumps, look at `RegionEditOverlay.OnMouseMove`.
 
-**Persistence gaps (minor, not yet requested):** `Total` elapsed and the
-accumulated capture time are **in-memory only** (reset on new/load session and on
-app restart). If Spike wants them to persist, store to `SessionInfo.TotalCaptureSeconds`
-on stop and restore on load.
+**Remaining ideas (optional, none requested as must-do):**
+- Persist `Total`/accumulated capture time (currently in-memory; store to
+  `SessionInfo.TotalCaptureSeconds` on stop, restore on load).
+- Session picker could show a last-frame thumbnail per row.
+- The deferred **aesthetic pass** (Spike wants it *later* — clean dark + terminal
+  vibe is in; richer styling is explicitly not now).
 
 ---
 
 ## Handoff notes for the next thread
 
 - This session was a long, iterative polish pass on the WPF app driven by Spike
-  testing each build and sending screenshots. Everything above under "Done" landed
-  this session and is pushed to `main` (latest commit ~`fca75ab`).
-- The most recent asks, all addressed: progress % + total time, smart-interval
-  status, mid-session warnings, smooth 1s elapsed, overlay dimensions, cancel
-  encode, working JPEG quality, smart-interval tooltips, Show-button toggle state,
-  un-clipped ffmpeg Cancel button.
-- **Next:** encode preset → aspect-ratio lock → editable overlay (see list above).
+  testing each build and sending screenshots. Everything under "Done" is pushed to
+  `main` (latest commit ~`50022b9`).
+- The parity-plus-polish list is finished, including the last four items: in-app
+  session picker, encode preset, aspect-ratio lock, and the editable region
+  overlay. The editable overlay + aspect-ratio constraint still want Spike's
+  hands-on test (see "Needs hands-on verification" above).
+- **Next:** whatever Spike reports from testing, then optionally the remaining
+  ideas above (persist total time, picker thumbnails) and — when he's ready — the
+  deferred aesthetic pass.
 - **Ignore `C:\Users\Spike\.claude\plans\jazzy-baking-trinket.md`** — it's a plan
   for reworking the *old WinForms* UI and is obsolete (we rebuilt in WPF instead).
 - Keep committing per-feature and relaunching the exe for Spike to verify.
