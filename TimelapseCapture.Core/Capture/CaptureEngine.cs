@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -29,6 +30,8 @@ namespace TimelapseCapture
         private SessionInfo? _session;
         private ImageFormat _imageFormat = ImageFormat.Jpeg;
         private string _extension = "jpg";
+        private int _jpegQuality = 90;
+        private ImageCodecInfo? _jpegEncoder;
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -55,7 +58,7 @@ namespace TimelapseCapture
         public void Start(string sessionFolder, SessionInfo session, Rectangle region,
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double activeIntervalSeconds = 2.0,
-                          int idleThresholdSeconds = 30, bool skipIdleFrames = false)
+                          int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90)
         {
             lock (_lock)
             {
@@ -77,6 +80,7 @@ namespace TimelapseCapture
                     _imageFormat = ImageFormat.Jpeg;
                     _extension = "jpg";
                 }
+                _jpegQuality = Math.Clamp(jpegQuality, 1, 100);
 
                 _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
@@ -158,7 +162,7 @@ namespace TimelapseCapture
                         {
                             if (bmp.Width == 0 || bmp.Height == 0)
                                 throw new InvalidOperationException("Captured bitmap is invalid");
-                            bmp.Save(file, _imageFormat);
+                            SaveBitmap(bmp, file);
                         }
 
                         SessionManager.IncrementFrameCount(_sessionFolder);
@@ -177,6 +181,23 @@ namespace TimelapseCapture
             if (smartStatus != null) SmartStatusChanged?.Invoke(smartStatus);
             if (newCount.HasValue) FrameCaptured?.Invoke(newCount.Value);
             if (error != null) CaptureFailed?.Invoke(error);
+        }
+
+        private void SaveBitmap(Bitmap bmp, string file)
+        {
+            // Apply the JPEG quality setting (plain Bitmap.Save(file, ImageFormat.Jpeg) ignores it).
+            if (_imageFormat == ImageFormat.Jpeg)
+            {
+                _jpegEncoder ??= ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
+                if (_jpegEncoder != null)
+                {
+                    using var ep = new EncoderParameters(1);
+                    ep.Param[0] = new EncoderParameter(Encoder.Quality, (long)_jpegQuality);
+                    bmp.Save(file, _jpegEncoder, ep);
+                    return;
+                }
+            }
+            bmp.Save(file, _imageFormat);
         }
 
         private static Bitmap CaptureRegion(Rectangle region)

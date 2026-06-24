@@ -20,6 +20,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private readonly CaptureSettings _settings;
         private readonly CaptureEngine _engine = new CaptureEngine();
         private System.Threading.CancellationTokenSource? _ffmpegCts;
+        private System.Threading.CancellationTokenSource? _encodeCts;
         private RegionOverlay? _overlay;
         private SessionInfo? _session;
         private string? _sessionFolder;
@@ -47,7 +48,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
-            EncodeCommand = new RelayCommand(async _ => await Encode(), _ => CanEncode);
+            EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
@@ -109,6 +110,12 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private int _encodeCrf = 23;
         public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
+
+        public int JpegQuality
+        {
+            get => _settings.JpegQuality;
+            set { var v = value < 1 ? 1 : (value > 100 ? 100 : value); if (_settings.JpegQuality != v) { _settings.JpegQuality = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
 
         public bool UsePng
         {
@@ -175,6 +182,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (SetProperty(ref _isEncoding, value))
                 {
                     OnPropertyChanged(nameof(StatusText));
+                    OnPropertyChanged(nameof(EncodeButtonText));
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -182,6 +190,8 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private string _encodeStatus = "";
         public string EncodeStatus { get => _encodeStatus; set => SetProperty(ref _encodeStatus, value); }
+
+        public string EncodeButtonText => IsEncoding ? "⏹  Cancel encode" : "🎬  Encode Video";
 
         private bool _isFfmpegBusy;
         public bool IsFfmpegBusy
@@ -418,7 +428,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
-                _settings.IdleThresholdSeconds, _settings.SkipIdleFrames);
+                _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
             IsCapturing = true;
@@ -471,6 +481,12 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private bool CanEncode => _session != null && _frameCount > 0 && !IsCapturing && !IsEncoding;
 
+        private async Task EncodeOrCancel()
+        {
+            if (IsEncoding) { _encodeCts?.Cancel(); EncodeStatus = "Cancelling…"; return; }
+            await Encode();
+        }
+
         private async Task Encode()
         {
             if (_session == null || _sessionFolder == null) return;
@@ -483,12 +499,22 @@ namespace TimelapseCapture.Wpf.ViewModels
                 return;
             }
 
+            _encodeCts = new System.Threading.CancellationTokenSource();
             IsEncoding = true;
             EncodeStatus = "Encoding…";
 
-            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, "medium", EncodeCrf);
+            var result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, "medium", EncodeCrf, _encodeCts.Token);
 
+            bool cancelled = _encodeCts.IsCancellationRequested;
+            _encodeCts.Dispose();
+            _encodeCts = null;
             IsEncoding = false;
+
+            if (cancelled)
+            {
+                EncodeStatus = "Encode cancelled";
+                return;
+            }
             if (result.Success)
             {
                 EncodeStatus = "Encoded ✓";

@@ -19,7 +19,8 @@ namespace TimelapseCapture.Wpf
         private const int WS_EX_LAYERED = 0x80000;
         private const int WS_EX_TOOLWINDOW = 0x80;     // keep out of Alt-Tab
 
-        private const double Border = 2; // device-independent units; matches the XAML BorderThickness
+        private const double Border = 2;       // device-independent units; matches the XAML BorderThickness
+        private const double LabelHeight = 20; // top strip that holds the dimension readout (above the region)
 
         public RegionOverlay()
         {
@@ -34,10 +35,11 @@ namespace TimelapseCapture.Wpf
             double rw = region.Width / scale, rh = region.Height / scale;
 
             Left = rx - Border;
-            Top = ry - Border;
+            Top = ry - Border - LabelHeight;          // make room for the readout above the outline
             Width = rw + Border * 2;
-            Height = rh + Border * 2;
+            Height = rh + Border * 2 + LabelHeight;
 
+            dimLabel.Text = $"{region.Width}×{region.Height}";
             if (!IsVisible) Show();
         }
 
