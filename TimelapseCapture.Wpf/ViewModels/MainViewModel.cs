@@ -377,11 +377,17 @@ namespace TimelapseCapture.Wpf.ViewModels
             _session = session;
             _sessionFolder = dlg.SelectedFolder;
             _region = session.CaptureRegion;
+            bool regionOffScreen = false;
+            if (_region.HasValue && !ScreenHelper.VirtualScreenBounds().IntersectsWith(_region.Value))
+            {
+                _region = null;            // saved region is off every current monitor (layout changed)
+                regionOffScreen = true;
+            }
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
             SessionName = session.Name ?? "Session";
             RegionText = _region.HasValue
                 ? $"{_region.Value.Width}×{_region.Value.Height} at ({_region.Value.X},{_region.Value.Y})"
-                : "Not selected";
+                : (regionOffScreen ? "Saved region is off-screen — select again" : "Not selected");
             FrameCount = (int)session.FramesCaptured;
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
@@ -499,10 +505,26 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             _region = r;
             RegionText = label ?? $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
+            PersistRegion(r);
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
             UpdateOverlay();
+        }
+
+        // The region is part of a session's identity (all its frames are that size and place), so save
+        // it with the session — loading restores it and a continued session keeps the same area.
+        private void PersistRegion(System.Drawing.Rectangle r)
+        {
+            if (_session == null || _sessionFolder == null) return;
+            try
+            {
+                var s = SessionManager.LoadSession(_sessionFolder) ?? _session;
+                s.CaptureRegion = r;
+                SessionManager.SaveSession(_sessionFolder, s);
+                _session = s;
+            }
+            catch { /* best-effort; never throw from a region change */ }
         }
 
         private void StartCapture()
