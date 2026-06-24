@@ -165,8 +165,9 @@ decimal) · format JPEG/PNG · **working JPEG quality** · smart interval
 encode") · ffmpeg download (speed + cancel) / browse / custom-path-override warning
 · encode fps + CRF · stats panel (frame size, projected/total/available storage,
 memory) · **% progress vs target** + live target field (s/m/h) · **Run + Total
-elapsed** (Total accumulates across stop/start within a run) · lock settings during
-capture · **mid-session change warnings** (region/format with frames) · tooltips
+elapsed** (Total accumulates across stop/start and persists across reload via
+`SessionInfo.TotalCaptureSeconds`) · lock settings during capture ·
+**mid-session change warnings** (region/format with frames) · tooltips
 throughout · pulse/highlight cues for the next required action ·
 **in-app session picker** (dark list: name · date · frames · size, replaces the
 native folder browser) · **encode preset** (Fast/Medium/Slow segmented control) ·
@@ -185,8 +186,6 @@ logic is straightforward, but interactive drag really wants a human eye — if a
 handle feels off or the box jumps, look at `RegionEditOverlay.OnMouseMove`.
 
 **Remaining ideas (optional, none requested as must-do):**
-- Persist `Total`/accumulated capture time (currently in-memory; store to
-  `SessionInfo.TotalCaptureSeconds` on stop, restore on load).
 - Session picker could show a last-frame thumbnail per row.
 - The deferred **aesthetic pass** (Spike wants it *later* — clean dark + terminal
   vibe is in; richer styling is explicitly not now).

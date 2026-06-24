@@ -361,7 +361,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _session = session;
             _sessionFolder = dlg.SelectedFolder;
             _region = session.CaptureRegion;
-            _accumulatedSeconds = 0;
+            _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
             SessionName = session.Name ?? "Session";
             RegionText = _region.HasValue
                 ? $"{_region.Value.Width}×{_region.Value.Height} at ({_region.Value.X},{_region.Value.Y})"
@@ -474,6 +474,23 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             SmartStatus = "";
             IsCapturing = false;
+            PersistTotalTime();
+        }
+
+        // Persist cumulative capture time to the session without clobbering the engine's on-disk
+        // frame count: reload the latest session, set only TotalCaptureSeconds, save it back.
+        private void PersistTotalTime()
+        {
+            if (_sessionFolder == null) return;
+            try
+            {
+                var s = SessionManager.LoadSession(_sessionFolder);
+                if (s == null) return;
+                s.TotalCaptureSeconds = _accumulatedSeconds;
+                SessionManager.SaveSession(_sessionFolder, s);
+                _session = s;
+            }
+            catch { /* best-effort; never throw out of Stop */ }
         }
 
         private bool CanOpenFolder =>
