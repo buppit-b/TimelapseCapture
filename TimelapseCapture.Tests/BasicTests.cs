@@ -150,8 +150,66 @@ namespace TimelapseCapture.Tests
             var result = ValidationHelper.IsValidRegion(region);
             
             // Assert
-            result.Should().Be(expected, 
+            result.Should().Be(expected,
                 $"region {width}x{height} should be {(expected ? "valid" : "invalid")}");
+        }
+    }
+
+    public class ScreenHelperTests
+    {
+        [Fact]
+        public void FitRegionOnScreen_FullyVisible_ReturnedUnchanged()
+        {
+            var bounds = new Rectangle(0, 0, 1920, 1080);
+            var saved = new Rectangle(100, 100, 800, 600);
+
+            var result = ScreenHelper.FitRegionOnScreen(saved, bounds, out var moved);
+
+            moved.Should().BeFalse();
+            result.Should().Be(saved);
+        }
+
+        [Fact]
+        public void FitRegionOnScreen_OnRemovedMonitor_RelocatedSameSize()
+        {
+            // Region was on a second monitor at x=1920; now only the primary remains.
+            var bounds = new Rectangle(0, 0, 1920, 1080);
+            var saved = new Rectangle(1920, 0, 870, 470);
+
+            var result = ScreenHelper.FitRegionOnScreen(saved, bounds, out var moved);
+
+            moved.Should().BeTrue();
+            result.Should().NotBeNull();
+            result!.Value.Size.Should().Be(saved.Size, "size must stay constant for frame consistency");
+            bounds.Contains(result.Value).Should().BeTrue("the relocated region must be fully on screen");
+            result.Value.Should().Be(new Rectangle(1050, 0, 870, 470));
+        }
+
+        [Fact]
+        public void FitRegionOnScreen_LargerThanDesktop_ReturnsNull()
+        {
+            var bounds = new Rectangle(0, 0, 1280, 720);
+            var saved = new Rectangle(0, 0, 1920, 1080);
+
+            var result = ScreenHelper.FitRegionOnScreen(saved, bounds, out var moved);
+
+            result.Should().BeNull();
+            moved.Should().BeFalse();
+        }
+
+        [Fact]
+        public void FitRegionOnScreen_NegativeOriginDesktop_RelocatesIntoBounds()
+        {
+            // Primary at 0,0 with a second monitor to the left → virtual origin is negative.
+            var bounds = new Rectangle(-1920, 0, 3840, 1080);
+            var saved = new Rectangle(5000, 0, 800, 600); // far off to the right
+
+            var result = ScreenHelper.FitRegionOnScreen(saved, bounds, out var moved);
+
+            moved.Should().BeTrue();
+            result.Should().NotBeNull();
+            bounds.Contains(result!.Value).Should().BeTrue();
+            result.Value.Size.Should().Be(saved.Size);
         }
     }
 }

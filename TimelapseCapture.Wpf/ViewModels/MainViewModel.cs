@@ -376,18 +376,33 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             _session = session;
             _sessionFolder = dlg.SelectedFolder;
+
+            // Restore the saved region. Keep its exact size; if its saved spot is no longer on any
+            // monitor (display unplugged / resolution changed), relocate it onto the current desktop
+            // rather than lose it — the size must stay constant to keep this session's frames uniform.
             _region = session.CaptureRegion;
-            bool regionOffScreen = false;
-            if (_region.HasValue && !ScreenHelper.VirtualScreenBounds().IntersectsWith(_region.Value))
+            bool regionMoved = false, regionCantFit = false;
+            if (_region.HasValue)
             {
-                _region = null;            // saved region is off every current monitor (layout changed)
-                regionOffScreen = true;
+                _region = ScreenHelper.FitRegionOnScreen(_region.Value, out regionMoved);
+                regionCantFit = _region == null;
             }
+
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
             SessionName = session.Name ?? "Session";
-            RegionText = _region.HasValue
-                ? $"{_region.Value.Width}×{_region.Value.Height} at ({_region.Value.X},{_region.Value.Y})"
-                : (regionOffScreen ? "Saved region is off-screen — select again" : "Not selected");
+            if (_region.HasValue)
+            {
+                var r = _region.Value;
+                RegionText = regionMoved
+                    ? $"{r.Width}×{r.Height} at ({r.X},{r.Y}) — moved onto screen"
+                    : $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
+            }
+            else
+            {
+                RegionText = regionCantFit
+                    ? "Saved region doesn't fit this display — select again"
+                    : "Not selected";
+            }
             FrameCount = (int)session.FramesCaptured;
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
@@ -530,6 +545,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
+            PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality);

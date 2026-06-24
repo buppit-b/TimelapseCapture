@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
@@ -27,6 +28,35 @@ namespace TimelapseCapture
             => new Rectangle(
                 GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
                 GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN));
+
+        /// <summary>
+        /// Map a saved capture region onto the *current* desktop:
+        /// <list type="bullet">
+        /// <item>fully visible → returned unchanged (<paramref name="moved"/> = false);</item>
+        /// <item>off/partly off-screen but still fits → same size, position clamped onto the desktop
+        /// (<paramref name="moved"/> = true);</item>
+        /// <item>larger than the whole desktop → null (no valid placement at that size).</item>
+        /// </list>
+        /// Size is never changed, so a session's frames stay a consistent size.
+        /// </summary>
+        public static Rectangle? FitRegionOnScreen(Rectangle saved, out bool moved)
+            => FitRegionOnScreen(saved, VirtualScreenBounds(), out moved);
+
+        /// <summary>
+        /// Testable core of <see cref="FitRegionOnScreen(Rectangle, out bool)"/> against explicit
+        /// desktop <paramref name="bounds"/>. Never changes the region's size.
+        /// </summary>
+        public static Rectangle? FitRegionOnScreen(Rectangle saved, Rectangle bounds, out bool moved)
+        {
+            moved = false;
+            if (bounds.Contains(saved)) return saved;
+            if (saved.Width > bounds.Width || saved.Height > bounds.Height) return null;
+
+            int x = Math.Max(bounds.Left, Math.Min(saved.X, bounds.Right - saved.Width));
+            int y = Math.Max(bounds.Top, Math.Min(saved.Y, bounds.Bottom - saved.Height));
+            moved = true;
+            return new Rectangle(x, y, saved.Width, saved.Height);
+        }
 
         [DllImport("user32.dll")] private static extern uint GetDpiForSystem();
 
