@@ -22,6 +22,19 @@ namespace TimelapseCapture
             int width, int height, IntPtr hdcSrc, int xSrc, int ySrc, int rop);
         private const int SRCCOPY = 0x00CC0020;
 
+        // Cursor overlay (BitBlt does not capture the cursor).
+        [DllImport("user32.dll")] private static extern bool GetCursorInfo(ref CURSORINFO pci);
+        [DllImport("user32.dll")] private static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
+        [DllImport("user32.dll")] private static extern bool DrawIconEx(IntPtr hdc, int x, int y, IntPtr hIcon,
+            int cx, int cy, int istep, IntPtr hbrFlickerFreeDraw, int diFlags);
+        [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr hObject);
+        private const int CURSOR_SHOWING = 0x0001;
+        private const int DI_NORMAL = 0x0003;
+
+        [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X; public int Y; }
+        [StructLayout(LayoutKind.Sequential)] private struct CURSORINFO { public int cbSize; public int flags; public IntPtr hCursor; public POINT ptScreenPos; }
+        [StructLayout(LayoutKind.Sequential)] private struct ICONINFO { public bool fIcon; public int xHotspot; public int yHotspot; public IntPtr hbmMask; public IntPtr hbmColor; }
+
         private readonly object _lock = new object();
         private Timer? _timer;
         private Rectangle _region;
@@ -32,6 +45,7 @@ namespace TimelapseCapture
         private string _extension = "jpg";
         private int _jpegQuality = 90;
         private ImageCodecInfo? _jpegEncoder;
+        private bool _captureCursor;
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -59,7 +73,8 @@ namespace TimelapseCapture
         public void Start(string sessionFolder, SessionInfo session, Rectangle region,
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
-                          int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90)
+                          int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
+                          bool captureCursor = false)
         {
             lock (_lock)
             {
@@ -82,6 +97,7 @@ namespace TimelapseCapture
                     _extension = "jpg";
                 }
                 _jpegQuality = Math.Clamp(jpegQuality, 1, 100);
+                _captureCursor = captureCursor;
 
                 _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
@@ -162,6 +178,7 @@ namespace TimelapseCapture
                         {
                             if (bmp.Width == 0 || bmp.Height == 0)
                                 throw new InvalidOperationException("Captured bitmap is invalid");
+                            if (_captureCursor) DrawCursor(bmp, _region);
                             SaveBitmap(bmp, file);
                         }
 
@@ -199,6 +216,37 @@ namespace TimelapseCapture
                 }
             }
             bmp.Save(file, _imageFormat);
+        }
+
+        // Draw the live mouse cursor onto a captured frame at its position within the region.
+        private static void DrawCursor(Bitmap bmp, Rectangle region)
+        {
+            try
+            {
+                var ci = new CURSORINFO { cbSize = Marshal.SizeOf<CURSORINFO>() };
+                if (!GetCursorInfo(ref ci) || ci.flags != CURSOR_SHOWING || ci.hCursor == IntPtr.Zero) return;
+
+                // Only draw if the pointer is inside the captured region.
+                if (ci.ptScreenPos.X < region.X || ci.ptScreenPos.Y < region.Y ||
+                    ci.ptScreenPos.X > region.Right || ci.ptScreenPos.Y > region.Bottom) return;
+
+                int hotX = 0, hotY = 0;
+                if (GetIconInfo(ci.hCursor, out var ii))
+                {
+                    hotX = ii.xHotspot; hotY = ii.yHotspot;
+                    if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);   // GetIconInfo allocates these
+                    if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
+                }
+
+                int x = ci.ptScreenPos.X - region.X - hotX;
+                int y = ci.ptScreenPos.Y - region.Y - hotY;
+
+                using var g = Graphics.FromImage(bmp);
+                IntPtr hdc = g.GetHdc();
+                try { DrawIconEx(hdc, x, y, ci.hCursor, 0, 0, 0, IntPtr.Zero, DI_NORMAL); }
+                finally { g.ReleaseHdc(hdc); }
+            }
+            catch { /* cursor overlay is best-effort; never break the capture loop */ }
         }
 
         private static Bitmap CaptureRegion(Rectangle region)

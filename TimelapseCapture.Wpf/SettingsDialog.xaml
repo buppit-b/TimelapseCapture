@@ -8,6 +8,9 @@
         <CheckBox Content="Keep window always on top" IsChecked="{Binding AlwaysOnTop}"
                   Foreground="{StaticResource TextPrimaryBrush}"
                   ToolTip="Keep the Timelapse Capture window above other windows while you work."/>
+        <CheckBox Content="Capture the mouse cursor in frames" IsChecked="{Binding CaptureCursor}"
+                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
+                  ToolTip="Draw the mouse pointer into each captured frame (takes effect on the next capture start)."/>
         <TextBlock Text="More preferences will live here as the app grows."
                    Style="{StaticResource Muted}" FontSize="11" Margin="0,14,0,0" TextWrapping="Wrap"/>
         <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"

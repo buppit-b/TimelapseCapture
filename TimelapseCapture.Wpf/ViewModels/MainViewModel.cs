@@ -416,6 +416,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.AlwaysOnTop != value) { _settings.AlwaysOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public bool CaptureCursor
+        {
+            get => _settings.CaptureCursor;
+            set { if (_settings.CaptureCursor != value) { _settings.CaptureCursor = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         private void OpenSettings()
         {
             var dlg = new SettingsDialog { Owner = Application.Current?.MainWindow, DataContext = this };
@@ -568,7 +574,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
-                _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality);
+                _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
+                _settings.CaptureCursor);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
             IsCapturing = true;

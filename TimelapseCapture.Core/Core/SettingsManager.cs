@@ -28,6 +28,7 @@ namespace TimelapseCapture
         // UI settings
         public bool GuidedModeEnabled { get; set; } = true; // Progressive disclosure for new users
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
+        public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
     }
 
 
