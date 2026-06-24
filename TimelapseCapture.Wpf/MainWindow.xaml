@@ -5,6 +5,7 @@
         Title="Timelapse Capture" Width="920" SizeToContent="Height" MinHeight="520"
         Background="{StaticResource BgBrush}"
         WindowStartupLocation="CenterScreen"
+        Topmost="{Binding AlwaysOnTop}"
         TextOptions.TextFormattingMode="Display"
         FontFamily="Segoe UI">
     <Window.DataContext>
@@ -54,9 +55,12 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
-            <Button HorizontalAlignment="Right" Style="{StaticResource BtnBase}"
-                    Content="{Binding SessionName}" Command="{Binding RenameSessionCommand}"
-                    ToolTip="Click to rename this session"/>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}"
+                        Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
+                <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,0,0"
+                        Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
+            </StackPanel>
         </Grid>
 
         <!-- Content -->

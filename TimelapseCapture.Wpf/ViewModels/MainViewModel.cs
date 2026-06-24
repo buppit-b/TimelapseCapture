@@ -45,6 +45,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
+            OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -307,6 +308,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand NewSessionCommand { get; }
         public ICommand LoadSessionCommand { get; }
         public ICommand RenameSessionCommand { get; }
+        public ICommand OpenSettingsCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand EditRegionCommand { get; }
@@ -385,6 +387,18 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
             UpdatePreview();
+        }
+
+        public bool AlwaysOnTop
+        {
+            get => _settings.AlwaysOnTop;
+            set { if (_settings.AlwaysOnTop != value) { _settings.AlwaysOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        private void OpenSettings()
+        {
+            var dlg = new SettingsDialog { Owner = Application.Current?.MainWindow, DataContext = this };
+            dlg.ShowDialog();
         }
 
         private void RenameSession()
