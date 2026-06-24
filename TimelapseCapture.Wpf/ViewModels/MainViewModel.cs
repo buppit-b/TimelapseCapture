@@ -58,15 +58,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string _outputFolder;
         public string OutputFolder { get => _outputFolder; set => SetProperty(ref _outputFolder, value); }
 
-        public int IntervalSeconds
+        public decimal IntervalSeconds
         {
-            get => _settings.IntervalSeconds;
+            get => _settings.IntervalSecondsExact > 0 ? _settings.IntervalSecondsExact : _settings.IntervalSeconds;
             set
             {
-                int v = value < 1 ? 1 : value;
-                if (_settings.IntervalSeconds != v)
+                decimal v = value < 0.1m ? 0.1m : value;
+                if (_settings.IntervalSecondsExact != v)
                 {
-                    _settings.IntervalSeconds = v;
+                    _settings.IntervalSecondsExact = v;
+                    _settings.IntervalSeconds = (int)Math.Max(1, Math.Round(v)); // rounded metadata for int consumers
                     SettingsManager.Save(_settings);
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(StatusText));
@@ -179,7 +180,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         public string StatusText =>
             IsEncoding ? "Encoding video…" :
-            IsCapturing ? $"● Capturing every {_settings.IntervalSeconds}s…" :
+            IsCapturing ? $"● Capturing every {IntervalSeconds}s…" :
             _session == null ? "Create a session to begin." :
             _region.HasValue ? "Ready to capture." :
             "Select a region (Full Screen for now).";
@@ -194,10 +195,24 @@ namespace TimelapseCapture.Wpf.ViewModels
         public bool NotCapturing => !IsCapturing;
 
         private int _desiredVideoSeconds = 30;
-        public int DesiredVideoSeconds
+
+        // Planned capture length used for storage projection. Accepts "30s", "5m", "2h" (default seconds).
+        private string _targetText = "30s";
+        public string TargetText
         {
-            get => _desiredVideoSeconds;
-            set { SetProperty(ref _desiredVideoSeconds, value < 1 ? 1 : value); RefreshStats(); }
+            get => _targetText;
+            set { if (SetProperty(ref _targetText, value)) { ParseTarget(); RefreshStats(); } }
+        }
+
+        private void ParseTarget()
+        {
+            var t = (_targetText ?? "").Trim().ToLowerInvariant();
+            double mult = 1;
+            if (t.EndsWith("h")) { mult = 3600; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
+            else if (t.EndsWith("m")) { mult = 60; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
+            else if (t.EndsWith("s")) { mult = 1; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
+            if (double.TryParse(t.Trim(), out var v) && v > 0)
+                _desiredVideoSeconds = (int)(v * mult);
         }
 
         private string _storageInfo = "";
@@ -326,7 +341,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
-            _engine.Start(_sessionFolder, _session, _region.Value, _settings.IntervalSeconds, _settings.Format ?? "JPEG",
+            _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames);
             _captureStart = DateTime.Now;
@@ -469,7 +484,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 int w = _region?.Width ?? 0;
                 int h = _region?.Height ?? 0;
-                int projected = Math.Max(_frameCount, DesiredVideoSeconds * Math.Max(1, EncodeFps));
+                int projected = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
                 StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
                     _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projected);
                 ResourcesInfo = SystemMonitor.GetResourcesInfoString();

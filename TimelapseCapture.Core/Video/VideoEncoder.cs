@@ -25,15 +25,13 @@ namespace TimelapseCapture
             if (frames.Length == 0)
                 return new Result { Success = false, Error = "No frames to encode." };
 
-            // ffmpeg concat demuxer file list (single-quote escaping per ffmpeg rules).
-            string tempFolder = SessionManager.GetTempFolder(sessionFolder);
-            Directory.CreateDirectory(tempFolder);
-            string fileListPath = Path.Combine(tempFolder, "filelist.txt");
-            using (var writer = new StreamWriter(fileListPath, false))
-            {
-                foreach (var f in frames)
-                    writer.WriteLine($"file '{f.Replace("'", "'\\''")}'");
-            }
+            // Use the image2 demuxer over the numbered frame sequence (00001.ext, 00002.ext, …):
+            // exactly one output frame per captured image. The old concat demuxer with -r resampled
+            // timestamps and dropped frames (a long session produced a far-too-short video).
+            string framesFolder = SessionManager.GetFramesFolder(sessionFolder);
+            string ext = Path.GetExtension(frames[0]).TrimStart('.');
+            if (string.IsNullOrEmpty(ext)) ext = "jpg";
+            string pattern = Path.Combine(framesFolder, "%05d." + ext);
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
             Directory.CreateDirectory(outputFolder);
@@ -43,13 +41,12 @@ namespace TimelapseCapture
             crf = Math.Clamp(crf, 0, 51);
             if (string.IsNullOrWhiteSpace(preset)) preset = "medium";
 
-            string args = $"-y -f concat -safe 0 -i \"{fileListPath}\" -r {fps} " +
-                          $"-c:v libx264 -preset {preset} -crf {crf} \"{outputPath}\"";
-            Logger.Log("VideoEncoder", $"Encoding {frames.Length} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}");
+            // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
+            string args = $"-y -framerate {fps} -start_number 1 -i \"{pattern}\" " +
+                          $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
+            Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}");
 
             var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct);
-
-            try { SessionManager.CleanTempFolder(sessionFolder); } catch { /* best effort */ }
 
             if (exitCode == 0 && File.Exists(outputPath))
                 return new Result { Success = true, OutputPath = outputPath };

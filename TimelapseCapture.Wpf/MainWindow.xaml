@@ -105,7 +105,8 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                     IsEnabled="{Binding NotCapturing}"/>
+                                     IsEnabled="{Binding NotCapturing}"
+                                     ToolTip="Seconds between captured frames (decimals allowed, e.g. 0.5)."/>
                             <TextBlock Text="seconds" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14" TextWrapping="Wrap"/>
@@ -122,13 +123,16 @@
                             <TextBlock Grid.Column="2" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
                                        Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}">
                             <TextBlock Text="Video fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
+                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"
+                                     ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
                             <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"/>
-                            <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"/>
-                            <CheckBox Content="PNG frames" IsChecked="{Binding UsePng}" IsEnabled="{Binding NotCapturing}"
-                                      Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                            <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="48" TextAlignment="Center"
+                                     ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
+                            <CheckBox Content="PNG frames" IsChecked="{Binding UsePng}"
+                                      Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="16,0,0,0"
+                                      ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG."/>
                         </StackPanel>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
@@ -147,7 +151,8 @@
                     <StackPanel IsEnabled="{Binding NotCapturing}">
                         <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
-                                  Foreground="{StaticResource TextPrimaryBrush}"/>
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  ToolTip="Capture at the Active interval while you're using the mouse/keyboard; fall back to the main interval (or skip frames) when idle."/>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -223,8 +228,10 @@
                 <StackPanel>
                     <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Target len (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBox Text="{Binding DesiredVideoSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"/>
+                        <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding TargetText}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
+                                 ToolTip="Planned capture length, used to project storage. e.g. 30s, 5m, 2h"/>
+                        <TextBlock Text="s/m/h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
                     </StackPanel>
                     <TextBlock Text="{Binding StorageInfo}" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" LineHeight="18"/>

@@ -9,6 +9,8 @@ namespace TimelapseCapture
     {
         public string? SaveFolder { get; set; }
         public int IntervalSeconds { get; set; } = 5;
+        // Exact, sub-second-capable capture interval. 0 = fall back to IntervalSeconds (older settings files).
+        public decimal IntervalSecondsExact { get; set; } = 0m;
         public string? Format { get; set; } = "JPEG";
         public int JpegQuality { get; set; } = 90;
         public Rectangle? Region { get; set; }
