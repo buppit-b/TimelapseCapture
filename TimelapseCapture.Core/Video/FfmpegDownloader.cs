@@ -10,7 +10,11 @@ namespace TimelapseCapture
 {
     public static class FfmpegDownloader
     {
-        private const string FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
+        // BtbN's win64 build, served from GitHub's CDN (~12 MB/s) instead of gyan.dev's direct
+        // download (throttled to ~75 KB/s — the same ~80 MB took ~18 min there vs ~7 s here).
+        // Must be the *gpl* build: the app encodes with libx264, which is GPL-only (absent from lgpl).
+        // The "latest" release tag always points at the current master build, so this URL is stable.
+        private const string FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
         private const long MIN_EXPECTED_SIZE = 50_000_000; // 50MB minimum
         private const int MAX_RETRIES = 3;
 
