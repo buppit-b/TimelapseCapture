@@ -35,8 +35,9 @@ namespace TimelapseCapture
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
-        private int _baseIntervalMs;   // working rate (used while active)
+        private int _baseIntervalMs;   // working rate (used while active) — also the smart-mode poll rate
         private int _idleIntervalMs;   // slower rate (used while idle)
+        private long _lastCaptureTicks; // Environment.TickCount64 of the last saved frame (smart pacing)
         private bool _skipIdleFrames;
 
         /// <summary>Raised after each successful frame, with the new total frame count. UI thread not guaranteed.</summary>
@@ -94,8 +95,9 @@ namespace TimelapseCapture
                 }
 
                 _lastSmartStatus = "";
+                _lastCaptureTicks = Environment.TickCount64 - Math.Max(_baseIntervalMs, _idleIntervalMs); // first tick captures
                 IsRunning = true;
-                int startMs = _baseIntervalMs; // start at the working rate; idle only ever slows it
+                int startMs = _baseIntervalMs; // poll at the working rate; idle only changes whether we capture
                 _timer = new Timer(OnTick, null, startMs, startMs);
                 Logger.Log("CaptureEngine",
                     $"Started: region={region}, interval={intervalSeconds}s, format={_extension}, smart={_smartEnabled}");
@@ -126,35 +128,30 @@ namespace TimelapseCapture
             int? newCount = null;
             string? error = null;
             string? smartStatus = null;
-            bool skipFrame = false;
+            bool capture = true;
 
             lock (_lock)
             {
                 if (!IsRunning) return;
 
-                // Smart interval: adapt the cadence to user activity, optionally skipping idle frames.
+                // Smart interval: the timer always polls at the working rate, so renewed activity is
+                // detected within one working interval (not stuck waiting out a long idle interval).
+                // Whether we actually capture this tick is decided here.
                 if (_smartEnabled && _activityMonitor != null)
                 {
                     bool isActive = _activityMonitor.IsCurrentlyActive();
                     string status = isActive ? "Active" : (_skipIdleFrames ? "Idle — skipping frames" : "Idle — slowed");
                     if (status != _lastSmartStatus) { _lastSmartStatus = status; smartStatus = status; }
 
-                    if (!isActive && _skipIdleFrames)
-                    {
-                        // Idle + skip: don't capture, but keep polling at the working rate so we
-                        // resume promptly when activity returns.
-                        _timer?.Change(_baseIntervalMs, _baseIntervalMs);
-                        skipFrame = true;
-                    }
-                    else
-                    {
-                        // Active → working (main) interval; idle → the idle rate, never faster than working.
-                        int targetMs = isActive ? _baseIntervalMs : Math.Max(_baseIntervalMs, _idleIntervalMs);
-                        _timer?.Change(targetMs, targetMs);
-                    }
+                    if (isActive)
+                        capture = true;                                  // working rate == poll rate → every tick
+                    else if (_skipIdleFrames)
+                        capture = false;                                 // skip frames while idle
+                    else                                                 // slowed: capture only once the idle rate elapses
+                        capture = (Environment.TickCount64 - _lastCaptureTicks) >= Math.Max(_baseIntervalMs, _idleIntervalMs);
                 }
 
-                if (!skipFrame)
+                if (capture)
                 {
                     try
                     {
@@ -171,6 +168,7 @@ namespace TimelapseCapture
                         SessionManager.IncrementFrameCount(_sessionFolder);
                         _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
                         newCount = (int)(_session?.FramesCaptured ?? next);
+                        _lastCaptureTicks = Environment.TickCount64;
                     }
                     catch (Exception ex)
                     {
