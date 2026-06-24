@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
@@ -50,6 +51,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             SetTargetCommand = new RelayCommand(_ => SetTarget());
             ValidateTarget();
+
+            // After the window is up, check whether a previous run was interrupted mid-capture.
+            Application.Current?.Dispatcher.BeginInvoke(new Action(CheckForInterruptedSession), DispatcherPriority.Background);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -410,17 +414,22 @@ namespace TimelapseCapture.Wpf.ViewModels
             string capturesRoot = Path.Combine(_settings.SaveFolder ?? "", "captures");
             var dlg = new LoadSessionDialog(capturesRoot) { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true || dlg.SelectedFolder == null) return;
+            LoadSessionFromFolder(dlg.SelectedFolder, fromPicker: true);
+        }
 
-            var session = SessionManager.LoadSession(dlg.SelectedFolder);
+        private void LoadSessionFromFolder(string folder, bool fromPicker)
+        {
+            var session = SessionManager.LoadSession(folder);
             if (session == null)
             {
-                MessageBox.Show("That folder doesn't contain a valid session (no session.json).",
-                    "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (fromPicker)
+                    MessageBox.Show("That folder doesn't contain a valid session (no session.json).",
+                        "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             _session = session;
-            _sessionFolder = dlg.SelectedFolder;
+            _sessionFolder = folder;
 
             // Restore the saved region. Keep its exact size; if its saved spot is no longer on any
             // monitor (display unplugged / resolution changed), relocate it onto the current desktop
@@ -500,6 +509,56 @@ namespace TimelapseCapture.Wpf.ViewModels
             _settings = imported;
             SettingsManager.Save(_settings);
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
+        }
+
+        // Crash recovery: a session left Active means the app died mid-capture. On launch, offer to
+        // resume the most-recently-touched such session; clear the flag on all of them either way.
+        private void CheckForInterruptedSession()
+        {
+            if (_session != null || IsCapturing || string.IsNullOrEmpty(_settings.SaveFolder)) return;
+            try
+            {
+                string capturesRoot = Path.Combine(_settings.SaveFolder!, "captures");
+                if (!Directory.Exists(capturesRoot)) return;
+
+                string? best = null;
+                SessionInfo? bestInfo = null;
+                var actives = new List<string>();
+                foreach (var dir in Directory.GetDirectories(capturesRoot))
+                {
+                    var s = SessionManager.LoadSession(dir);
+                    if (s == null || !s.Active || s.FramesCaptured <= 0) continue;
+                    actives.Add(dir);
+                    if (best == null || Directory.GetLastWriteTime(dir) > Directory.GetLastWriteTime(best))
+                    {
+                        best = dir;
+                        bestInfo = s;
+                    }
+                }
+                if (best == null || bestInfo == null) return;
+
+                var r = MessageBox.Show(
+                    $"The session “{bestInfo.Name ?? Path.GetFileName(best)}” was still recording when the app " +
+                    $"last closed ({bestInfo.FramesCaptured} frame{(bestInfo.FramesCaptured == 1 ? "" : "s")}).\n\nResume it?",
+                    "Resume interrupted session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                // Clear Active on every candidate so we don't keep prompting; the next Start re-marks it.
+                foreach (var dir in actives) ClearActive(dir);
+                if (r == MessageBoxResult.Yes) LoadSessionFromFolder(best, fromPicker: false);
+            }
+            catch { /* recovery is best-effort */ }
+        }
+
+        private static void ClearActive(string folder)
+        {
+            try
+            {
+                var s = SessionManager.LoadSession(folder);
+                if (s == null) return;
+                s.Active = false;
+                SessionManager.SaveSession(folder, s);
+            }
+            catch { /* best-effort */ }
         }
 
         // Toggle the session's Active flag on disk (capture lifecycle: true on start, false on clean stop).
