@@ -20,7 +20,8 @@ namespace TimelapseCapture
         
         // Smart interval settings
         public bool SmartIntervalEnabled { get; set; }
-        public decimal ActiveIntervalSeconds { get; set; } = 2.0m;
+        public decimal ActiveIntervalSeconds { get; set; } = 2.0m;   // legacy (WinForms); WPF uses IdleIntervalSeconds
+        public decimal IdleIntervalSeconds { get; set; } = 30m;      // slower capture rate used while idle
         public int IdleThresholdSeconds { get; set; } = 30;
         public bool SkipIdleFrames { get; set; }
         

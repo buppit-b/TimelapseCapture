@@ -88,10 +88,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.SmartIntervalEnabled != value) { _settings.SmartIntervalEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
-        public decimal ActiveIntervalSeconds
+        public decimal IdleIntervalSeconds
         {
-            get => _settings.ActiveIntervalSeconds;
-            set { var v = value < 0.1m ? 0.1m : value; if (_settings.ActiveIntervalSeconds != v) { _settings.ActiveIntervalSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            get => _settings.IdleIntervalSeconds;
+            set { var v = value < 0.1m ? 0.1m : value; if (_settings.IdleIntervalSeconds != v) { _settings.IdleIntervalSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
         public int IdleThresholdSeconds
@@ -457,7 +457,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
-                _settings.SmartIntervalEnabled, (double)_settings.ActiveIntervalSeconds,
+                _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";

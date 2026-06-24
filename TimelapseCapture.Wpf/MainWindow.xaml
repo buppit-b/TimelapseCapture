@@ -184,7 +184,7 @@
                         <StackPanel IsEnabled="{Binding NotCapturing}">
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                  ToolTip="Capture at the Active interval while you're using the mouse/keyboard; fall back to the main interval (or skip frames) when idle."/>
+                                  ToolTip="Capture at your main Interval while you're active; when there's no input, slow to the idle rate (or skip frames)."/>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -193,10 +193,10 @@
                                 <ColumnDefinition Width="60"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Active (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
-                                       ToolTip="How often to capture while you're actively using the mouse or keyboard — usually faster than the main interval."/>
-                            <TextBox Grid.Column="1" Text="{Binding ActiveIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
-                                     ToolTip="How often to capture while you're actively using the mouse or keyboard — usually faster than the main interval."/>
+                            <TextBlock Grid.Column="0" Text="Idle rate (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
+                            <TextBox Grid.Column="1" Text="{Binding IdleIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
+                                     ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
                             <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"
                                        ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
                             <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"

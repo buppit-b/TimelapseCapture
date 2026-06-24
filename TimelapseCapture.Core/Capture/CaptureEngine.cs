@@ -35,8 +35,8 @@ namespace TimelapseCapture
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
-        private int _baseIntervalMs;
-        private int _activeIntervalMs;
+        private int _baseIntervalMs;   // working rate (used while active)
+        private int _idleIntervalMs;   // slower rate (used while idle)
         private bool _skipIdleFrames;
 
         /// <summary>Raised after each successful frame, with the new total frame count. UI thread not guaranteed.</summary>
@@ -57,7 +57,7 @@ namespace TimelapseCapture
         /// </summary>
         public void Start(string sessionFolder, SessionInfo session, Rectangle region,
                           double intervalSeconds, string format,
-                          bool smartEnabled = false, double activeIntervalSeconds = 2.0,
+                          bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90)
         {
             lock (_lock)
@@ -84,7 +84,7 @@ namespace TimelapseCapture
 
                 _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
-                _activeIntervalMs = Math.Max(100, (int)(activeIntervalSeconds * 1000));
+                _idleIntervalMs = Math.Max(100, (int)(idleIntervalSeconds * 1000));
                 _skipIdleFrames = skipIdleFrames;
 
                 if (_smartEnabled)
@@ -95,7 +95,7 @@ namespace TimelapseCapture
 
                 _lastSmartStatus = "";
                 IsRunning = true;
-                int startMs = _smartEnabled ? _activeIntervalMs : _baseIntervalMs;
+                int startMs = _baseIntervalMs; // start at the working rate; idle only ever slows it
                 _timer = new Timer(OnTick, null, startMs, startMs);
                 Logger.Log("CaptureEngine",
                     $"Started: region={region}, interval={intervalSeconds}s, format={_extension}, smart={_smartEnabled}");
@@ -141,12 +141,15 @@ namespace TimelapseCapture
 
                     if (!isActive && _skipIdleFrames)
                     {
-                        _timer?.Change(_activeIntervalMs, _activeIntervalMs);
+                        // Idle + skip: don't capture, but keep polling at the working rate so we
+                        // resume promptly when activity returns.
+                        _timer?.Change(_baseIntervalMs, _baseIntervalMs);
                         skipFrame = true;
                     }
                     else
                     {
-                        int targetMs = isActive ? _activeIntervalMs : _baseIntervalMs;
+                        // Active → working (main) interval; idle → the idle rate, never faster than working.
+                        int targetMs = isActive ? _baseIntervalMs : Math.Max(_baseIntervalMs, _idleIntervalMs);
                         _timer?.Change(targetMs, targetMs);
                     }
                 }
