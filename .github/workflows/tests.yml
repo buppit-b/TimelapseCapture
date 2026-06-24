@@ -1,101 +1,29 @@
-name: Tests and Build
+name: Build & Test
 
 on:
   push:
-    branches: [ main, ui-redesign-2025 ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Run Tests
-    runs-on: windows-latest
-    
+  build-test:
+    name: Build & Test
+    runs-on: windows-latest   # WPF + WinForms target net9.0-windows
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
-    
-    - name: Run tests
-      run: dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
-    
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: '**/TestResults/*.trx'
-    
-    - name: Test Report
-      uses: dorny/test-reporter@v1
-      if: always()
-      with:
-        name: Test Results
-        path: '**/TestResults/*.trx'
-        reporter: dotnet-trx
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  coverage:
-    name: Code Coverage
-    runs-on: windows-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Run tests with coverage
-      run: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=./coverage/
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage/coverage.opencover.xml
-        flags: unittests
-        name: codecov-timelapse
-        fail_ci_if_error: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
 
-  build:
-    name: Build Release
-    runs-on: windows-latest
-    needs: test
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build Release
-      run: dotnet build --configuration Release --no-restore
-    
-    - name: Publish Single-File Executable
-      run: dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o ./publish
-    
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: TimelapseCapture-Release
-        path: ./publish/TimelapseCapture.exe
+      - name: Restore
+        run: dotnet restore TimelapseCapture.sln
+
+      - name: Build (Release)
+        run: dotnet build TimelapseCapture.sln --no-restore --configuration Release
+
+      - name: Test (Release)
+        run: dotnet test TimelapseCapture.sln --no-build --configuration Release --verbosity normal

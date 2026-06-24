@@ -301,12 +301,31 @@
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
-                                 Width="64" TextAlignment="Center"
-                                 ToolTip="Planned capture length, used to project storage and progress. e.g. 30s, 5m, 2h"/>
-                        <TextBlock Text="s/m/h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
+                    <StackPanel Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                                     Width="64" TextAlignment="Center"
+                                     ToolTip="Planned capture length, used to project storage and progress. e.g. 30s, 5m, 2h">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Enter" Command="{Binding SetTargetCommand}"/>
+                                </TextBox.InputBindings>
+                            </TextBox>
+                            <Button Content="Set" Command="{Binding SetTargetCommand}" Style="{StaticResource BtnBase}"
+                                    FontSize="12" Padding="12,4" Margin="8,0,0,0"
+                                    ToolTip="Apply the target (or press Enter in the field)."/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding TargetHint}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TargetHintError}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
                                  Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceAltBrush}"

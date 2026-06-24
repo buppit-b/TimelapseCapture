@@ -48,6 +48,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
+            SetTargetCommand = new RelayCommand(_ => SetTarget());
+            ValidateTarget();
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -254,18 +256,56 @@ namespace TimelapseCapture.Wpf.ViewModels
         public string TargetText
         {
             get => _targetText;
-            set { if (SetProperty(ref _targetText, value)) { ParseTarget(); RefreshStats(); } }
+            set { if (SetProperty(ref _targetText, value)) ValidateTarget(); } // validate as you type; apply on Set
         }
 
-        private void ParseTarget()
+        private string _targetHint = "";
+        public string TargetHint { get => _targetHint; set => SetProperty(ref _targetHint, value); }
+
+        private bool _targetHintError;
+        public bool TargetHintError { get => _targetHintError; set => SetProperty(ref _targetHintError, value); }
+
+        // Live, non-intrusive feedback for the Target field — no popups.
+        private void ValidateTarget()
         {
-            var t = (_targetText ?? "").Trim().ToLowerInvariant();
+            if (TryParseTarget(_targetText, out var secs, out var human))
+            {
+                TargetHint = secs == _desiredVideoSeconds ? $"= {human} ✓" : $"= {human} · press Set";
+                TargetHintError = false;
+            }
+            else
+            {
+                TargetHint = "use e.g. 30s, 5m, 2h";
+                TargetHintError = true;
+            }
+        }
+
+        private void SetTarget()
+        {
+            if (!TryParseTarget(_targetText, out var secs, out _)) { ValidateTarget(); return; }
+            _desiredVideoSeconds = secs;
+            ValidateTarget();   // hint now reads "= … ✓"
+            RefreshStats();     // projection / progress reflect the new target
+        }
+
+        private static bool TryParseTarget(string? text, out int seconds, out string human)
+        {
+            seconds = 0; human = "";
+            var t = (text ?? "").Trim().ToLowerInvariant();
+            if (t.Length == 0) return false;
             double mult = 1;
-            if (t.EndsWith("h")) { mult = 3600; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
-            else if (t.EndsWith("m")) { mult = 60; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
-            else if (t.EndsWith("s")) { mult = 1; t = t.Substring(0, Math.Max(0, t.Length - 1)); }
+            if (t.EndsWith("h")) { mult = 3600; t = t[..^1]; }
+            else if (t.EndsWith("m")) { mult = 60; t = t[..^1]; }
+            else if (t.EndsWith("s")) { mult = 1; t = t[..^1]; }
             if (double.TryParse(t.Trim(), out var v) && v > 0)
-                _desiredVideoSeconds = (int)(v * mult);
+            {
+                seconds = (int)(v * mult);
+                human = seconds >= 3600 ? $"{seconds / 3600.0:0.##} hr"
+                      : seconds >= 60 ? $"{seconds / 60.0:0.##} min"
+                      : $"{seconds} sec";
+                return true;
+            }
+            return false;
         }
 
         private string _storageInfo = "";
@@ -313,6 +353,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand OpenSettingsCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
+        public ICommand SetTargetCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand EditRegionCommand { get; }
