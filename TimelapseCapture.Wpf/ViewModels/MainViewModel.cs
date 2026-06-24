@@ -436,7 +436,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (!_region.HasValue) return;
             if (!ConfirmRegionChange()) return;
-            var dlg = new RegionEditOverlay(_region.Value);
+            var all = AspectRatio.CommonRatios;
+            var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
+            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height);
             if (dlg.ShowDialog() == true && dlg.SelectedRegion.HasValue)
                 ApplyRegion(dlg.SelectedRegion.Value);
         }

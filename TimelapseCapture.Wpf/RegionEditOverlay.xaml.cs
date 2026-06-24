@@ -20,6 +20,8 @@ namespace TimelapseCapture.Wpf
 
         private readonly double _scale;
         private readonly System.Drawing.Rectangle _vs;
+        private readonly int _ratioW;            // 0 = free (no constraint)
+        private readonly int _ratioH;
         private double _cw, _ch;                 // canvas size in DIPs
         private double L, T, R, B;               // region edges in DIP canvas coords
         private Mode _mode = Mode.None;
@@ -32,9 +34,15 @@ namespace TimelapseCapture.Wpf
         /// <summary>The edited region in physical pixels, or null if cancelled.</summary>
         public System.Drawing.Rectangle? SelectedRegion { get; private set; }
 
-        public RegionEditOverlay(System.Drawing.Rectangle region)
+        public RegionEditOverlay(System.Drawing.Rectangle region, int ratioW = 0, int ratioH = 0)
         {
             InitializeComponent();
+
+            _ratioW = ratioW;
+            _ratioH = ratioH;
+            hintText.Text = (ratioW > 0 && ratioH > 0)
+                ? $"Drag to move · corners keep {ratioW}:{ratioH} (Shift frees) · edges resize freely · Enter applies · Esc cancels"
+                : "Drag to move · drag handles to resize · Enter applies · Esc cancels";
 
             _scale = ScreenHelper.SystemDpiScale();
             _vs = ScreenHelper.VirtualScreenBounds();
@@ -93,6 +101,18 @@ namespace TimelapseCapture.Wpf
                 if (_mode is Mode.E or Mode.NE or Mode.SE) R += dx;
                 if (_mode is Mode.N or Mode.NW or Mode.NE) T += dy;
                 if (_mode is Mode.S or Mode.SW or Mode.SE) B += dy;
+
+                // Aspect-ratio lock: corner handles keep the selected ratio (height follows width,
+                // anchored at the opposite edge). Hold Shift, use an edge handle, or pick the Free
+                // ratio to break away. Edge handles always resize one axis freely.
+                bool corner = _mode is Mode.NW or Mode.NE or Mode.SW or Mode.SE;
+                bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+                if (corner && _ratioW > 0 && _ratioH > 0 && !shift)
+                {
+                    double h = (R - L) * _ratioH / _ratioW;
+                    if (_mode is Mode.SE or Mode.SW) B = T + h; // top edge fixed
+                    else T = B - h;                             // bottom edge fixed (NW / NE)
+                }
 
                 // Clamp to the screen and enforce a minimum size on the edge being dragged.
                 L = Math.Max(0, Math.Min(L, R - MinSize));
