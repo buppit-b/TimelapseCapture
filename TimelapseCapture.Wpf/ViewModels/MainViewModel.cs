@@ -386,6 +386,11 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             try
             {
+                // Don't spawn another empty folder on repeated clicks — if the current session has no
+                // frames yet, it already IS a fresh session; keep it.
+                if (_session != null && _sessionFolder != null && _frameCount == 0 && !IsCapturing)
+                    return;
+
                 string capturesRoot = Path.Combine(_settings.SaveFolder!, "captures");
                 string name = $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
                 _sessionFolder = SessionManager.CreateNamedSession(
@@ -937,6 +942,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             };
             if (dlg.ShowDialog() == true)
             {
+                if (!FfmpegDownloader.IsValidFfmpegExecutable(dlg.FileName))
+                {
+                    MessageBox.Show("That file doesn't look like a working ffmpeg (it didn't respond to “-version”).",
+                        "Select ffmpeg", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
                 _settings.FfmpegPath = dlg.FileName;
                 SettingsManager.Save(_settings);
                 RefreshFfmpegStatus();

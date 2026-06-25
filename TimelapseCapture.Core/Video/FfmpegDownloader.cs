@@ -207,7 +207,7 @@ namespace TimelapseCapture
         /// <summary>
         /// Validate that ffmpeg.exe is a valid executable.
         /// </summary>
-        private static bool IsValidFfmpegExecutable(string path)
+        public static bool IsValidFfmpegExecutable(string path)
         {
             try
             {

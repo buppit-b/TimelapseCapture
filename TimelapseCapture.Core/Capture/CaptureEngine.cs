@@ -146,7 +146,10 @@ namespace TimelapseCapture
             string? smartStatus = null;
             bool capture = true;
 
-            lock (_lock)
+            // Drop overlapping ticks instead of queueing them: if the previous capture is still
+            // running (slow disk / large frame), skip this tick rather than let callbacks pile up.
+            if (!Monitor.TryEnter(_lock)) return;
+            try
             {
                 if (!IsRunning) return;
 
@@ -193,6 +196,10 @@ namespace TimelapseCapture
                         error = ex.Message;
                     }
                 }
+            }
+            finally
+            {
+                Monitor.Exit(_lock);
             }
 
             // Raise events outside the lock so subscribers can't deadlock against the capture lock.
