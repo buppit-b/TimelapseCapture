@@ -19,7 +19,8 @@ namespace TimelapseCapture
         }
 
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
-            int fps, string preset, int crf, CancellationToken ct = default)
+            int fps, string preset, int crf, CancellationToken ct = default,
+            int startFrame = 1, int maxFrames = 0)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -43,9 +44,11 @@ namespace TimelapseCapture
             if (fps < 1) fps = 30;
             crf = Math.Clamp(crf, 0, 51);
             if (string.IsNullOrWhiteSpace(preset)) preset = "medium";
+            if (startFrame < 1) startFrame = 1;
+            string limit = maxFrames > 0 ? $"-frames:v {maxFrames} " : ""; // trim: only this many frames from startFrame
 
             // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
-            string args = $"-y -framerate {fps} -start_number 1 -i \"{pattern}\" " +
+            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {limit}" +
                           $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
             Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}");
 

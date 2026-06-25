@@ -62,6 +62,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             PauseResumeCommand = new RelayCommand(_ => PauseResume(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
+            TrimCommand = new RelayCommand(async _ => await Trim(), _ => CanEncode);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
@@ -395,6 +396,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand PauseResumeCommand { get; }
         public ICommand OpenFolderCommand { get; }
         public ICommand EncodeCommand { get; }
+        public ICommand TrimCommand { get; }
         public ICommand DownloadFfmpegCommand { get; }
         public ICommand BrowseFfmpegCommand { get; }
         public ICommand CancelDownloadCommand { get; }
@@ -1001,7 +1003,15 @@ namespace TimelapseCapture.Wpf.ViewModels
             await Encode();
         }
 
-        private async Task Encode()
+        private async Task Trim()
+        {
+            if (_session == null || _sessionFolder == null || _frameCount < 1) return;
+            var dlg = new TrimDialog(_sessionFolder, _frameCount) { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() == true)
+                await Encode(dlg.StartFrame, dlg.EndFrame);
+        }
+
+        private async Task Encode(int startFrame = 1, int endFrame = 0)
         {
             if (_session == null || _sessionFolder == null) return;
 
@@ -1021,7 +1031,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             bool cancelled = false;
             try
             {
-                result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf, _encodeCts.Token);
+                int maxFrames = (endFrame >= startFrame && endFrame > 0) ? endFrame - startFrame + 1 : 0;
+                result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
+                    _encodeCts.Token, startFrame, maxFrames);
             }
             catch (Exception ex)
             {

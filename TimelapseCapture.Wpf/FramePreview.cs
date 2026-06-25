@@ -6,16 +6,15 @@ using TimelapseCapture; // Core: SessionManager
 
 namespace TimelapseCapture.Wpf
 {
-    /// <summary>Loads the most recent captured frame of a session as a small, frozen image.</summary>
+    /// <summary>Loads captured frames of a session as small, frozen images (latest, or a given index).</summary>
     internal static class FramePreview
     {
         public static ImageSource? LoadLatest(string? sessionFolder, int decodePixelWidth)
         {
             try
             {
-                if (string.IsNullOrEmpty(sessionFolder)) return null;
-                string frames = SessionManager.GetFramesFolder(sessionFolder);
-                if (!Directory.Exists(frames)) return null;
+                string? frames = FramesFolder(sessionFolder);
+                if (frames == null) return null;
 
                 string? last = null;
                 foreach (var f in Directory.GetFiles(frames))
@@ -25,19 +24,45 @@ namespace TimelapseCapture.Wpf
                         (last == null || string.CompareOrdinal(f, last) > 0))
                         last = f;
                 }
-                if (last == null) return null;
-
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.UriSource = new Uri(last);
-                bmp.DecodePixelWidth = decodePixelWidth;        // downscale → small + fast
-                bmp.CacheOption = BitmapCacheOption.OnLoad;       // read fully, don't lock the file
-                bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                bmp.EndInit();
-                bmp.Freeze();
-                return bmp;
+                return last == null ? null : Decode(last, decodePixelWidth);
             }
-            catch { return null; } // a frame mid-write or a corrupt file just yields no preview this tick
+            catch { return null; }
+        }
+
+        public static ImageSource? LoadAt(string? sessionFolder, int frameNumber, int decodePixelWidth)
+        {
+            try
+            {
+                string? frames = FramesFolder(sessionFolder);
+                if (frames == null) return null;
+                foreach (var ext in new[] { "jpg", "png", "jpeg" })
+                {
+                    string p = Path.Combine(frames, $"{frameNumber:D5}.{ext}");
+                    if (File.Exists(p)) return Decode(p, decodePixelWidth);
+                }
+                return null;
+            }
+            catch { return null; }
+        }
+
+        private static string? FramesFolder(string? sessionFolder)
+        {
+            if (string.IsNullOrEmpty(sessionFolder)) return null;
+            string frames = SessionManager.GetFramesFolder(sessionFolder);
+            return Directory.Exists(frames) ? frames : null;
+        }
+
+        private static ImageSource Decode(string path, int decodePixelWidth)
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.UriSource = new Uri(path);
+            bmp.DecodePixelWidth = decodePixelWidth;        // downscale → small + fast
+            bmp.CacheOption = BitmapCacheOption.OnLoad;       // read fully, don't lock the file
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+            bmp.EndInit();
+            bmp.Freeze();
+            return bmp;
         }
     }
 }
