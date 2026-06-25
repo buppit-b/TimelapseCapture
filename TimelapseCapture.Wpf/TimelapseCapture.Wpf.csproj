@@ -9,7 +9,7 @@
     <AssemblyName>TimelapseCapture.Wpf</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>Timelapse Capture</Product>
-    <Version>0.9.1</Version>
+    <Version>0.9.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

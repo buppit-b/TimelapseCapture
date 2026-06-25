@@ -3,6 +3,26 @@
 All notable changes to TimelapseCapture are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [0.9.2] — 2026-06-26
+
+### Added
+- **Clip trimming** — a **Trim…** button on the ENCODER opens a scrubber over the captured
+  frames (live preview); set a start and end frame and encode only that range. Trims by frame
+  range straight from the frames (image2 `-start_number`/`-frames:v`) — no intermediate video
+  and no re-encode, so there's no quality loss.
+- **Hide window from screen capture** (Settings → Window) — excludes the Timelapse Capture
+  window from screen captures via `SetWindowDisplayAffinity`, so it never lands in a frame.
+
+### Changed
+- **Settings reorganized into collapsible sections** (Appearance / Window / Capture / Encoding /
+  Hotkey); the hotkey field now prompts you to press a combination, so it's discoverable.
+
+### Fixed
+- **Colour themes now actually switch** — palette brushes resolve via `DynamicResource` and the
+  theme manager swaps them live (theme changes were silently no-ops before).
+
+[0.9.2]: https://github.com/buppit-b/TimelapseCapture
+
 ## [0.9.1] — 2026-06-25
 
 A big feature + hardening pass toward 1.0.

@@ -12,7 +12,7 @@ While pre-1.0 we stay on **`0.x`**: minor bumps for features, patch bumps for fi
 breaking changes are allowed but called out. The version lives in the two
 `.csproj` files (`<Version>`) and is shown in the **Settings** dialog (the cog).
 
-**Current: `0.9.0`** — the WPF rebuild has reached WinForms parity plus a large
+**Current: `0.9.2`** — the WPF rebuild has reached WinForms parity plus a large
 polish/feature pass. We're in the run-up to 1.0: closing issues and edge cases.
 
 ### What 1.0 means here
@@ -26,8 +26,8 @@ The exact 1.0 feature line is Spike's call — this file is the shortlist to cho
 ## Toward 1.0 — candidate features
 
 Ranked roughly by value for the artist use case. None are committed yet.
-**Current priority (2026-06-25):** clip trimming / light editing (part of item 3) is
-slated next — *before* window/app capture (item 1), per workflow value for 1.0.
+**Current priority (2026-06-26):** clip trimming shipped (0.9.2). **Window / app
+capture (item 1)** is next — the biggest remaining want for 1.0.
 
 1. **Window / application capture** *(Spike's biggest want)* — capture a specific
    window instead of a fixed screen rectangle, and **follow it** as it moves/resizes.
@@ -38,12 +38,16 @@ slated next — *before* window/app capture (item 1), per workflow value for 1.0
      `PrintWindow` is a middle option (works for many but not all windows).
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
+   - **Hide-from-capture** toggle shipped (0.9.2): excludes *this app's own* window from
+     captures (`SetWindowDisplayAffinity`) — a small related win, not window capture itself.
 2. **Hotkeys / pause** — ✅ **done (0.9.x)**: global start/stop hotkey (now opt-in +
    user-configurable in Settings) and explicit **pause/resume** that keeps the run going.
 3. **Auto-encode on stop** (optional) + **frame review/cull** before encoding
-   (scrub the frames, delete fumbles) — makes finishing one step. (Frame cull is the
-   prerequisite for **clip trimming** / light editing — slated, non-trivial: needs a
-   scrub UI + renumber, so the gapped-frame encode edge case matters there.)
+   (scrub the frames, delete fumbles) — makes finishing one step.
+   - **Clip trimming** — ✅ **done (0.9.2)**: a scrubber picks a start/end frame and encodes
+     only that contiguous range (image2 `-start_number`/`-frames:v`, no re-encode). A range
+     needs no renumber; *frame cull* (deleting interior fumbles, which gaps the sequence) is
+     the remaining, harder piece — that's where the gapped-frame encode edge case bites.
 4. **Unattended safety** — auto-stop on low disk space or an optional max duration;
    notification when a long run / encode finishes.
 5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
