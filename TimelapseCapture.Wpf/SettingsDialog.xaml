@@ -14,6 +14,15 @@
         <CheckBox Content="Open the output folder when encoding finishes" IsChecked="{Binding OpenFolderAfterEncode}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
                   ToolTip="Automatically open the video's folder after a successful encode, without asking."/>
+        <CheckBox Content="Enable global start/stop hotkey" IsChecked="{Binding HotkeysEnabled}"
+                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
+                  ToolTip="Register a system-wide hotkey to start/stop capture without focusing this window."/>
+        <StackPanel Orientation="Horizontal" Margin="22,8,0,0" IsEnabled="{Binding HotkeysEnabled}">
+            <TextBlock Text="Hotkey" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="hotkeyBox" Text="{Binding HotkeyDisplay, Mode=OneWay}" IsReadOnly="True"
+                     Style="{StaticResource DarkTextBox}" Width="180" PreviewKeyDown="OnHotkeyKeyDown"
+                     ToolTip="Click here, then press your combination (must include Ctrl, Shift or Alt)."/>
+        </StackPanel>
         <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
         <Grid Margin="0,18,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">

@@ -12,11 +12,10 @@ namespace TimelapseCapture.Wpf
         [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         private const int WM_HOTKEY = 0x0312;
-        private const uint MOD_CONTROL = 0x0002, MOD_SHIFT = 0x0004;
-        private const uint VK_F9 = 0x78;
-        private const int HOTKEY_TOGGLE = 1; // Ctrl+Shift+F9 → start/stop capture
+        private const int HOTKEY_TOGGLE = 1; // start/stop capture (configurable, off by default)
 
         private HwndSource? _source;
+        private bool _hotkeyRegistered;
 
         public MainWindow()
         {
@@ -26,11 +25,23 @@ namespace TimelapseCapture.Wpf
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            var handle = new WindowInteropHelper(this).Handle;
-            _source = HwndSource.FromHwnd(handle);
+            _source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             _source?.AddHook(WndProc);
-            // Best-effort: if the combo is already taken by another app, it just won't register.
-            RegisterHotKey(handle, HOTKEY_TOGGLE, MOD_CONTROL | MOD_SHIFT, VK_F9);
+            if (DataContext is MainViewModel vm)
+                vm.HotkeysChanged += RefreshHotkey;
+            RefreshHotkey();
+        }
+
+        // Register (or unregister) the global hotkey to match the current settings.
+        private void RefreshHotkey()
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero) return;
+
+            if (_hotkeyRegistered) { UnregisterHotKey(handle, HOTKEY_TOGGLE); _hotkeyRegistered = false; }
+
+            if (DataContext is MainViewModel vm && vm.HotkeysEnabled)
+                _hotkeyRegistered = RegisterHotKey(handle, HOTKEY_TOGGLE, (uint)vm.HotkeyModifiers, (uint)vm.HotkeyVk);
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -47,7 +58,8 @@ namespace TimelapseCapture.Wpf
         {
             base.OnClosing(e);
             var handle = new WindowInteropHelper(this).Handle;
-            UnregisterHotKey(handle, HOTKEY_TOGGLE);
+            if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
+            if (DataContext is MainViewModel vm) vm.HotkeysChanged -= RefreshHotkey;
             _source?.RemoveHook(WndProc);
             (DataContext as MainViewModel)?.OnAppClosing();
         }

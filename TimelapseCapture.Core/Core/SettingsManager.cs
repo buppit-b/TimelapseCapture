@@ -30,6 +30,9 @@ namespace TimelapseCapture
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
+        public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)
+        public int HotkeyModifiers { get; set; } = 0x0006;  // Win32 fsModifiers: Ctrl(0x2) + Shift(0x4)
+        public int HotkeyVk { get; set; } = 0x78;           // Win32 virtual-key: F9
     }
 
 

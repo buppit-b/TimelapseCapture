@@ -494,6 +494,47 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.OpenFolderAfterEncode != value) { _settings.OpenFolderAfterEncode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // ---- Global hotkey (off by default, configurable). The window registers/unregisters it. ----
+        public event Action? HotkeysChanged;
+
+        public bool HotkeysEnabled
+        {
+            get => _settings.HotkeysEnabled;
+            set { if (_settings.HotkeysEnabled != value) { _settings.HotkeysEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); HotkeysChanged?.Invoke(); } }
+        }
+
+        public int HotkeyModifiers => _settings.HotkeyModifiers;
+        public int HotkeyVk => _settings.HotkeyVk;
+
+        public string HotkeyDisplay
+        {
+            get
+            {
+                var parts = new List<string>();
+                if ((_settings.HotkeyModifiers & 0x0002) != 0) parts.Add("Ctrl");
+                if ((_settings.HotkeyModifiers & 0x0004) != 0) parts.Add("Shift");
+                if ((_settings.HotkeyModifiers & 0x0001) != 0) parts.Add("Alt");
+                if ((_settings.HotkeyModifiers & 0x0008) != 0) parts.Add("Win");
+                parts.Add(KeyInterop.KeyFromVirtualKey(_settings.HotkeyVk).ToString());
+                return string.Join(" + ", parts);
+            }
+        }
+
+        /// <summary>Store a new hotkey combo (from the Settings key-capture field).</summary>
+        public void SetHotkey(ModifierKeys mods, Key key)
+        {
+            uint fs = 0;
+            if (mods.HasFlag(ModifierKeys.Alt)) fs |= 0x0001;
+            if (mods.HasFlag(ModifierKeys.Control)) fs |= 0x0002;
+            if (mods.HasFlag(ModifierKeys.Shift)) fs |= 0x0004;
+            if (mods.HasFlag(ModifierKeys.Windows)) fs |= 0x0008;
+            _settings.HotkeyModifiers = (int)fs;
+            _settings.HotkeyVk = KeyInterop.VirtualKeyFromKey(key);
+            SettingsManager.Save(_settings);
+            OnPropertyChanged(nameof(HotkeyDisplay));
+            HotkeysChanged?.Invoke();
+        }
+
         private void OpenSettings()
         {
             var dlg = new SettingsDialog { Owner = Application.Current?.MainWindow, DataContext = this };
