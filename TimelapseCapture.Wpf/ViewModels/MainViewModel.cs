@@ -513,6 +513,13 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.Theme != value) { _settings.Theme = value; SettingsManager.Save(_settings); ThemeManager.Apply(value); OnPropertyChanged(); } }
         }
 
+        public event Action? WindowAffinityChanged;
+        public bool HideFromCapture
+        {
+            get => _settings.HideFromCapture;
+            set { if (_settings.HideFromCapture != value) { _settings.HideFromCapture = value; SettingsManager.Save(_settings); OnPropertyChanged(); WindowAffinityChanged?.Invoke(); } }
+        }
+
         public bool CaptureCursor
         {
             get => _settings.CaptureCursor;
