@@ -35,7 +35,10 @@ namespace TimelapseCapture
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
             Directory.CreateDirectory(outputFolder);
-            string outputPath = Path.Combine(outputFolder, $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}.mp4");
+            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string outputPath = Path.Combine(outputFolder, $"timelapse_{stamp}.mp4");
+            for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode in the same second
+                outputPath = Path.Combine(outputFolder, $"timelapse_{stamp}_{n}.mp4");
 
             if (fps < 1) fps = 30;
             crf = Math.Clamp(crf, 0, 51);

@@ -581,6 +581,20 @@ namespace TimelapseCapture.Wpf.ViewModels
             catch { /* best-effort */ }
         }
 
+        /// <summary>
+        /// Window is closing: stop any capture cleanly (which marks the session inactive, so a
+        /// deliberate close isn't mistaken for a crash next launch) and dispose the engine.
+        /// </summary>
+        public void OnAppClosing()
+        {
+            try
+            {
+                if (IsCapturing) StopCapture();
+                _engine.Dispose();
+            }
+            catch { /* best-effort shutdown */ }
+        }
+
         private void RenameSession()
         {
             if (_session == null || _sessionFolder == null) return;
