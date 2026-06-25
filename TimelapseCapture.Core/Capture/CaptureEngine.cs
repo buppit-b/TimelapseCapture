@@ -46,7 +46,7 @@ namespace TimelapseCapture
         private int _jpegQuality = 90;
         private ImageCodecInfo? _jpegEncoder;
         private bool _captureCursor;
-        private bool _overlayTimestamp;
+        private OverlayConfig? _overlay;
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -75,7 +75,7 @@ namespace TimelapseCapture
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
-                          bool captureCursor = false, bool overlayTimestamp = false)
+                          bool captureCursor = false, OverlayConfig? overlay = null)
         {
             lock (_lock)
             {
@@ -99,7 +99,7 @@ namespace TimelapseCapture
                 }
                 _jpegQuality = Math.Clamp(jpegQuality, 1, 100);
                 _captureCursor = captureCursor;
-                _overlayTimestamp = overlayTimestamp;
+                _overlay = overlay;
 
                 _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
@@ -184,7 +184,7 @@ namespace TimelapseCapture
                             if (bmp.Width == 0 || bmp.Height == 0)
                                 throw new InvalidOperationException("Captured bitmap is invalid");
                             if (_captureCursor) DrawCursor(bmp, _region);
-                            if (_overlayTimestamp) DrawTimestamp(bmp);
+                            if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);
                             SaveBitmap(bmp, file);
                         }
 
@@ -228,23 +228,44 @@ namespace TimelapseCapture
             bmp.Save(file, _imageFormat);
         }
 
-        // Burn the current date/time into the bottom-right of a captured frame.
-        private static void DrawTimestamp(Bitmap bmp)
+        // Burn a configurable text overlay (timestamp / custom label) onto a captured frame.
+        private static void DrawOverlay(Bitmap bmp, OverlayConfig cfg)
         {
             try
             {
-                string text = DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss");
-                int fontPx = Math.Max(11, bmp.Height / 45);
-                using var font = new Font("Consolas", fontPx, FontStyle.Bold, GraphicsUnit.Pixel);
+                string text = ResolveOverlayTokens(cfg.Text);
+                if (string.IsNullOrEmpty(text)) return;
+
+                string family = string.IsNullOrWhiteSpace(cfg.FontFamily) ? "Consolas" : cfg.FontFamily;
+                int px = cfg.FontSize > 0 ? cfg.FontSize : Math.Max(11, bmp.Height / 45);
+                using var font = new Font(family, px, FontStyle.Bold, GraphicsUnit.Pixel);
                 using var g = Graphics.FromImage(bmp);
                 var size = g.MeasureString(text, font);
-                float x = bmp.Width - size.Width - 8;
-                float y = bmp.Height - size.Height - 6;
+
+                const float m = 8;
+                float x = cfg.Position is 1 or 3 ? bmp.Width - size.Width - m : m;   // 1=TR, 3=BR → right
+                float y = cfg.Position is 2 or 3 ? bmp.Height - size.Height - m : m; // 2=BL, 3=BR → bottom
+
                 using var bg = new SolidBrush(Color.FromArgb(150, 0, 0, 0));
                 g.FillRectangle(bg, x - 5, y - 2, size.Width + 10, size.Height + 4);
                 g.DrawString(text, font, Brushes.White, x, y);
             }
             catch { /* overlay is best-effort; never break the capture loop */ }
+        }
+
+        // Replace {date}/{time}/{datetime}/{time12} and a custom {t:FORMAT} token with the current time.
+        private static string ResolveOverlayTokens(string template)
+        {
+            var now = DateTime.Now;
+            string t = (template ?? "")
+                .Replace("{datetime}", now.ToString("yyyy-MM-dd HH:mm:ss"))
+                .Replace("{date}", now.ToString("yyyy-MM-dd"))
+                .Replace("{time}", now.ToString("HH:mm:ss"))
+                .Replace("{time12}", now.ToString("h:mm:ss tt"));
+            return System.Text.RegularExpressions.Regex.Replace(t, @"\{t:([^}]+)\}", mm =>
+            {
+                try { return now.ToString(mm.Groups[1].Value); } catch { return mm.Value; }
+            });
         }
 
         // Draw the live mouse cursor onto a captured frame at its position within the region.

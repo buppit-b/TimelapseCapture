@@ -29,7 +29,11 @@ namespace TimelapseCapture
         public bool GuidedModeEnabled { get; set; } = true; // Progressive disclosure for new users
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
-        public bool OverlayTimestamp { get; set; }          // burn the date/time into each frame
+        public bool OverlayTimestamp { get; set; }          // master enable for the on-frame text overlay
+        public string OverlayText { get; set; } = "{datetime}";
+        public int OverlayPosition { get; set; } = 3;        // 0=TL 1=TR 2=BL 3=BR
+        public int OverlayFontSize { get; set; } = 0;        // pixels; 0 = auto
+        public string OverlayFontFamily { get; set; } = "Consolas";
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
         public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)
         public int HotkeyModifiers { get; set; } = 0x0006;  // Win32 fsModifiers: Ctrl(0x2) + Shift(0x4)

@@ -1,7 +1,7 @@
 <Window x:Class="TimelapseCapture.Wpf.SettingsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Settings" Width="380" SizeToContent="Height" Background="{StaticResource BgBrush}"
+        Title="Settings" Width="460" SizeToContent="Height" Background="{StaticResource BgBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
     <StackPanel Margin="18">
         <TextBlock Text="SETTINGS" Style="{StaticResource CardTitle}"/>
@@ -11,9 +11,36 @@
         <CheckBox Content="Capture the mouse cursor in frames" IsChecked="{Binding CaptureCursor}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
                   ToolTip="Draw the mouse pointer into each captured frame (takes effect on the next capture start)."/>
-        <CheckBox Content="Stamp the date/time onto frames" IsChecked="{Binding OverlayTimestamp}"
+        <CheckBox Content="Overlay text on frames" IsChecked="{Binding OverlayTimestamp}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
-                  ToolTip="Burn the current date and time into the bottom-right of each frame (takes effect on the next capture start)."/>
+                  ToolTip="Burn a text overlay into each frame (takes effect on the next capture start)."/>
+        <StackPanel Margin="22,8,0,0" IsEnabled="{Binding OverlayTimestamp}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Text" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+                <TextBox Text="{Binding OverlayText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                         Width="290"
+                         ToolTip="Tokens: {datetime} {date} {time} {time12} · {t:FORMAT} for a custom .NET date format · plus any literal text."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Text="Where" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="↖"
+                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=0}" ToolTip="Top-left"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="↗"
+                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=1}" ToolTip="Top-right"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="↙"
+                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=2}" ToolTip="Bottom-left"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="↘"
+                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=3}" ToolTip="Bottom-right"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Text="Font" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+                <TextBox Text="{Binding OverlayFontFamily}" Style="{StaticResource DarkTextBox}" Width="150"
+                         ToolTip="Font family name, e.g. Consolas, Arial, Segoe UI."/>
+                <TextBlock Text="Size" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                <TextBox Text="{Binding OverlayFontSize}" Style="{StaticResource DarkTextBox}" Width="50" TextAlignment="Center"
+                         ToolTip="Pixels; 0 = auto-scale to the frame height."/>
+            </StackPanel>
+        </StackPanel>
         <CheckBox Content="Open the output folder when encoding finishes" IsChecked="{Binding OpenFolderAfterEncode}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
                   ToolTip="Automatically open the video's folder after a successful encode, without asking."/>

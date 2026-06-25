@@ -496,6 +496,39 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.OverlayTimestamp != value) { _settings.OverlayTimestamp = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public string OverlayText
+        {
+            get => _settings.OverlayText;
+            set { if (_settings.OverlayText != value) { _settings.OverlayText = value ?? ""; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public int OverlayPosition
+        {
+            get => _settings.OverlayPosition;
+            set { var v = value is < 0 or > 3 ? 3 : value; if (_settings.OverlayPosition != v) { _settings.OverlayPosition = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public int OverlayFontSize
+        {
+            get => _settings.OverlayFontSize;
+            set { var v = value < 0 ? 0 : value; if (_settings.OverlayFontSize != v) { _settings.OverlayFontSize = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public string OverlayFontFamily
+        {
+            get => _settings.OverlayFontFamily;
+            set { if (_settings.OverlayFontFamily != value) { _settings.OverlayFontFamily = value ?? "Consolas"; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        private OverlayConfig BuildOverlay() => new()
+        {
+            Enabled = _settings.OverlayTimestamp,
+            Text = _settings.OverlayText,
+            Position = _settings.OverlayPosition,
+            FontSize = _settings.OverlayFontSize,
+            FontFamily = _settings.OverlayFontFamily,
+        };
+
         public bool OpenFolderAfterEncode
         {
             get => _settings.OpenFolderAfterEncode;
@@ -825,7 +858,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
-                _settings.CaptureCursor, _settings.OverlayTimestamp);
+                _settings.CaptureCursor, BuildOverlay());
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
             IsCapturing = true;
