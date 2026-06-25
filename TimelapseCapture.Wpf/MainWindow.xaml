@@ -33,7 +33,7 @@
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
                                             <DataTrigger.EnterActions>
                                                 <BeginStoryboard Name="recPulse">
                                                     <Storyboard>
@@ -51,7 +51,7 @@
                                 </Style>
                             </Ellipse.Style>
                         </Ellipse>
-                        <TextBlock Text="REC" Foreground="{StaticResource DangerBrush}" FontFamily="Consolas"
+                        <TextBlock Text="{Binding RecLabel}" Foreground="{StaticResource DangerBrush}" FontFamily="Consolas"
                                    FontWeight="Bold" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -166,15 +166,20 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Content="&#9654;  Start" Style="{StaticResource BtnSuccess}"
                                     Command="{Binding StartCommand}" Margin="0,0,10,0"
                                     ToolTip="Start capture — global hotkey: Ctrl+Shift+F9"/>
                             <Button Grid.Column="1" Content="&#9209;  Stop" Style="{StaticResource BtnStop}"
-                                    Command="{Binding StopCommand}"
+                                    Command="{Binding StopCommand}" Margin="0,0,10,0"
                                     ToolTip="Stop capture — global hotkey: Ctrl+Shift+F9"/>
-                            <TextBlock Grid.Column="2" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
+                            <Button Grid.Column="2" Content="{Binding PauseResumeText}" Style="{StaticResource BtnBase}"
+                                    Command="{Binding PauseResumeCommand}"
+                                    Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="Pause / resume the current capture (keeps the run going)."/>
+                            <TextBlock Grid.Column="3" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
                                        Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}">

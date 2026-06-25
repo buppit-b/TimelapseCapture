@@ -59,6 +59,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
             StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
+            PauseResumeCommand = new RelayCommand(_ => PauseResume(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
@@ -197,10 +198,31 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged(nameof(RegionNeeded));
                     OnPropertyChanged(nameof(NotCapturing));
                     OnPropertyChanged(nameof(SessionNeeded));
+                    OnPropertyChanged(nameof(IsRecording));
+                    OnPropertyChanged(nameof(RecLabel));
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
         }
+
+        private bool _isPaused;
+        public bool IsPaused
+        {
+            get => _isPaused;
+            set
+            {
+                if (SetProperty(ref _isPaused, value))
+                {
+                    OnPropertyChanged(nameof(IsRecording));
+                    OnPropertyChanged(nameof(RecLabel));
+                    OnPropertyChanged(nameof(PauseResumeText));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+        public bool IsRecording => IsCapturing && !_isPaused;     // for the pulsing REC dot
+        public string RecLabel => _isPaused ? "PAUSED" : "REC";
+        public string PauseResumeText => _isPaused ? "▶  Resume" : "⏸  Pause";
 
         private bool _isEncoding;
         public bool IsEncoding
@@ -370,6 +392,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand EditRegionCommand { get; }
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
+        public ICommand PauseResumeCommand { get; }
         public ICommand OpenFolderCommand { get; }
         public ICommand EncodeCommand { get; }
         public ICommand DownloadFfmpegCommand { get; }
@@ -855,13 +878,41 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
             PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
             SetSessionActive(true);       // a session left Active at launch = the app died mid-capture
-            _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
+            StartEngine();
+            IsCapturing = true;
+            IsPaused = false;
+        }
+
+        // Start (or resume) the capture engine with current settings and begin a new timing segment.
+        private void StartEngine()
+        {
+            _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
                 _settings.CaptureCursor, BuildOverlay());
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
-            IsCapturing = true;
+        }
+
+        private void PauseResume()
+        {
+            if (!IsCapturing) return;
+            if (_isPaused)
+            {
+                StartEngine();           // resume → new capture segment
+                IsPaused = false;
+            }
+            else
+            {
+                _engine.Stop();          // pause → stop capturing but keep the run armed
+                if (_captureStart.HasValue)
+                {
+                    _accumulatedSeconds += (DateTime.Now - _captureStart.Value).TotalSeconds;
+                    _captureStart = null;
+                }
+                SmartStatus = "Paused";
+                IsPaused = true;
+            }
         }
 
         private void StopCapture()
@@ -873,6 +924,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _captureStart = null;
             }
             SmartStatus = "";
+            IsPaused = false;
             IsCapturing = false;
             PersistTotalTime();
             UpdatePreview();
