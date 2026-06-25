@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
+        xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         Title="Timelapse Capture" Width="920" SizeToContent="Height" MinHeight="520"
         Background="{StaticResource BgBrush}"
         WindowStartupLocation="CenterScreen"
@@ -156,7 +157,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                     IsEnabled="{Binding NotCapturing}"
+                                     local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
                                      ToolTip="Seconds between captured frames (decimals allowed, e.g. 0.5)."/>
                             <TextBlock Text="seconds" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
@@ -180,6 +181,7 @@
                             <TextBlock Text="Frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <TextBlock Text="JPEG Q" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding JpegQuality}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False"
                                      ToolTip="JPEG frame quality 1–100 (higher = better, larger). Ignored when capturing PNG."/>
                             <CheckBox Content="PNG" IsChecked="{Binding UsePng}"
                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
@@ -206,10 +208,12 @@
                             <TextBlock Grid.Column="0" Text="Idle rate (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
                                        ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
                             <TextBox Grid.Column="1" Text="{Binding IdleIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="True"
                                      ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
                             <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"
                                        ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
                             <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False"
                                      ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
                         </Grid>
                         <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
@@ -249,9 +253,11 @@
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}">
                         <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                 local:NumericInput.AllowDecimal="False"
                                  ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
                         <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
                         <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                 local:NumericInput.AllowDecimal="False"
                                  ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
