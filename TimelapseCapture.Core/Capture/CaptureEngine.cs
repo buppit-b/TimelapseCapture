@@ -46,6 +46,7 @@ namespace TimelapseCapture
         private int _jpegQuality = 90;
         private ImageCodecInfo? _jpegEncoder;
         private bool _captureCursor;
+        private bool _overlayTimestamp;
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -74,7 +75,7 @@ namespace TimelapseCapture
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
-                          bool captureCursor = false)
+                          bool captureCursor = false, bool overlayTimestamp = false)
         {
             lock (_lock)
             {
@@ -98,6 +99,7 @@ namespace TimelapseCapture
                 }
                 _jpegQuality = Math.Clamp(jpegQuality, 1, 100);
                 _captureCursor = captureCursor;
+                _overlayTimestamp = overlayTimestamp;
 
                 _baseIntervalMs = Math.Max(100, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
@@ -182,6 +184,7 @@ namespace TimelapseCapture
                             if (bmp.Width == 0 || bmp.Height == 0)
                                 throw new InvalidOperationException("Captured bitmap is invalid");
                             if (_captureCursor) DrawCursor(bmp, _region);
+                            if (_overlayTimestamp) DrawTimestamp(bmp);
                             SaveBitmap(bmp, file);
                         }
 
@@ -223,6 +226,25 @@ namespace TimelapseCapture
                 }
             }
             bmp.Save(file, _imageFormat);
+        }
+
+        // Burn the current date/time into the bottom-right of a captured frame.
+        private static void DrawTimestamp(Bitmap bmp)
+        {
+            try
+            {
+                string text = DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss");
+                int fontPx = Math.Max(11, bmp.Height / 45);
+                using var font = new Font("Consolas", fontPx, FontStyle.Bold, GraphicsUnit.Pixel);
+                using var g = Graphics.FromImage(bmp);
+                var size = g.MeasureString(text, font);
+                float x = bmp.Width - size.Width - 8;
+                float y = bmp.Height - size.Height - 6;
+                using var bg = new SolidBrush(Color.FromArgb(150, 0, 0, 0));
+                g.FillRectangle(bg, x - 5, y - 2, size.Width + 10, size.Height + 4);
+                g.DrawString(text, font, Brushes.White, x, y);
+            }
+            catch { /* overlay is best-effort; never break the capture loop */ }
         }
 
         // Draw the live mouse cursor onto a captured frame at its position within the region.

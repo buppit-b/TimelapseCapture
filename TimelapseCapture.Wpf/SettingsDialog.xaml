@@ -11,6 +11,9 @@
         <CheckBox Content="Capture the mouse cursor in frames" IsChecked="{Binding CaptureCursor}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
                   ToolTip="Draw the mouse pointer into each captured frame (takes effect on the next capture start)."/>
+        <CheckBox Content="Stamp the date/time onto frames" IsChecked="{Binding OverlayTimestamp}"
+                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
+                  ToolTip="Burn the current date and time into the bottom-right of each frame (takes effect on the next capture start)."/>
         <CheckBox Content="Open the output folder when encoding finishes" IsChecked="{Binding OpenFolderAfterEncode}"
                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
                   ToolTip="Automatically open the video's folder after a successful encode, without asking."/>

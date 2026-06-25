@@ -488,6 +488,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.CaptureCursor != value) { _settings.CaptureCursor = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public bool OverlayTimestamp
+        {
+            get => _settings.OverlayTimestamp;
+            set { if (_settings.OverlayTimestamp != value) { _settings.OverlayTimestamp = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public bool OpenFolderAfterEncode
         {
             get => _settings.OpenFolderAfterEncode;
@@ -817,7 +823,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder, _session, _region.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
-                _settings.CaptureCursor);
+                _settings.CaptureCursor, _settings.OverlayTimestamp);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
             IsCapturing = true;
