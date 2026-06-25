@@ -602,6 +602,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             catch { /* best-effort shutdown */ }
         }
 
+        /// <summary>Global-hotkey action: toggle capture, respecting the same gating as the buttons.</summary>
+        public void ToggleCaptureHotkey()
+        {
+            if (IsCapturing)
+            {
+                if (StopCommand.CanExecute(null)) StopCommand.Execute(null);
+            }
+            else if (StartCommand.CanExecute(null))
+            {
+                StartCommand.Execute(null);
+            }
+        }
+
         private void RenameSession()
         {
             if (_session == null || _sessionFolder == null) return;

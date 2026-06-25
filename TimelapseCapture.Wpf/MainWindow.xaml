@@ -168,9 +168,11 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Content="&#9654;  Start" Style="{StaticResource BtnSuccess}"
-                                    Command="{Binding StartCommand}" Margin="0,0,10,0"/>
+                                    Command="{Binding StartCommand}" Margin="0,0,10,0"
+                                    ToolTip="Start capture — global hotkey: Ctrl+Shift+F9"/>
                             <Button Grid.Column="1" Content="&#9209;  Stop" Style="{StaticResource BtnBase}"
-                                    Command="{Binding StopCommand}"/>
+                                    Command="{Binding StopCommand}"
+                                    ToolTip="Stop capture — global hotkey: Ctrl+Shift+F9"/>
                             <TextBlock Grid.Column="2" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
                                        Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
