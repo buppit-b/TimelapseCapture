@@ -3,6 +3,35 @@
 All notable changes to TimelapseCapture are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [0.9.1] — 2026-06-25
+
+A big feature + hardening pass toward 1.0.
+
+### Added
+- **Crash recovery** — sessions track an Active flag; on launch the app offers to resume
+  one that was still recording when it last closed.
+- **Global start/stop hotkey** — opt-in and user-configurable in Settings (key-capture field).
+- **Pause / resume** capture (keeps the run armed; settings stay locked while paused).
+- **Customizable frame overlay** — text with tokens (`{datetime}`/`{date}`/`{time}`/`{t:FORMAT}`)
+  + literal text, corner position, font family and size (replaces the fixed timestamp stamp).
+- **Optional mouse-cursor capture** in frames.
+- **Multi-monitor full-screen picker** (shows each monitor's resolution + ratio).
+- **Settings export/import**, **open-folder-after-encode**, and **selectable colour themes**
+  (Terminal / Ocean / Ember / Synth / Light, applied live).
+- Numeric-only input on the number fields; stats flash on target/fps change; ENCODER card
+  (capture/encode split) with an fps-aware projection.
+
+### Fixed
+- **FFmpeg downloads ~160× faster** — from BtbN's GitHub-CDN build instead of throttled gyan.dev.
+- Encode hardened: try/finally so the button can't stick, partial `.mp4` cleaned on cancel/fail,
+  unique output filenames, actual output size shown.
+- Clean shutdown stops capture; capture-tick re-entrancy dropped (no pile-up on a slow disk);
+  New-Session spam guard; ffmpeg-browse validation; New-Session pulse now stops once a session
+  exists; Stop button turns red while capturing.
+- CI simplified to one reliable build+test job (stopped the false "failed" emails).
+
+[0.9.1]: https://github.com/buppit-b/TimelapseCapture
+
 ## [0.9.0] — 2026-06-24
 
 The WPF rebuild at WinForms parity plus a large polish + feature pass. First
