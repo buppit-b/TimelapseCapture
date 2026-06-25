@@ -36,17 +36,25 @@ Ranked roughly by value for the artist use case. None are committed yet.
      `PrintWindow` is a middle option (works for many but not all windows).
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
-2. **Pause / resume** — an explicit pause distinct from stop, plus **global hotkeys**
-   (start/stop/pause without leaving the art app).
+2. **Hotkeys** — ✅ **global start/stop hotkey done (0.9.x)** (Ctrl+Shift+F9). Still
+   wanted: an explicit **pause/resume** distinct from stop, and making the hotkey
+   user-configurable.
 3. **Auto-encode on stop** (optional) + **frame review/cull** before encoding
-   (scrub the frames, delete fumbles) — makes finishing one step.
+   (scrub the frames, delete fumbles) — makes finishing one step. (Frame cull is the
+   prerequisite for **clip trimming** / light editing — slated, non-trivial: needs a
+   scrub UI + renumber, so the gapped-frame encode edge case matters there.)
 4. **Unattended safety** — auto-stop on low disk space or an optional max duration;
    notification when a long run / encode finishes.
 5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
    and on launch the app offers to resume a session left recording when it died.
 6. **Timestamp / elapsed overlay** option burned into frames or the output video.
-7. **Multi-monitor / all-screens** capture as a region preset.
-8. **Output naming templates** and a chosen encode output path.
+7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
+   arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
+   fps/CRF/preset. Good idea for this audience; keep the simple controls as the
+   default and tuck the raw-args box behind an "Advanced" toggle. Validate/escape
+   args and guard against breaking the image2 input the app relies on.
+8. **Multi-monitor / all-screens** capture as a region preset.
+9. **Output naming templates** and a chosen encode output path.
 
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
