@@ -5,7 +5,7 @@ using TimelapseCapture.Wpf.ViewModels;
 namespace TimelapseCapture.Wpf
 {
     /// <summary>
-    /// Program preferences that don't belong on the main panel. Shares the MainViewModel as its
+    /// Program preferences (grouped into collapsible sections). Shares the MainViewModel as its
     /// DataContext, so its controls bind straight to VM settings properties.
     /// </summary>
     public partial class SettingsDialog : Window
@@ -13,9 +13,16 @@ namespace TimelapseCapture.Wpf
         public SettingsDialog()
         {
             InitializeComponent();
+
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             versionText.Text = v != null ? $"Timelapse Capture v{v.Major}.{v.Minor}.{v.Build}" : "Timelapse Capture";
+
+            Loaded += (s, e) => RefreshHotkeyText();
+            hotkeyBox.GotKeyboardFocus += (s, e) => hotkeyBox.Text = "Press a key combination…";
+            hotkeyBox.LostKeyboardFocus += (s, e) => RefreshHotkeyText();
         }
+
+        private void RefreshHotkeyText() => hotkeyBox.Text = (DataContext as MainViewModel)?.HotkeyDisplay ?? "";
 
         // Capture a key combination for the global hotkey.
         private void OnHotkeyKeyDown(object sender, KeyEventArgs e)
@@ -32,6 +39,7 @@ namespace TimelapseCapture.Wpf
             if (Keyboard.Modifiers == ModifierKeys.None) return;
 
             (DataContext as MainViewModel)?.SetHotkey(Keyboard.Modifiers, key);
+            RefreshHotkeyText();
         }
     }
 }

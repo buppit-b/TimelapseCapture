@@ -196,6 +196,34 @@
                 </Setter>
             </Style>
 
+            <!-- Collapsible section header: a clickable accent title with a ▸/▾ toggle glyph. -->
+            <Style x:Key="SectionHeader" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="HorizontalAlignment" Value="Left"/>
+                <Setter Property="Margin" Value="0,14,0,6"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <TextBlock x:Name="gly" Text="&#x25BE;" FontSize="10" VerticalAlignment="Center"
+                                           Margin="0,0,6,0" Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Text="{TemplateBinding Content}" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="11" Foreground="{DynamicResource AccentBrush}"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter TargetName="gly" Property="Text" Value="&#x25B8;"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="gly" Property="Opacity" Value="0.75"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="DarkTextBox" TargetType="TextBox">
                 <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
