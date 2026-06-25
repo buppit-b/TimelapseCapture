@@ -59,8 +59,8 @@ Ranked roughly by value for the artist use case. None are committed yet.
 ## Known issues / UX audit (pre-1.0 cleanup)
 
 - **New Session can spam empty folders** — rapid clicks each create a new timestamped
-  session. Mitigated visually (buttons now show a pressed state); still want a guard
-  (e.g. reuse the current session if it has 0 frames, or confirm).
+  session. **Fixed**: New Session now reuses a 0-frame session instead of spawning
+  another folder; buttons also show a pressed state.
 - **App-wide UX consistency pass** — verify every actionable control has clear
   pressed/disabled/hover affordances, sensible tab order, and keyboard support.
 - **Cursor overlay on HiDPI** — the drawn cursor may mis-scale slightly on high-DPI
@@ -80,19 +80,20 @@ left on cancel/fail.
 Already fixed since the audit: sessions now manage their `Active` flag (start/stop)
 and crash recovery resumes an interrupted session on launch.
 
+Also fixed this pass: New-Session spam guard, ffmpeg-path validation on Browse,
+capture-tick re-entrancy (`Monitor.TryEnter` drops overlapping ticks), unique encode
+filenames, and clean shutdown (close stops capture + disposes the engine).
+
 Still to verify/fix (roughly by value):
-- **Concurrent `session.json` writes** — engine `IncrementFrameCount` vs VM
-  `PersistRegion`/`PersistTotalTime`/rename can race (no cross-process lock).
-- **Encode breaks on gapped/renumbered frames** — image2 `%05d` + hardcoded
-  `-start_number 1` stops at the first gap; matters once frame-cull/editing lands.
-- **Mixed-extension session** encodes only one extension (image2 picks one).
-- **Output filename collision** at 1-second granularity (two encodes same second).
-- **`MainViewModel`/engine not disposed** on app exit (timer/overlay teardown).
-- **`System.Threading.Timer` re-entrancy** if a capture takes longer than the interval.
-- **New Session spam** creates orphaned empty folders (guard: reuse a 0-frame session).
-- **Numeric fields accept junk** (interval/fps/crf/jpeg-q/target) — validation pass.
-- **Mixed-DPI**: a single system-DPI is used for all monitors (region/cursor offset).
-- **ffmpeg path** accepts any binary without validation.
+- **Concurrent `session.json` writes** — engine `IncrementFrameCount` vs VM writes
+  could race in theory, but VM writes happen outside the capture loop and writes are
+  atomic (temp+replace), so low risk — worth a confirm.
+- **Encode on gapped/renumbered frames** — image2 `%05d` + `-start_number 1` stops at
+  the first gap; only relevant once frame-cull/editing lands (which would renumber).
+- **Numeric fields** clamp + show a red border on junk input, but could use the
+  target field's inline-hint treatment for consistency.
+- **Mixed-DPI**: a single system-DPI is used for all monitors (region/cursor offset
+  on mixed-DPI multi-monitor setups).
 
 ---
 
