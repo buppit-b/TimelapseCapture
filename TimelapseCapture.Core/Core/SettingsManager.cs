@@ -27,6 +27,7 @@ namespace TimelapseCapture
         
         // UI settings
         public bool GuidedModeEnabled { get; set; } = true; // Progressive disclosure for new users
+        public string Theme { get; set; } = "Terminal";     // colour palette / theme name
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
         public bool OverlayTimestamp { get; set; }          // master enable for the on-frame text overlay

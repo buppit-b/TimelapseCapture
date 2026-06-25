@@ -5,6 +5,19 @@
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
     <StackPanel Margin="18">
         <TextBlock Text="SETTINGS" Style="{StaticResource CardTitle}"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="Theme" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Terminal"
+                         IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Terminal}"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Ocean"
+                         IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Ocean}"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Ember"
+                         IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Ember}"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Synth"
+                         IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Synth}"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Light"
+                         IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Light}"/>
+        </StackPanel>
         <CheckBox Content="Keep window always on top" IsChecked="{Binding AlwaysOnTop}"
                   Foreground="{StaticResource TextPrimaryBrush}"
                   ToolTip="Keep the Timelapse Capture window above other windows while you work."/>

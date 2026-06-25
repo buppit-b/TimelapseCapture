@@ -507,6 +507,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.AlwaysOnTop != value) { _settings.AlwaysOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public string Theme
+        {
+            get => _settings.Theme;
+            set { if (_settings.Theme != value) { _settings.Theme = value; SettingsManager.Save(_settings); ThemeManager.Apply(value); OnPropertyChanged(); } }
+        }
+
         public bool CaptureCursor
         {
             get => _settings.CaptureCursor;
