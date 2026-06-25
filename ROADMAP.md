@@ -38,9 +38,8 @@ slated next — *before* window/app capture (item 1), per workflow value for 1.0
      `PrintWindow` is a middle option (works for many but not all windows).
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
-2. **Hotkeys** — ✅ **global start/stop hotkey done (0.9.x)** (Ctrl+Shift+F9). Still
-   wanted: an explicit **pause/resume** distinct from stop, and making the hotkey
-   user-configurable.
+2. **Hotkeys / pause** — ✅ **done (0.9.x)**: global start/stop hotkey (now opt-in +
+   user-configurable in Settings) and explicit **pause/resume** that keeps the run going.
 3. **Auto-encode on stop** (optional) + **frame review/cull** before encoding
    (scrub the frames, delete fumbles) — makes finishing one step. (Frame cull is the
    prerequisite for **clip trimming** / light editing — slated, non-trivial: needs a
@@ -53,7 +52,9 @@ slated next — *before* window/app capture (item 1), per workflow value for 1.0
    ({datetime}/{date}/{time}/{time12}/{t:FORMAT}) + literal text, corner position,
    font family, font size. Richer follow-up *(Spike wants "highly customisable")*:
    **logo/image overlay**, **free-drag placement** + live preview, colour/opacity,
-   and {elapsed}/{frame} tokens.
+   {elapsed}/{frame} tokens, and an **encode-time overlay** option (apply at encode
+   via ffmpeg drawtext/overlay — covers "forgot to enable it", though a true
+   per-frame capture timestamp can only be baked live, not reconstructed at encode).
 7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
    arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
    fps/CRF/preset. Good idea for this audience; keep the simple controls as the
@@ -104,8 +105,8 @@ Still to verify/fix (roughly by value):
   atomic (temp+replace), so low risk — worth a confirm.
 - **Encode on gapped/renumbered frames** — image2 `%05d` + `-start_number 1` stops at
   the first gap; only relevant once frame-cull/editing lands (which would renumber).
-- **Numeric fields** clamp + show a red border on junk input, but could use the
-  target field's inline-hint treatment for consistency.
+- **Numeric fields** — ✅ done: numeric-only input (`NumericInput` behavior) + range
+  clamping, so they can't hold junk.
 - **Mixed-DPI**: a single system-DPI is used for all monitors (region/cursor offset
   on mixed-DPI multi-monitor setups).
 
