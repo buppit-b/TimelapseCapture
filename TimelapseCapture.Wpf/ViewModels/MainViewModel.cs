@@ -412,6 +412,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 FrameCount = (int)(_session?.FramesCaptured ?? 0);
                 OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(RegionNeeded));
+                OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse
                 CommandManager.InvalidateRequerySuggested();
             }
             catch (Exception ex)
@@ -472,6 +473,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             FrameCount = (int)session.FramesCaptured;
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
+            OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse once a session is loaded
             CommandManager.InvalidateRequerySuggested();
             UpdatePreview();
         }

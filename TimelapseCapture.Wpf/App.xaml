@@ -107,6 +107,18 @@
                 <Setter Property="FontWeight" Value="SemiBold"/>
             </Style>
 
+            <!-- Stop button: neutral when idle, red while capturing so it's obviously the thing to click. -->
+            <Style x:Key="BtnStop" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                        <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
             <!-- Primary button that "breathes" (pulses) when it's the next required action. -->
             <Style x:Key="BtnPrimaryPulse" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
                 <Style.Triggers>
