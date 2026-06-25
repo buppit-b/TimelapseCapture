@@ -48,8 +48,8 @@ namespace TimelapseCapture.Wpf
         {
             try
             {
-                if (res[key] is SolidColorBrush b && !b.IsFrozen)
-                    b.Color = (Color)ColorConverter.ConvertFromString(hex);
+                // Replace the resource (not mutate it) so DynamicResource references re-resolve live.
+                res[key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
             }
             catch { /* leave the brush as-is on a bad value */ }
         }

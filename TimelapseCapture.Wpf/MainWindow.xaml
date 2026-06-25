@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         Title="Timelapse Capture" Width="920" SizeToContent="Height" MinHeight="520"
-        Background="{StaticResource BgBrush}"
+        Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen"
         Topmost="{Binding AlwaysOnTop}"
         TextOptions.TextFormattingMode="Display"
@@ -26,10 +26,10 @@
                 <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" VerticalAlignment="Center"/>
                 <!-- Classic red recording indicator -->
                 <Border Margin="14,0,0,0" Background="#22E5534B" CornerRadius="10" Padding="9,3"
-                        BorderBrush="{StaticResource DangerBrush}" BorderThickness="1" VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" VerticalAlignment="Center"
                         Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}">
                     <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="9" Height="9" Fill="{StaticResource DangerBrush}" VerticalAlignment="Center">
+                        <Ellipse Width="9" Height="9" Fill="{DynamicResource DangerBrush}" VerticalAlignment="Center">
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
                                     <Style.Triggers>
@@ -51,7 +51,7 @@
                                 </Style>
                             </Ellipse.Style>
                         </Ellipse>
-                        <TextBlock Text="{Binding RecLabel}" Foreground="{StaticResource DangerBrush}" FontFamily="Consolas"
+                        <TextBlock Text="{Binding RecLabel}" Foreground="{DynamicResource DangerBrush}" FontFamily="Consolas"
                                    FontWeight="Bold" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -84,7 +84,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{Binding OutputFolder}" FontFamily="Consolas"
-                                       Foreground="{StaticResource TextPrimaryBrush}" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                             <Button Grid.Column="1" Content="Choose&#8230;" Style="{StaticResource BtnBase}"
                                     Command="{Binding ChooseFolderCommand}" Margin="10,0,0,0"/>
@@ -117,7 +117,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Region" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
-                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                            Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
@@ -180,7 +180,7 @@
                                     Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}"
                                     ToolTip="Pause / resume the current capture (keeps the run going)."/>
                             <TextBlock Grid.Column="3" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
-                                       Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                       Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}">
                             <TextBlock Text="Frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
@@ -189,7 +189,7 @@
                                      local:NumericInput.AllowDecimal="False"
                                      ToolTip="JPEG frame quality 1–100 (higher = better, larger). Ignored when capturing PNG."/>
                             <CheckBox Content="PNG" IsChecked="{Binding UsePng}"
-                                      Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
                                       ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG. Frame quality is the ceiling for the video — for maximum fidelity use PNG with a low CRF."/>
                         </StackPanel>
                     </StackPanel>
@@ -200,7 +200,7 @@
                         <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
                         <StackPanel IsEnabled="{Binding NotCapturing}">
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
-                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                   ToolTip="Capture at your main Interval while you're active; when there's no input, slow to the idle rate (or skip frames)."/>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
@@ -222,11 +222,11 @@
                                      ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
                         </Grid>
                         <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
-                                  Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
                                   ToolTip="When idle, skip capturing entirely instead of capturing at the slower main interval — saves space during long idle stretches."/>
                         </StackPanel>
                         <TextBlock Text="{Binding SmartStatus}" FontFamily="Consolas" FontSize="12"
-                                   Foreground="{StaticResource AccentBrush}" Margin="0,12,0,0"/>
+                                   Foreground="{DynamicResource AccentBrush}" Margin="0,12,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -254,7 +254,7 @@
                                 Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
 
-                    <Border Height="1" Background="{StaticResource StrokeBrush}" Margin="0,14,0,0"/>
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}">
                         <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
@@ -310,7 +310,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding TargetHintError}" Value="True">
-                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -318,7 +318,7 @@
                         </TextBlock>
                     </StackPanel>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
-                                 Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceAltBrush}"
+                                 Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
                                  BorderThickness="0" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding ProgressText}" FontFamily="Consolas" FontSize="11"
                                Margin="0,0,0,10" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
@@ -351,7 +351,7 @@
                         </TextBlock.Triggers>
                     </TextBlock>
                     <TextBlock Text="{Binding ResourcesInfo}" FontFamily="Consolas" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="64"/>
@@ -359,7 +359,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Run" Style="{StaticResource Muted}"
                                    ToolTip="Elapsed time of the current capture run."/>
-                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </Grid>
                     <Grid Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
@@ -368,7 +368,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Total" Style="{StaticResource Muted}"
                                    ToolTip="Total capture time across all start/stop runs this session."/>
-                        <TextBlock Grid.Column="1" Text="{Binding TotalElapsedText}" FontFamily="Consolas" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding TotalElapsedText}" FontFamily="Consolas" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -377,7 +377,7 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="PREVIEW" Style="{StaticResource CardTitle}"/>
-                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{StaticResource StrokeBrush}"
+                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
                                 BorderThickness="1" Height="150" ClipToBounds="True">
                             <Grid>
                                 <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
