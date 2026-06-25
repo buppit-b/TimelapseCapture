@@ -47,7 +47,8 @@ Ranked roughly by value for the artist use case. None are committed yet.
    notification when a long run / encode finishes.
 5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
    and on launch the app offers to resume a session left recording when it died.
-6. **Timestamp / elapsed overlay** option burned into frames or the output video.
+6. **Timestamp / elapsed overlay** — ✅ **date/time burn-in done (0.9.x)** (Settings
+   toggle). Could extend with elapsed-time or a custom label later.
 7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
    arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
    fps/CRF/preset. Good idea for this audience; keep the simple controls as the
