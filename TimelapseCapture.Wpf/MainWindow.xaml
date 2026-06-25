@@ -308,13 +308,35 @@
                                  Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceAltBrush}"
                                  BorderThickness="0" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding ProgressText}" FontFamily="Consolas" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10"/>
+                               Margin="0,0,0,10" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                        <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
                     <TextBlock Text="{Binding StorageInfo}" FontFamily="Consolas" FontSize="11"
-                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,2" LineHeight="18"/>
+                               TextWrapping="Wrap" Margin="0,0,0,2" LineHeight="18"
+                               Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                        <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
                     <TextBlock Text="(disk use is for the raw frames, not the final video — CRF sets the video size)"
                                Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,8" TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding VideoLengthText}" FontFamily="Consolas" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                               Margin="0,0,0,4" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                        <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
                     <TextBlock Text="{Binding ResourcesInfo}" FontFamily="Consolas" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}"/>
                     <Grid Margin="0,8,0,0">

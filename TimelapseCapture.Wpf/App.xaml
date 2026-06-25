@@ -8,6 +8,12 @@
             <!-- Palette -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <local:StringEqualsConverter x:Key="StrEq"/>
+
+            <!-- Brief accent flash for a value that just recalculated (target/fps change). -->
+            <Storyboard x:Key="PulseFg">
+                <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                To="#3FB950" Duration="0:0:0.18" AutoReverse="True"/>
+            </Storyboard>
             <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#161616"/>
             <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F"/>

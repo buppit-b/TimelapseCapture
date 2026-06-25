@@ -118,7 +118,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
 
         private int _encodeFps = 30;
-        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, value < 1 ? 1 : value)) RefreshStats(); } }
+        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, value < 1 ? 1 : value)) { RefreshStats(); BumpRecalc(); } } }
 
         private int _encodeCrf = 23;
         public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
@@ -290,6 +290,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _desiredVideoSeconds = secs;
             ValidateTarget();   // hint now reads "= … ✓"
             RefreshStats();     // projection / progress reflect the new target
+            BumpRecalc();       // flash the affected stats
         }
 
         private static bool TryParseTarget(string? text, out int seconds, out string human)
@@ -332,6 +333,12 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private string _progressText = "";
         public string ProgressText { get => _progressText; set => SetProperty(ref _progressText, value); }
+
+        // Bumped when the user changes an input (target / fps) that recalculates the stats — the
+        // affected on-screen values flash briefly so you can see what got recomputed.
+        private int _recalcPulse;
+        public int RecalcPulse { get => _recalcPulse; set => SetProperty(ref _recalcPulse, value); }
+        private void BumpRecalc() => RecalcPulse++;
 
         private string _smartStatus = "";
         public string SmartStatus { get => _smartStatus; set => SetProperty(ref _smartStatus, value); }
