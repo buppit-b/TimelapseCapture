@@ -26,6 +26,8 @@ The exact 1.0 feature line is Spike's call — this file is the shortlist to cho
 ## Toward 1.0 — candidate features
 
 Ranked roughly by value for the artist use case. None are committed yet.
+**Current priority (2026-06-25):** clip trimming / light editing (part of item 3) is
+slated next — *before* window/app capture (item 1), per workflow value for 1.0.
 
 1. **Window / application capture** *(Spike's biggest want)* — capture a specific
    window instead of a fixed screen rectangle, and **follow it** as it moves/resizes.
@@ -47,8 +49,11 @@ Ranked roughly by value for the artist use case. None are committed yet.
    notification when a long run / encode finishes.
 5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
    and on launch the app offers to resume a session left recording when it died.
-6. **Timestamp / elapsed overlay** — ✅ **date/time burn-in done (0.9.x)** (Settings
-   toggle). Could extend with elapsed-time or a custom label later.
+6. **Frame overlay** — ✅ **configurable text overlay done (0.9.x)**: tokens
+   ({datetime}/{date}/{time}/{time12}/{t:FORMAT}) + literal text, corner position,
+   font family, font size. Richer follow-up *(Spike wants "highly customisable")*:
+   **logo/image overlay**, **free-drag placement** + live preview, colour/opacity,
+   and {elapsed}/{frame} tokens.
 7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
    arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
    fps/CRF/preset. Good idea for this audience; keep the simple controls as the
