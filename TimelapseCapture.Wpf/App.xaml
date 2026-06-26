@@ -14,6 +14,11 @@
                 <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
                                 To="#3FB950" Duration="0:0:0.18" AutoReverse="True"/>
             </Storyboard>
+            <!-- Flares a Border's outline to the accent and back — a "committed" pulse around a field. -->
+            <Storyboard x:Key="PulseRing">
+                <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                To="#3FB950" Duration="0:0:0.22" AutoReverse="True"/>
+            </Storyboard>
             <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#161616"/>
             <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F"/>

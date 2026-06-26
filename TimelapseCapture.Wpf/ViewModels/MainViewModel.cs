@@ -297,7 +297,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (TryParseTarget(_targetText, out var secs, out var human))
             {
-                TargetHint = secs == _desiredVideoSeconds ? $"= {human} ✓" : $"= {human} · press Set";
+                TargetHint = secs == _desiredVideoSeconds ? $"= {human} ✓" : $"= {human} · Enter / tab to apply";
                 TargetHintError = false;
             }
             else
@@ -314,6 +314,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             ValidateTarget();   // hint now reads "= … ✓"
             RefreshStats();     // projection / progress reflect the new target
             BumpRecalc();       // flash the affected stats
+            TargetPulse++;      // pulse the field outline + "Target" label to confirm the commit
         }
 
         private static bool TryParseTarget(string? text, out int seconds, out string human)
@@ -362,6 +363,10 @@ namespace TimelapseCapture.Wpf.ViewModels
         private int _recalcPulse;
         public int RecalcPulse { get => _recalcPulse; set => SetProperty(ref _recalcPulse, value); }
         private void BumpRecalc() => RecalcPulse++;
+
+        // Bumped only on an explicit Target commit (Enter / tab-away) to drive the field's confirm pulse.
+        private int _targetPulse;
+        public int TargetPulse { get => _targetPulse; set => SetProperty(ref _targetPulse, value); }
 
         private string _smartStatus = "";
         public string SmartStatus { get => _smartStatus; set => SetProperty(ref _smartStatus, value); }
@@ -418,6 +423,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             try
             {
+                // Guard against losing your place with a stray click: if the current session already
+                // has frames, confirm before switching away (the old one stays safe on disk).
+                if (_session != null && _frameCount > 0 && !IsCapturing)
+                {
+                    var r = MessageBox.Show(
+                        $"The current session “{SessionName}” has {_frameCount} frame(s).\n\nIt will be kept on disk, but a new session will replace it here. Start a new session?",
+                        "New session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (r != MessageBoxResult.Yes) return;
+                }
+
                 // Don't spawn another empty folder on repeated clicks — if the current session has no
                 // frames yet, it already IS a fresh session; keep it.
                 if (_session != null && _sessionFolder != null && _frameCount == 0 && !IsCapturing)

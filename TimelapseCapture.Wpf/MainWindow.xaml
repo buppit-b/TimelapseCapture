@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
-        Title="Timelapse Capture" Width="920" SizeToContent="Height" MinHeight="520"
+        Title="Timelapse Capture" Width="920" Height="840" MinHeight="320" MinWidth="480"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen"
         Topmost="{Binding AlwaysOnTop}"
@@ -57,6 +57,9 @@
                 </Border>
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <CheckBox Content="On top" IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
+                          Foreground="{DynamicResource TextSecondaryBrush}"
+                          ToolTip="Keep this window above other windows (always on top)."/>
                 <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,0,0"
@@ -64,8 +67,9 @@
             </StackPanel>
         </Grid>
 
-        <!-- Content -->
-        <Grid Grid.Row="1">
+        <!-- Content (scrolls when the window is shrunk below its natural size) -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <Grid MinWidth="660">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="300"/>
@@ -192,6 +196,15 @@
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
                                       ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG. Frame quality is the ceiling for the video — for maximum fidelity use PNG with a low CRF."/>
                         </StackPanel>
+                        <!-- Options that change what lands in the frame — surfaced here, not buried in Settings. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <CheckBox Content="Capture cursor" IsChecked="{Binding CaptureCursor}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                      ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
+                            <CheckBox Content="Hide this window from captures" IsChecked="{Binding HideFromCapture}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="18,0,0,0"
+                                      ToolTip="Exclude the Timelapse Capture window from screen captures so it never appears in frames (Win10 2004+)."/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -297,17 +310,33 @@
                     <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
                     <StackPanel Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
-                                     Width="64" TextAlignment="Center"
-                                     ToolTip="Planned capture length, used to project storage and progress. e.g. 30s, 5m, 2h">
-                                <TextBox.InputBindings>
-                                    <KeyBinding Key="Enter" Command="{Binding SetTargetCommand}"/>
-                                </TextBox.InputBindings>
-                            </TextBox>
-                            <Button Content="Set" Command="{Binding SetTargetCommand}" Style="{StaticResource BtnBase}"
-                                    FontSize="12" Padding="12,4" Margin="8,0,0,0"
-                                    ToolTip="Apply the target (or press Enter in the field)."/>
+                            <!-- "Target" flashes green on commit (own brush so PulseFg animates only this label). -->
+                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
+                                <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
+                                <TextBlock.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                    </EventTrigger>
+                                </TextBlock.Triggers>
+                            </TextBlock>
+                            <!-- Outline ring flares to accent on commit (Enter / tab-away). -->
+                            <Border BorderThickness="1.5" CornerRadius="4" Padding="2"
+                                    Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
+                                <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard Storyboard="{StaticResource PulseRing}"/>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                                <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                                         Width="64" TextAlignment="Center" LostFocus="OnTargetCommit"
+                                         ToolTip="Planned capture length, used to project storage and progress. Press Enter or tab away to apply. e.g. 30s, 5m, 2h">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding SetTargetCommand}"/>
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                            </Border>
                         </StackPanel>
                         <TextBlock Text="{Binding TargetHint}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0">
                             <TextBlock.Style>
@@ -394,5 +423,6 @@
                 </Border>
             </StackPanel>
         </Grid>
+        </ScrollViewer>
     </Grid>
 </Window>

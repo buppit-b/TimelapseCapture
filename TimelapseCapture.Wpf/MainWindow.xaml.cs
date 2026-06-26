@@ -24,6 +24,14 @@ namespace TimelapseCapture.Wpf
             InitializeComponent();
         }
 
+        // Apply the capture-length target when the field loses focus (tab away / click out),
+        // mirroring the Enter key binding — so there's no separate "Set" button.
+        private void OnTargetCommit(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm && vm.SetTargetCommand.CanExecute(null))
+                vm.SetTargetCommand.Execute(null);
+        }
+
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
