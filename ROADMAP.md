@@ -72,15 +72,16 @@ candidates: **unattended safety** (item 4) and **auto-encode / frame cull** (ite
 9. **Output naming templates** — ✅ **done (0.9.3)**: `{session}`/`{date}`/`{time}`/`{datetime}`
    filename template for encodes/trims (Settings → Encoding). A chosen encode output *path*
    (separate from the session folder) is still open.
-10. **Provenance / app signature** *(Spike's idea, for identifying the app's output in the wild)* —
-    embed an identifier into produced videos. **Recommended approach: ffmpeg metadata tags** on
-    encode (`-metadata encoder="TimelapseCapture x.y.z"` + `comment`/`software`) — standard,
-    non-destructive, doesn't touch the picture, read by ffprobe/MediaInfo/file properties. Trivial
-    to add in `VideoEncoder`. *Caveat:* metadata is often stripped when platforms (YouTube etc.)
-    re-encode, so it best identifies files shared directly. An **optional visible watermark/logo**
-    (off by default, reusing the overlay system) survives re-encode but artists will usually disable
-    it on their own work. **Avoid covert steganographic pixel watermarking** — fragile through
-    compression and a transparency/trust problem for an artist tool; prefer the open metadata route.
+10. **Provenance / app signature** *(Spike's idea — identifying the app's output in the wild.
+    Direction decided 2026-06-26; **marked for later**, toward 1.0.)* Two approved approaches:
+    - **(1) ffmpeg metadata tags** on every encode/trim — `-metadata encoder="TimelapseCapture x.y.z"`
+      plus `comment`/`software`. Standard, non-destructive, doesn't touch the picture; read by
+      ffprobe / MediaInfo / Windows file properties. ~2 lines in `VideoEncoder`. *Caveat:* platforms
+      (YouTube etc.) often strip metadata on re-encode, so this best identifies files shared directly.
+    - **(2) Optional visible watermark / logo** — off by default, reusing the overlay system; survives
+      re-encoding. A credit feature for users who want it (most artists will leave it off).
+    - **Ruled out:** covert steganographic pixel watermarking — fragile through compression, and a
+      transparency/trust problem for an artist tool. Keep provenance open, not hidden.
 
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
