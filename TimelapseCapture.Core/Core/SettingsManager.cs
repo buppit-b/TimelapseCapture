@@ -30,6 +30,7 @@ namespace TimelapseCapture
         public string Theme { get; set; } = "Terminal";     // colour palette / theme name
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool HideFromCapture { get; set; }           // exclude this window from screen capture
+        public bool PauseOnTrackedMinimize { get; set; }     // window tracking: minimized → wait (true) vs stop (false)
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
         public bool OverlayTimestamp { get; set; }          // master enable for the on-frame text overlay
         public string OverlayText { get; set; } = "{datetime}";

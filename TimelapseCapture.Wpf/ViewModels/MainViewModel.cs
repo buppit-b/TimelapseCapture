@@ -546,6 +546,14 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.HideFromCapture != value) { _settings.HideFromCapture = value; SettingsManager.Save(_settings); OnPropertyChanged(); WindowAffinityChanged?.Invoke(); } }
         }
 
+        // Window tracking: when the tracked window is minimized, wait for it to be restored (true) instead
+        // of stopping capture (false, default). Only affects tracking mode.
+        public bool PauseOnTrackedMinimize
+        {
+            get => _settings.PauseOnTrackedMinimize;
+            set { if (_settings.PauseOnTrackedMinimize != value) { _settings.PauseOnTrackedMinimize = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
         public string OutputNameTemplate
         {
@@ -983,7 +991,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
-                _settings.CaptureCursor, BuildOverlay(), _trackedWindow);
+                _settings.CaptureCursor, BuildOverlay(), _trackedWindow, _settings.PauseOnTrackedMinimize);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }

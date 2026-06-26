@@ -26,6 +26,14 @@
             </StackPanel>
         </StackPanel>
 
+        <!-- Window tracking -->
+        <ToggleButton x:Name="secTracking" Style="{StaticResource SectionHeader}" Content="WINDOW TRACKING" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secTracking, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Keep waiting if the tracked window is minimized" IsChecked="{Binding PauseOnTrackedMinimize}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="When tracking a window: off (default) = stop capturing if it's minimized; on = pause and resume automatically when you restore it."/>
+        </StackPanel>
+
         <!-- Encoding -->
         <ToggleButton x:Name="secEncoding" Style="{StaticResource SectionHeader}" Content="ENCODING" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secEncoding, Converter={StaticResource BoolToVis}}">

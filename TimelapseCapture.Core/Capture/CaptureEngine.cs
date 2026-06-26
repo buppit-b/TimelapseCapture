@@ -54,6 +54,7 @@ namespace TimelapseCapture
         private Size _lockedSize;
         private Point _lastTrackedLocation;   // last followed top-left, to detect (and skip) a window in motion
         private bool _trackingInitialized;
+        private bool _pauseOnTrackedMinimize; // true = hold while a tracked window is minimized; false = stop
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -82,7 +83,8 @@ namespace TimelapseCapture
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
-                          bool captureCursor = false, OverlayConfig? overlay = null, IntPtr trackedWindow = default)
+                          bool captureCursor = false, OverlayConfig? overlay = null, IntPtr trackedWindow = default,
+                          bool pauseOnTrackedMinimize = false)
         {
             lock (_lock)
             {
@@ -94,6 +96,7 @@ namespace TimelapseCapture
                 _trackedWindow = trackedWindow;                         // zero = static region (default)
                 _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
                 _trackingInitialized = false;                           // first tracked tick always captures
+                _pauseOnTrackedMinimize = pauseOnTrackedMinimize;
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
                 Directory.CreateDirectory(_framesFolder);
 
@@ -187,23 +190,41 @@ namespace TimelapseCapture
                 {
                     try
                     {
-                        // Window tracking: follow the window's current position (size stays locked). May throw
-                        // if the window was closed/minimized — caught below and raised as CaptureFailed.
-                        bool skipMoving = false;
+                        // Window tracking: resolve the follow rect. Closed/unreadable → throw (surfaces as a
+                        // CaptureFailed → auto-stop). Minimized → stop, or hold if the user chose to wait. Moving
+                        // → skip the transit frame (on-screen pixels lag the window rect during a drag).
+                        bool skipFrame = false;
                         if (_trackedWindow != IntPtr.Zero)
                         {
-                            var resolved = ResolveTrackedRegion();
-                            // Skip frames while the window is in motion: during a drag the on-screen pixels lag
-                            // the window rect (DWM compositing), so a transit frame would miss the target. Wait
-                            // until it's been still for a full interval, then capture a clean frame.
-                            if (_trackingInitialized && resolved.Location != _lastTrackedLocation)
-                                skipMoving = true;
-                            _lastTrackedLocation = resolved.Location;
-                            _trackingInitialized = true;
-                            _region = resolved;
+                            bool ok = WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var live, out bool minimized, out bool alive);
+                            if (!alive)
+                                throw new InvalidOperationException("The tracked window was closed.");
+                            if (!ok)
+                                throw new InvalidOperationException("Couldn't read the tracked window's position.");
+
+                            if (minimized)
+                            {
+                                // A minimized window's rect is off-screen junk. Default: stop (surface a failure).
+                                // Opt-in: hold and resume when it's restored.
+                                if (!_pauseOnTrackedMinimize)
+                                    throw new InvalidOperationException("The tracked window is minimized — restore it to keep capturing.");
+                                skipFrame = true;
+                            }
+                            else
+                            {
+                                // Follow the top-left, keep the locked size, clamp onto the desktop (reuse the last
+                                // region if it can't fit). Skip the frame while the window is in motion.
+                                var candidate = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
+                                var resolved = ScreenHelper.FitRegionOnScreen(candidate, out _) ?? _region;
+                                if (_trackingInitialized && resolved.Location != _lastTrackedLocation)
+                                    skipFrame = true;
+                                _lastTrackedLocation = resolved.Location;
+                                _trackingInitialized = true;
+                                _region = resolved;
+                            }
                         }
 
-                        if (!skipMoving)
+                        if (!skipFrame)
                         {
                             long next = (_session?.FramesCaptured ?? 0) + 1;
                             string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
@@ -333,26 +354,6 @@ namespace TimelapseCapture
                 finally { g.ReleaseHdc(hdc); }
             }
             catch { /* cursor overlay is best-effort; never break the capture loop */ }
-        }
-
-        // Build the capture rect for a tracked window: follow its top-left, keep the locked size. Runs on
-        // the timer thread under the already-held _lock (synchronous Win32, no async). Throws on closed/
-        // minimized so OnTick's existing catch surfaces it via CaptureFailed (and the VM auto-stops).
-        private Rectangle ResolveTrackedRegion()
-        {
-            if (!WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var live, out bool minimized, out bool alive))
-            {
-                if (!alive) throw new InvalidOperationException("The tracked window was closed.");
-                throw new InvalidOperationException("Couldn't read the tracked window's position.");
-            }
-            if (minimized)
-                throw new InvalidOperationException("The tracked window is minimized — restore it to keep capturing.");
-
-            // Position follows the window; size is ALWAYS the locked size (live width/height ignored) so frames
-            // stay uniform. Clamp onto the desktop so BitBlt never reads out of bounds; if the locked box can't
-            // fit (resolution dropped below it), reuse the last good region — still a uniform frame, not a fail.
-            var candidate = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
-            return ScreenHelper.FitRegionOnScreen(candidate, out _) ?? _region;
         }
 
         private static Bitmap CaptureRegion(Rectangle region)
