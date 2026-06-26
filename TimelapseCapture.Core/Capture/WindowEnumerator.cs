@@ -24,7 +24,11 @@ namespace TimelapseCapture
         [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
+        [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         private const uint GW_OWNER = 4;
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        private const uint SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001, SWP_NOACTIVATE = 0x0010;
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
         [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
@@ -76,6 +80,13 @@ namespace TimelapseCapture
             if (!GetWindowRect(hWnd, out var r)) return false;
             bounds = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
             return true;
+        }
+
+        /// <summary>Force a window topmost (or release it) — used to keep a tracked window un-occluded.</summary>
+        public static void SetTopmost(IntPtr hWnd, bool on)
+        {
+            if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return;
+            SetWindowPos(hWnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
     }
 }

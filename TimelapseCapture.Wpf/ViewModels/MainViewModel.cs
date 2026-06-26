@@ -32,6 +32,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         private double _accumulatedSeconds; // total capture time across start/stop within this app run
         private int _statsTick;
         private readonly DispatcherTimer _statsTimer;
+        private readonly DispatcherTimer _trackOverlayTimer;   // moves the on-screen outline with a tracked window
+        private bool _trackedWindowMadeTopmost;                // true if we forced the tracked window topmost
 
         public MainViewModel()
         {
@@ -75,6 +77,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _statsTimer.Tick += (s, e) => RefreshStats();
             _statsTimer.Start();
+
+            _trackOverlayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+            _trackOverlayTimer.Tick += OnTrackOverlayTick;
             RefreshStats();
         }
 
@@ -333,6 +338,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (double.TryParse(t.Trim(), out var v) && v > 0)
             {
                 seconds = (int)(v * mult);
+                if (seconds < 1) return false;   // sub-1s targets round to 0 → reject (else "0 sec ✓" + instant stop-at-target)
                 human = seconds >= 3600 ? $"{seconds / 3600.0:0.##} hr"
                       : seconds >= 60 ? $"{seconds / 60.0:0.##} min"
                       : $"{seconds} sec";
@@ -552,6 +558,20 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             get => _settings.PauseOnTrackedMinimize;
             set { if (_settings.PauseOnTrackedMinimize != value) { _settings.PauseOnTrackedMinimize = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        // Window tracking: force the tracked window to stay on top while capturing (truly un-occluded).
+        public bool KeepTrackedWindowOnTop
+        {
+            get => _settings.KeepTrackedWindowOnTop;
+            set { if (_settings.KeepTrackedWindowOnTop != value) { _settings.KeepTrackedWindowOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        // Auto-stop capture once the frame count reaches the Target (projected frames for the target length).
+        public bool StopAtTarget
+        {
+            get => _settings.StopAtTarget;
+            set { if (_settings.StopAtTarget != value) { _settings.StopAtTarget = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
         // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
@@ -859,6 +879,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _overlay.ShowForRegion(_region.Value);
                 IsOverlayShown = true;
             }
+            SyncTrackOverlay();
         }
 
         private void UpdateOverlay()
@@ -871,6 +892,38 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _overlay?.Close();
                 _overlay = null;
                 IsOverlayShown = false;
+            }
+            SyncTrackOverlay();
+        }
+
+        // Start/stop following the on-screen outline to the tracked window (only while the outline is shown
+        // and a window is being tracked). The engine's capture already follows; this keeps the visible
+        // outline in lock-step so it stays just-outside the captured region and never lands in a frame.
+        private void SyncTrackOverlay()
+        {
+            if (_isOverlayShown && _trackedWindow != IntPtr.Zero && _overlay != null)
+            {
+                if (!_trackOverlayTimer.IsEnabled) _trackOverlayTimer.Start();
+            }
+            else
+            {
+                _trackOverlayTimer.Stop();
+            }
+        }
+
+        private void OnTrackOverlayTick(object? sender, EventArgs e)
+        {
+            if (!_isOverlayShown || _trackedWindow == IntPtr.Zero || _overlay == null || !_region.HasValue)
+            {
+                _trackOverlayTimer.Stop();
+                return;
+            }
+            if (WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive)
+                && alive && !minimized)
+            {
+                var locked = _region.Value;
+                var candidate = new System.Drawing.Rectangle(b.X, b.Y, locked.Width, locked.Height);
+                _overlay.ShowForRegion(ScreenHelper.FitRegionOnScreen(candidate, out _) ?? locked);
             }
         }
 
@@ -983,6 +1036,27 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             IsCapturing = true;
             IsPaused = false;
+            PinTrackedWindow();   // optionally keep the tracked window above everything while capturing
+        }
+
+        // Force the tracked window topmost (if opted in) / release it. Used by start/stop AND pause/resume
+        // so a paused capture doesn't leave the window jammed on top.
+        private void PinTrackedWindow()
+        {
+            if (_trackedWindow != IntPtr.Zero && _settings.KeepTrackedWindowOnTop)
+            {
+                WindowEnumerator.SetTopmost(_trackedWindow, true);
+                _trackedWindowMadeTopmost = true;
+            }
+        }
+
+        private void UnpinTrackedWindow()
+        {
+            if (_trackedWindowMadeTopmost)
+            {
+                WindowEnumerator.SetTopmost(_trackedWindow, false);
+                _trackedWindowMadeTopmost = false;
+            }
         }
 
         // Start (or resume) the capture engine with current settings and begin a new timing segment.
@@ -1002,11 +1076,13 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_isPaused)
             {
                 StartEngine();           // resume → new capture segment
+                PinTrackedWindow();      // re-pin on resume (released while paused)
                 IsPaused = false;
             }
             else
             {
                 _engine.Stop();          // pause → stop capturing but keep the run armed
+                UnpinTrackedWindow();    // don't leave the window jammed on top while paused
                 if (_captureStart.HasValue)
                 {
                     _accumulatedSeconds += (DateTime.Now - _captureStart.Value).TotalSeconds;
@@ -1020,6 +1096,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StopCapture()
         {
             ClearCaptureError();   // a manual stop clears any warning; the auto-stop path re-sets it after this
+            UnpinTrackedWindow();  // release the tracked window we pinned on top
             _engine.Stop();
             if (_captureStart.HasValue)
             {
@@ -1097,6 +1174,11 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _consecutiveCaptureFailures = 0;
                 if (HasCaptureError) CaptureError = "";   // a frame saved → clear any stale warning
                 FrameCount = count;
+
+                // Optional unattended stop: end the run once we've reached the target number of frames.
+                int targetFrames = _desiredVideoSeconds * Math.Max(1, EncodeFps);
+                if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
+                    StopCapture();
             }));
 
         // A frame failed to save (folder deleted, disk full, permissions…). Surface it — and if it keeps
@@ -1326,6 +1408,9 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         public void Dispose()
         {
+            _statsTimer.Stop();
+            _trackOverlayTimer.Stop();
+            _trackOverlayTimer.Tick -= OnTrackOverlayTick;
             _engine.Dispose();
             _overlay?.Close();
         }

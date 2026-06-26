@@ -369,6 +369,9 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <CheckBox Content="Stop capturing when the target is reached" IsChecked="{Binding StopAtTarget}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
+                                  ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps)."/>
                     </StackPanel>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
                                  Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
