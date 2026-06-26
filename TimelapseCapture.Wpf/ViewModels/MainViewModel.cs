@@ -868,8 +868,6 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void SelectFullScreen()
         {
-            if (!ConfirmRegionChange()) return;
-
             var monitors = ScreenHelper.Monitors();
             System.Drawing.Rectangle r;
             if (monitors.Count > 1)
@@ -885,8 +883,14 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             r.Width -= r.Width % 2;   // even dimensions required by the H.264 encoder
             r.Height -= r.Height % 2;
+
+            // No change → no warning. Only prompt (about mixing frame sizes) if the region actually differs.
+            if (!RegionEquals(_region, r) && !ConfirmRegionChange()) return;
             ApplyRegion(r, $"{r.Width}×{r.Height} (full screen)");
         }
+
+        private static bool RegionEquals(System.Drawing.Rectangle? a, System.Drawing.Rectangle b)
+            => a.HasValue && a.Value == b;
 
         // Pick a top-level window; capture follows it as it moves (size locked at the current size).
         private void TrackWindow()
