@@ -32,6 +32,14 @@
             <CheckBox Content="Open the output folder when encoding finishes" IsChecked="{Binding OpenFolderAfterEncode}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       ToolTip="Automatically open the video's folder after a successful encode, without asking."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="File name" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="64"/>
+                <TextBox Text="{Binding OutputNameTemplate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                         Width="250"
+                         ToolTip="Base name for encoded and trimmed videos (no extension). Duplicates get _2, _3…"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="64,4,0,0" TextWrapping="Wrap"
+                       Text="Tokens: {session} {date} {time} {datetime}  ·  .mp4 is added automatically"/>
         </StackPanel>
 
         <!-- Hotkey -->

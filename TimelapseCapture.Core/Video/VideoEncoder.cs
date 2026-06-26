@@ -20,7 +20,7 @@ namespace TimelapseCapture
 
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
             int fps, string preset, int crf, CancellationToken ct = default,
-            int startFrame = 1, int maxFrames = 0)
+            int startFrame = 1, int maxFrames = 0, string? outputName = null)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -36,10 +36,13 @@ namespace TimelapseCapture
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
             Directory.CreateDirectory(outputFolder);
-            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string outputPath = Path.Combine(outputFolder, $"timelapse_{stamp}.mp4");
-            for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode in the same second
-                outputPath = Path.Combine(outputFolder, $"timelapse_{stamp}_{n}.mp4");
+            // Caller (the VM) resolves the user's name template; fall back to a timestamp if it's blank.
+            string baseName = SanitizeFileName(outputName);
+            if (string.IsNullOrEmpty(baseName))
+                baseName = $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}";
+            string outputPath = Path.Combine(outputFolder, baseName + ".mp4");
+            for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode with the same name
+                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}.mp4");
 
             if (fps < 1) fps = 30;
             crf = Math.Clamp(crf, 0, 51);
@@ -63,6 +66,16 @@ namespace TimelapseCapture
                 OutputPath = outputPath,
                 Error = string.IsNullOrWhiteSpace(error) ? $"ffmpeg exited with code {exitCode}" : error,
             };
+        }
+
+        // Strip anything illegal in a Windows filename; collapse whitespace; trim trailing dots/spaces.
+        private static string SanitizeFileName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "";
+            var sb = new System.Text.StringBuilder(name.Length);
+            foreach (char c in name)
+                sb.Append(Array.IndexOf(Path.GetInvalidFileNameChars(), c) >= 0 ? '_' : c);
+            return sb.ToString().Trim().TrimEnd('.', ' ');
         }
     }
 }

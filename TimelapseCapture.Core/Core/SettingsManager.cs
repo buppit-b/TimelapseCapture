@@ -37,6 +37,7 @@ namespace TimelapseCapture
         public int OverlayFontSize { get; set; } = 0;        // pixels; 0 = auto
         public string OverlayFontFamily { get; set; } = "Consolas";
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
+        public string OutputNameTemplate { get; set; } = "timelapse_{date}_{time}"; // tokens: {session} {date} {time} {datetime}
         public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)
         public int HotkeyModifiers { get; set; } = 0x0006;  // Win32 fsModifiers: Ctrl(0x2) + Shift(0x4)
         public int HotkeyVk { get; set; } = 0x78;           // Win32 virtual-key: F9

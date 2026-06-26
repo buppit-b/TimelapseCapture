@@ -539,6 +539,23 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.HideFromCapture != value) { _settings.HideFromCapture = value; SettingsManager.Save(_settings); OnPropertyChanged(); WindowAffinityChanged?.Invoke(); } }
         }
 
+        // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
+        public string OutputNameTemplate
+        {
+            get => _settings.OutputNameTemplate;
+            set { if (_settings.OutputNameTemplate != value) { _settings.OutputNameTemplate = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        private string ResolveOutputName()
+        {
+            var now = DateTime.Now;
+            return (_settings.OutputNameTemplate ?? "")
+                .Replace("{session}", SessionName ?? "")
+                .Replace("{datetime}", now.ToString("yyyyMMdd_HHmmss"))
+                .Replace("{date}", now.ToString("yyyyMMdd"))
+                .Replace("{time}", now.ToString("HHmmss"));
+        }
+
         public bool CaptureCursor
         {
             get => _settings.CaptureCursor;
@@ -1056,7 +1073,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 int maxFrames = (endFrame >= startFrame && endFrame > 0) ? endFrame - startFrame + 1 : 0;
                 result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
-                    _encodeCts.Token, startFrame, maxFrames);
+                    _encodeCts.Token, startFrame, maxFrames, ResolveOutputName());
             }
             catch (Exception ex)
             {
