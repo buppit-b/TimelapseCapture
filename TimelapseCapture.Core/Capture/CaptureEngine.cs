@@ -52,6 +52,8 @@ namespace TimelapseCapture
         // always capturing _lockedSize (size frozen at Start) so every saved frame stays uniform (encodable).
         private IntPtr _trackedWindow = IntPtr.Zero;
         private Size _lockedSize;
+        private Point _lastTrackedLocation;   // last followed top-left, to detect (and skip) a window in motion
+        private bool _trackingInitialized;
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -91,6 +93,7 @@ namespace TimelapseCapture
                 _region = region;
                 _trackedWindow = trackedWindow;                         // zero = static region (default)
                 _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
+                _trackingInitialized = false;                           // first tracked tick always captures
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
                 Directory.CreateDirectory(_framesFolder);
 
@@ -186,31 +189,45 @@ namespace TimelapseCapture
                     {
                         // Window tracking: follow the window's current position (size stays locked). May throw
                         // if the window was closed/minimized — caught below and raised as CaptureFailed.
+                        bool skipMoving = false;
                         if (_trackedWindow != IntPtr.Zero)
-                            _region = ResolveTrackedRegion();
-
-                        long next = (_session?.FramesCaptured ?? 0) + 1;
-                        string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
-
-                        using (var bmp = CaptureRegion(_region))
                         {
-                            if (bmp.Width == 0 || bmp.Height == 0)
-                                throw new InvalidOperationException("Captured bitmap is invalid");
-                            if (_captureCursor) DrawCursor(bmp, _region);
-                            if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);
-                            SaveBitmap(bmp, file);
+                            var resolved = ResolveTrackedRegion();
+                            // Skip frames while the window is in motion: during a drag the on-screen pixels lag
+                            // the window rect (DWM compositing), so a transit frame would miss the target. Wait
+                            // until it's been still for a full interval, then capture a clean frame.
+                            if (_trackingInitialized && resolved.Location != _lastTrackedLocation)
+                                skipMoving = true;
+                            _lastTrackedLocation = resolved.Location;
+                            _trackingInitialized = true;
+                            _region = resolved;
                         }
 
-                        SessionManager.IncrementFrameCount(_sessionFolder);
-                        // If the session file vanished (folder moved/deleted mid-capture), IncrementFrameCount
-                        // silently no-ops and the count would freeze while frames overwrite each other — treat
-                        // it as a failure so it surfaces instead of running blind.
-                        var reloaded = SessionManager.LoadSession(_sessionFolder);
-                        if (reloaded == null)
-                            throw new InvalidOperationException("session.json is missing — the session folder may have been moved or deleted.");
-                        _session = reloaded;
-                        newCount = (int)reloaded.FramesCaptured;
-                        _lastCaptureTicks = Environment.TickCount64;
+                        if (!skipMoving)
+                        {
+                            long next = (_session?.FramesCaptured ?? 0) + 1;
+                            string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
+
+                            using (var bmp = CaptureRegion(_region))
+                            {
+                                if (bmp.Width == 0 || bmp.Height == 0)
+                                    throw new InvalidOperationException("Captured bitmap is invalid");
+                                if (_captureCursor) DrawCursor(bmp, _region);
+                                if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);
+                                SaveBitmap(bmp, file);
+                            }
+
+                            SessionManager.IncrementFrameCount(_sessionFolder);
+                            // If the session file vanished (folder moved/deleted mid-capture), IncrementFrameCount
+                            // silently no-ops and the count would freeze while frames overwrite each other — treat
+                            // it as a failure so it surfaces instead of running blind.
+                            var reloaded = SessionManager.LoadSession(_sessionFolder);
+                            if (reloaded == null)
+                                throw new InvalidOperationException("session.json is missing — the session folder may have been moved or deleted.");
+                            _session = reloaded;
+                            newCount = (int)reloaded.FramesCaptured;
+                            _lastCaptureTicks = Environment.TickCount64;
+                        }
                     }
                     catch (Exception ex)
                     {
