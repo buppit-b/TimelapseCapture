@@ -26,42 +26,6 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- Overlay (always-on-top / hide-from-capture / cursor capture now live on the main window) -->
-        <ToggleButton x:Name="secOverlay" Style="{StaticResource SectionHeader}" Content="OVERLAY" IsChecked="True"/>
-        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secOverlay, Converter={StaticResource BoolToVis}}">
-            <CheckBox Content="Overlay text on frames" IsChecked="{Binding OverlayTimestamp}"
-                      Foreground="{DynamicResource TextPrimaryBrush}"
-                      ToolTip="Burn a text overlay into each frame (takes effect on the next capture start)."/>
-            <StackPanel Margin="22,6,0,0" Visibility="{Binding OverlayTimestamp, Converter={StaticResource BoolToVis}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Text" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
-                    <TextBox Text="{Binding OverlayText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
-                             Width="290"
-                             ToolTip="Tokens: {datetime} {date} {time} {time12} · {t:FORMAT} for a custom .NET date format · plus any literal text."/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <TextBlock Text="Where" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
-                    <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2196;"
-                                 IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=0}" ToolTip="Top-left"/>
-                    <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2197;"
-                                 IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=1}" ToolTip="Top-right"/>
-                    <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2199;"
-                                 IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=2}" ToolTip="Bottom-left"/>
-                    <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2198;"
-                                 IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=3}" ToolTip="Bottom-right"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <TextBlock Text="Font" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
-                    <TextBox Text="{Binding OverlayFontFamily}" Style="{StaticResource DarkTextBox}" Width="150"
-                             ToolTip="Font family name, e.g. Consolas, Arial, Segoe UI."/>
-                    <TextBlock Text="Size" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
-                    <TextBox Text="{Binding OverlayFontSize}" Style="{StaticResource DarkTextBox}" Width="50" TextAlignment="Center"
-                             local:NumericInput.AllowDecimal="False"
-                             ToolTip="Pixels; 0 = auto-scale to the frame height."/>
-                </StackPanel>
-            </StackPanel>
-        </StackPanel>
-
         <!-- Encoding -->
         <ToggleButton x:Name="secEncoding" Style="{StaticResource SectionHeader}" Content="ENCODING" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secEncoding, Converter={StaticResource BoolToVis}}">

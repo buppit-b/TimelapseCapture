@@ -62,6 +62,8 @@
                               ToolTip="Keep the Timelapse Capture window above all other windows."/>
                 <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
+                <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0"
+                        Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,0,0"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
             </StackPanel>

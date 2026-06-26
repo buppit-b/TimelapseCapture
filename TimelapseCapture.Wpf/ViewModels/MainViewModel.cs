@@ -47,6 +47,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
+            OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             SetTargetCommand = new RelayCommand(_ => SetTarget());
@@ -390,6 +391,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand LoadSessionCommand { get; }
         public ICommand RenameSessionCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand OpenOverlayCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
         public ICommand SetTargetCommand { get; }
@@ -632,6 +634,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void OpenSettings()
         {
             var dlg = new SettingsDialog { Owner = Application.Current?.MainWindow, DataContext = this };
+            dlg.ShowDialog();
+        }
+
+        private void OpenOverlay()
+        {
+            var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
         }
 
