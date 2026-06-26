@@ -189,8 +189,14 @@ namespace TimelapseCapture
                         }
 
                         SessionManager.IncrementFrameCount(_sessionFolder);
-                        _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
-                        newCount = (int)(_session?.FramesCaptured ?? next);
+                        // If the session file vanished (folder moved/deleted mid-capture), IncrementFrameCount
+                        // silently no-ops and the count would freeze while frames overwrite each other — treat
+                        // it as a failure so it surfaces instead of running blind.
+                        var reloaded = SessionManager.LoadSession(_sessionFolder);
+                        if (reloaded == null)
+                            throw new InvalidOperationException("session.json is missing — the session folder may have been moved or deleted.");
+                        _session = reloaded;
+                        newCount = (int)reloaded.FramesCaptured;
                         _lastCaptureTicks = Environment.TickCount64;
                     }
                     catch (Exception ex)

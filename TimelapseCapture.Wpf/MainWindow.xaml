@@ -168,6 +168,12 @@
                             <TextBlock Text="seconds" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14" TextWrapping="Wrap"/>
+                        <Border Background="#22E5534B" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="4"
+                                Padding="9,6" Margin="0,0,0,12"
+                                Visibility="{Binding HasCaptureError, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding CaptureError}" Foreground="{DynamicResource DangerBrush}"
+                                       FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

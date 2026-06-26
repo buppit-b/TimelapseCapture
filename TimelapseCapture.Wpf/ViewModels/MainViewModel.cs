@@ -934,9 +934,20 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
-            PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
-            SetSessionActive(true);       // a session left Active at launch = the app died mid-capture
-            StartEngine();
+            CaptureError = "";
+            _consecutiveCaptureFailures = 0;
+            try
+            {
+                PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
+                SetSessionActive(true);       // a session left Active at launch = the app died mid-capture
+                StartEngine();                // creates the frames folder — can throw if the path is unwritable
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Wpf", $"Start failed: {ex.Message}");
+                CaptureError = $"Couldn't start capture: {ex.Message}\nCheck the output folder exists and is writable.";
+                return;
+            }
             IsCapturing = true;
             IsPaused = false;
         }
@@ -975,6 +986,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void StopCapture()
         {
+            CaptureError = "";   // a manual stop clears any warning; the auto-stop path re-sets it after this
             _engine.Stop();
             if (_captureStart.HasValue)
             {
@@ -1029,11 +1041,46 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
         }
 
-        private void OnFrameCaptured(int count)
-            => Application.Current?.Dispatcher.BeginInvoke(new Action(() => FrameCount = count));
+        // Visible capture-failure banner (empty = no problem). Set when saving frames fails.
+        private string _captureError = "";
+        public string CaptureError
+        {
+            get => _captureError;
+            set { if (SetProperty(ref _captureError, value)) OnPropertyChanged(nameof(HasCaptureError)); }
+        }
+        public bool HasCaptureError => !string.IsNullOrEmpty(_captureError);
 
+        private int _consecutiveCaptureFailures;
+
+        private void OnFrameCaptured(int count)
+            => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _consecutiveCaptureFailures = 0;
+                if (HasCaptureError) CaptureError = "";   // a frame saved → clear any stale warning
+                FrameCount = count;
+            }));
+
+        // A frame failed to save (folder deleted, disk full, permissions…). Surface it — and if it keeps
+        // failing, stop rather than tick forever with the count frozen and no sign anything is wrong.
         private void OnCaptureFailed(string message)
-            => Logger.Log("Wpf", $"Capture error: {message}");
+        {
+            Logger.Log("Wpf", $"Capture error: {message}");
+            Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsCapturing) return;   // already stopped — ignore late failures from in-flight ticks
+                _consecutiveCaptureFailures++;
+                if (_consecutiveCaptureFailures >= 3)
+                {
+                    StopCapture();
+                    CaptureError = $"Capture stopped — couldn't save frames: {message}\n" +
+                                   "Check the output folder still exists and has free space, then start again.";
+                }
+                else
+                {
+                    CaptureError = $"Couldn't save the last frame: {message} — retrying…";
+                }
+            }));
+        }
 
         private void OnSmartStatus(string status)
             => Application.Current?.Dispatcher.BeginInvoke(new Action(() => SmartStatus = status));
