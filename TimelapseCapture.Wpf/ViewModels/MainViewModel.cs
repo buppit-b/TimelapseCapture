@@ -382,6 +382,9 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void UpdatePreview() => PreviewImage = FramePreview.LoadLatest(_sessionFolder, 260);
 
+        // A higher-res copy of the latest frame, loaded on demand for the preview loupe.
+        public ImageSource? LoadLoupeFrame() => FramePreview.LoadLatest(_sessionFolder, 1400);
+
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
