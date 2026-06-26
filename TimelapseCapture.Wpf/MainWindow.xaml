@@ -131,6 +131,9 @@
                                         Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
                                 <Button Content="Full Screen" Style="{StaticResource BtnRegion}"
                                         Command="{Binding FullScreenCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Track Window" Style="{StaticResource BtnRegion}"
+                                        Command="{Binding TrackWindowCommand}" Margin="0,0,8,0"
+                                        ToolTip="Capture a specific window and follow it as it moves (size locked at its current size)."/>
                                 <Button Content="Edit" Style="{StaticResource BtnBase}"
                                         Command="{Binding EditRegionCommand}" Margin="0,0,8,0"
                                         ToolTip="Adjust the current region on screen — drag to move, drag the handles to resize."/>

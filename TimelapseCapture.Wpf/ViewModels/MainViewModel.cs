@@ -27,6 +27,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private SessionInfo? _session;
         private string? _sessionFolder;
         private Rectangle? _region;
+        private IntPtr _trackedWindow = IntPtr.Zero;   // non-zero = the active region follows this window
         private DateTime? _captureStart;
         private double _accumulatedSeconds; // total capture time across start/stop within this app run
         private int _statsTick;
@@ -57,6 +58,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             // After the window is up, check whether a previous run was interrupted mid-capture.
             Application.Current?.Dispatcher.BeginInvoke(new Action(CheckForInterruptedSession), DispatcherPriority.Background);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
+            TrackWindowCommand = new RelayCommand(_ => TrackWindow(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
@@ -398,6 +400,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand ImportSettingsCommand { get; }
         public ICommand SetTargetCommand { get; }
         public ICommand FullScreenCommand { get; }
+        public ICommand TrackWindowCommand { get; }
         public ICommand SelectRegionCommand { get; }
         public ICommand EditRegionCommand { get; }
         public ICommand StartCommand { get; }
@@ -885,6 +888,22 @@ namespace TimelapseCapture.Wpf.ViewModels
             ApplyRegion(r, $"{r.Width}×{r.Height} (full screen)");
         }
 
+        // Pick a top-level window; capture follows it as it moves (size locked at the current size).
+        private void TrackWindow()
+        {
+            if (!ConfirmRegionChange()) return;
+            var dlg = new WindowPickerDialog { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true) return;
+            if (!WindowEnumerator.TryGetLiveBounds(dlg.SelectedHwnd, out var b, out _, out bool alive) || !alive) return;
+
+            int w = b.Width - b.Width % 2;     // even dims for the H.264 encoder
+            int h = b.Height - b.Height % 2;
+            if (w < 2 || h < 2) return;
+
+            var r = new Rectangle(b.X, b.Y, w, h);
+            ApplyRegion(r, $"{w}×{h} · tracking “{dlg.SelectedTitle}” (follows)", dlg.SelectedHwnd);
+        }
+
         private void SelectRegion()
         {
             if (!ConfirmRegionChange()) return;
@@ -906,8 +925,9 @@ namespace TimelapseCapture.Wpf.ViewModels
                 ApplyRegion(dlg.SelectedRegion.Value);
         }
 
-        private void ApplyRegion(System.Drawing.Rectangle r, string? label = null)
+        private void ApplyRegion(System.Drawing.Rectangle r, string? label = null, IntPtr trackedWindow = default)
         {
+            _trackedWindow = trackedWindow;   // every region source funnels here, so static sources reset to 0
             _region = r;
             RegionText = label ?? $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
             PersistRegion(r);
@@ -959,7 +979,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
-                _settings.CaptureCursor, BuildOverlay());
+                _settings.CaptureCursor, BuildOverlay(), _trackedWindow);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }

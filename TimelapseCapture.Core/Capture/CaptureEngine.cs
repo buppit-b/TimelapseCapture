@@ -48,6 +48,11 @@ namespace TimelapseCapture
         private bool _captureCursor;
         private OverlayConfig? _overlay;
 
+        // Window tracking: when _trackedWindow is non-zero, each tick follows that window's top-left while
+        // always capturing _lockedSize (size frozen at Start) so every saved frame stays uniform (encodable).
+        private IntPtr _trackedWindow = IntPtr.Zero;
+        private Size _lockedSize;
+
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
         private int _baseIntervalMs;   // working rate (used while active) — also the smart-mode poll rate
@@ -75,7 +80,7 @@ namespace TimelapseCapture
                           double intervalSeconds, string format,
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
-                          bool captureCursor = false, OverlayConfig? overlay = null)
+                          bool captureCursor = false, OverlayConfig? overlay = null, IntPtr trackedWindow = default)
         {
             lock (_lock)
             {
@@ -84,6 +89,8 @@ namespace TimelapseCapture
                 _sessionFolder = sessionFolder;
                 _session = session;
                 _region = region;
+                _trackedWindow = trackedWindow;                         // zero = static region (default)
+                _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
                 Directory.CreateDirectory(_framesFolder);
 
@@ -128,6 +135,7 @@ namespace TimelapseCapture
             {
                 if (!IsRunning) return;
                 IsRunning = false;
+                _trackedWindow = IntPtr.Zero;
                 _timer?.Dispose();
                 _timer = null;
                 if (_activityMonitor != null)
@@ -176,6 +184,11 @@ namespace TimelapseCapture
                 {
                     try
                     {
+                        // Window tracking: follow the window's current position (size stays locked). May throw
+                        // if the window was closed/minimized — caught below and raised as CaptureFailed.
+                        if (_trackedWindow != IntPtr.Zero)
+                            _region = ResolveTrackedRegion();
+
                         long next = (_session?.FramesCaptured ?? 0) + 1;
                         string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
 
@@ -303,6 +316,26 @@ namespace TimelapseCapture
                 finally { g.ReleaseHdc(hdc); }
             }
             catch { /* cursor overlay is best-effort; never break the capture loop */ }
+        }
+
+        // Build the capture rect for a tracked window: follow its top-left, keep the locked size. Runs on
+        // the timer thread under the already-held _lock (synchronous Win32, no async). Throws on closed/
+        // minimized so OnTick's existing catch surfaces it via CaptureFailed (and the VM auto-stops).
+        private Rectangle ResolveTrackedRegion()
+        {
+            if (!WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var live, out bool minimized, out bool alive))
+            {
+                if (!alive) throw new InvalidOperationException("The tracked window was closed.");
+                throw new InvalidOperationException("Couldn't read the tracked window's position.");
+            }
+            if (minimized)
+                throw new InvalidOperationException("The tracked window is minimized — restore it to keep capturing.");
+
+            // Position follows the window; size is ALWAYS the locked size (live width/height ignored) so frames
+            // stay uniform. Clamp onto the desktop so BitBlt never reads out of bounds; if the locked box can't
+            // fit (resolution dropped below it), reuse the last good region — still a uniform frame, not a fail.
+            var candidate = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
+            return ScreenHelper.FitRegionOnScreen(candidate, out _) ?? _region;
         }
 
         private static Bitmap CaptureRegion(Rectangle region)
