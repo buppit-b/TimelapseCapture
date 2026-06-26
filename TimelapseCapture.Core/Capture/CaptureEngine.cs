@@ -48,11 +48,15 @@ namespace TimelapseCapture
         private bool _captureCursor;
         private OverlayConfig? _overlay;
 
-        // Window tracking: when _trackedWindow is non-zero, each tick follows that window's top-left while
-        // always capturing _lockedSize (size frozen at Start) so every saved frame stays uniform (encodable).
+        // Window tracking: when _trackedWindow is non-zero, each tick follows the window. Output is always
+        // _lockedSize (frozen at Start) so every saved frame stays uniform (encodable). _resizeMode decides
+        // how a resized window is handled: 0 = lock (crop the locked box at the window's top-left), 1 = fit
+        // (capture the whole window, letterbox-scale into the frame), 2 = stretch (scale to fill, distort).
+        public const int ResizeLock = 0, ResizeFit = 1, ResizeStretch = 2;
         private IntPtr _trackedWindow = IntPtr.Zero;
         private Size _lockedSize;
-        private Point _lastTrackedLocation;   // last followed top-left, to detect (and skip) a window in motion
+        private int _resizeMode;
+        private Rectangle _lastTrackedRect;   // last followed rect (pos+size), to detect (and skip) motion/resize
         private bool _trackingInitialized;
         private bool _pauseOnTrackedMinimize; // true = hold while a tracked window is minimized; false = stop
 
@@ -84,7 +88,7 @@ namespace TimelapseCapture
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
                           bool captureCursor = false, OverlayConfig? overlay = null, IntPtr trackedWindow = default,
-                          bool pauseOnTrackedMinimize = false)
+                          bool pauseOnTrackedMinimize = false, int resizeMode = ResizeLock)
         {
             lock (_lock)
             {
@@ -97,6 +101,7 @@ namespace TimelapseCapture
                 _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
                 _trackingInitialized = false;                           // first tracked tick always captures
                 _pauseOnTrackedMinimize = pauseOnTrackedMinimize;
+                _resizeMode = resizeMode;
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
                 Directory.CreateDirectory(_framesFolder);
 
@@ -212,13 +217,24 @@ namespace TimelapseCapture
                             }
                             else
                             {
-                                // Follow the top-left, keep the locked size, clamp onto the desktop (reuse the last
-                                // region if it can't fit). Skip the frame while the window is in motion.
-                                var candidate = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
-                                var resolved = ScreenHelper.FitRegionOnScreen(candidate, out _) ?? _region;
-                                if (_trackingInitialized && resolved.Location != _lastTrackedLocation)
+                                // Lock mode: follow the top-left at the locked size, clamped onto the desktop (reuse
+                                // the last region if it can't fit). Scale modes: capture the whole visible window, to
+                                // be resampled to the locked size when saved.
+                                Rectangle resolved;
+                                if (_resizeMode == ResizeLock)
+                                {
+                                    var box = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
+                                    resolved = ScreenHelper.FitRegionOnScreen(box, out _) ?? _region;
+                                }
+                                else
+                                {
+                                    var vis = Rectangle.Intersect(live, ScreenHelper.VirtualScreenBounds());
+                                    resolved = (vis.Width >= 2 && vis.Height >= 2) ? vis : _region;
+                                }
+                                // Skip the frame while the window is moving OR resizing (on-screen pixels lag the rect).
+                                if (_trackingInitialized && resolved != _lastTrackedRect)
                                     skipFrame = true;
-                                _lastTrackedLocation = resolved.Location;
+                                _lastTrackedRect = resolved;
                                 _trackingInitialized = true;
                                 _region = resolved;
                             }
@@ -229,12 +245,11 @@ namespace TimelapseCapture
                             long next = (_session?.FramesCaptured ?? 0) + 1;
                             string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
 
-                            using (var bmp = CaptureRegion(_region))
+                            using (var bmp = CaptureFrameBitmap())
                             {
                                 if (bmp.Width == 0 || bmp.Height == 0)
                                     throw new InvalidOperationException("Captured bitmap is invalid");
-                                if (_captureCursor) DrawCursor(bmp, _region);
-                                if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);
+                                if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);  // overlay sits on the final frame
                                 SaveBitmap(bmp, file);
                             }
 
@@ -354,6 +369,48 @@ namespace TimelapseCapture
                 finally { g.ReleaseHdc(hdc); }
             }
             catch { /* cursor overlay is best-effort; never break the capture loop */ }
+        }
+
+        // Produce the frame to save. Static region or lock-size tracking captures _region directly; scale modes
+        // capture the live window then resample to the locked size (the cursor is drawn on the source so it
+        // scales with the content). Output is always uniform (_region size, or _lockedSize for scale modes).
+        private Bitmap CaptureFrameBitmap()
+        {
+            if (_trackedWindow == IntPtr.Zero || _resizeMode == ResizeLock)
+            {
+                var bmp = CaptureRegion(_region);
+                if (_captureCursor) DrawCursor(bmp, _region);
+                return bmp;
+            }
+            using var src = CaptureRegion(_region);
+            if (_captureCursor) DrawCursor(src, _region);
+            return ScaleToLocked(src);
+        }
+
+        // Resample the captured window into a locked-size frame: Fit = letterbox (preserve aspect, black bars),
+        // Stretch = fill exactly (distorts). Keeps every saved frame at the locked WxH regardless of window size.
+        private Bitmap ScaleToLocked(Bitmap src)
+        {
+            var dest = new Bitmap(_lockedSize.Width, _lockedSize.Height);
+            using var g = Graphics.FromImage(dest);
+            g.Clear(Color.Black);
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+
+            Rectangle d;
+            if (_resizeMode == ResizeStretch)
+            {
+                d = new Rectangle(0, 0, _lockedSize.Width, _lockedSize.Height);
+            }
+            else // Fit: scale to fit inside the frame, centred, letterboxed
+            {
+                double scale = Math.Min((double)_lockedSize.Width / src.Width, (double)_lockedSize.Height / src.Height);
+                int w = Math.Max(1, (int)Math.Round(src.Width * scale));
+                int h = Math.Max(1, (int)Math.Round(src.Height * scale));
+                d = new Rectangle((_lockedSize.Width - w) / 2, (_lockedSize.Height - h) / 2, w, h);
+            }
+            g.DrawImage(src, d);
+            return dest;
         }
 
         private static Bitmap CaptureRegion(Rectangle region)

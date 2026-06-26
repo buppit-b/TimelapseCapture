@@ -574,6 +574,13 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.StopAtTarget != value) { _settings.StopAtTarget = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // How a tracked window's resize is handled: 0 = lock size (crop), 1 = scale-to-fit (letterbox), 2 = stretch.
+        public int TrackResizeMode
+        {
+            get => _settings.TrackResizeMode;
+            set { if (_settings.TrackResizeMode != value) { _settings.TrackResizeMode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
         public string OutputNameTemplate
         {
@@ -921,9 +928,16 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive)
                 && alive && !minimized)
             {
-                var locked = _region.Value;
-                var candidate = new System.Drawing.Rectangle(b.X, b.Y, locked.Width, locked.Height);
-                _overlay.ShowForRegion(ScreenHelper.FitRegionOnScreen(candidate, out _) ?? locked);
+                if (_settings.TrackResizeMode == 0)   // lock size: outline is the locked box at the window's top-left
+                {
+                    var locked = _region.Value;
+                    var candidate = new System.Drawing.Rectangle(b.X, b.Y, locked.Width, locked.Height);
+                    _overlay.ShowForRegion(ScreenHelper.FitRegionOnScreen(candidate, out _) ?? locked);
+                }
+                else                                  // scale modes: outline tracks the whole window (follows resize)
+                {
+                    _overlay.ShowForRegion(b);
+                }
             }
         }
 
@@ -1065,7 +1079,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
-                _settings.CaptureCursor, BuildOverlay(), _trackedWindow, _settings.PauseOnTrackedMinimize);
+                _settings.CaptureCursor, BuildOverlay(), _trackedWindow, _settings.PauseOnTrackedMinimize,
+                _settings.TrackResizeMode);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }

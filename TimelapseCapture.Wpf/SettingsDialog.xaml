@@ -35,6 +35,20 @@
             <CheckBox Content="Keep the tracked window on top while capturing" IsChecked="{Binding KeepTrackedWindowOnTop}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"
                       ToolTip="Force the tracked window above all others while capturing so nothing can cover it. Released when capture stops."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="On resize" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="64"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Lock size"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                             ToolTip="Capture a fixed box at the window's top-left — if the window grows, the extra is cropped (default)."/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Fit"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                             ToolTip="Scale the whole window into the frame, preserving aspect (letterbox) — follows resizing/maximising with nothing cut off."/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Stretch"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=2}"
+                             ToolTip="Scale the whole window to fill the frame, ignoring aspect (may distort)."/>
+            </StackPanel>
+            <TextBlock Text="Frame size is still fixed (set when you press Track); this only changes how a resized window maps into it. Applies on the next start."
+                       Style="{StaticResource Muted}" FontSize="10" Margin="64,4,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Encoding -->
