@@ -3,6 +3,44 @@
 All notable changes to TimelapseCapture are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [0.9.3] — 2026-06-26
+
+The headline 1.0 feature plus a big reliability + UX pass.
+
+### Added
+- **Window / element tracking** — pick a top-level window and capture it; the capture **follows
+  the window as it moves**. Frame size is locked when you press Track so frames stay uniform.
+  Transit frames are skipped while the window is in motion (no smear). A **Show** outline follows
+  the window live. Options (Settings → Window tracking): **on minimize** stop (default) or wait;
+  **keep the tracked window on top** while capturing; and **on resize** — *Lock size* (default,
+  crops), *Fit* (letterbox-scale the whole window into the frame), or *Stretch*.
+- **Capture-failure surfacing** — if frames stop saving (output folder deleted, disk full,
+  permissions, tracked window closed), a red banner appears and capture auto-stops after 3
+  consecutive failures instead of silently running with a frozen count. Dismissible; full detail
+  in the tooltip.
+- **Stop at target** — optional auto-stop once the frame count reaches the Target (STATS panel).
+- **Overlay editor** — the frame text overlay moved out of Settings into its own **Overlay**
+  button in the header, with a token cheat-sheet.
+- **Custom output naming** — a filename template for encodes/trims (`{session}` `{date}` `{time}`
+  `{datetime}`), Settings → Encoding.
+- **Selectable colour themes** working live, **themed scrollbars + checkboxes**, and a clearer
+  **"Stay on top"** header toggle.
+
+### Changed
+- **Target field** commits on Enter / tab-away (no Set button) with a confirm pulse on the field
+  and label.
+- The window can be **shrunk freely** — content scrolls when it no longer fits.
+- **Capture-affecting options surfaced** on the main UI: *Capture cursor* and *Hide this window
+  from captures* (CAPTURE card), *Stay on top* (header).
+- **Full Screen** no longer warns when the region is unchanged (a verified no-op).
+- New Session confirms before replacing a session that already has frames.
+
+### Fixed
+- Colour themes actually switch now (DynamicResource palette + live swap).
+- Stats lines wrap instead of clipping in the narrowed right column.
+
+[0.9.3]: https://github.com/buppit-b/TimelapseCapture
+
 ## [0.9.2] — 2026-06-26
 
 ### Added

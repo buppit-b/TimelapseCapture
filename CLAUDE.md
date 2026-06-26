@@ -25,8 +25,8 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 12 tests, cover `SessionManager`, `ValidationHelper`,
-  and `ScreenHelper` (region-relocate geometry).
+- **`TimelapseCapture.Tests`** — 14 tests, cover `SessionManager`, `ValidationHelper`,
+  `ScreenHelper` (region-relocate geometry), and `WindowEnumerator` (filtering + dead handle).
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
 - **Build:** `dotnet build TimelapseCapture.sln`
@@ -34,7 +34,7 @@ front-end.** The two front-ends share one engine:
   (or launch `TimelapseCapture.Wpf/bin/Debug/net9.0-windows/TimelapseCapture.Wpf.exe`)
 - **Test:** `dotnet test TimelapseCapture.sln`
 - Windows only (.NET 9, `net9.0-windows`).
-- **Version:** `0.9.1` (SemVer; `<Version>` in both `.csproj`, shown in the Settings
+- **Version:** `0.9.3` (SemVer; `<Version>` in both `.csproj`, shown in the Settings
   cog). Pre-1.0 stays on `0.x`. See `ROADMAP.md` (versioning + 1.0 candidates + known
   issues) and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
 
@@ -59,14 +59,17 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 12/12.
+- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 14/14.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
 - **Don't add dependencies** without a clear reason — the app is intentionally lean.
-- Aesthetics are **deprioritized** right now (Spike's call): clean up what we had,
-  green accent is fine as placeholder, function/parity first. A richer aesthetic
-  pass comes later.
+- **Aesthetics + UX now matter** (Spike drives this actively): clean dark + terminal vibe,
+  themed controls (scrollbars/checkboxes), live theme switching. Function still comes first,
+  but polish is in scope — Spike often asks for my UX best-practice input on a change.
+- **Most things are options.** Spike's strong preference: when adding behaviour that some
+  users want and others don't, make it an opt-in setting (additive `CaptureSettings` field)
+  with a sensible default, rather than forcing it.
 
 ---
 
@@ -80,9 +83,15 @@ Small, single-maintainer app. The working bar:
   OUTSIDE the lock** — a subscriber may call `Stop()` on another thread; raising
   inside the lock would deadlock. Keep it that way.
 - **No async/await in the capture path, no fire-and-forget tasks.** Hard constraint.
+  Window-tracking per-tick work (`CaptureFrameBitmap`, the tracked-region resolve, `ScaleToLocked`)
+  runs synchronously on the timer thread **inside** `lock (_lock)` — keep it that way.
 - The WPF VM marshals these events to the UI thread via
   `Application.Current.Dispatcher.BeginInvoke` (see `MainViewModel.OnFrameCaptured`
-  / `OnSmartStatus`). Never touch WPF controls directly from an engine event.
+  / `OnSmartStatus` / `OnCaptureFailed`). Never touch WPF controls directly from an engine event.
+- **Capture failures are surfaced, not swallowed.** A failed frame-save raises `CaptureFailed`;
+  the VM shows a red banner (`CaptureError`) and **auto-stops after 3 consecutive failures**.
+  The engine also throws (→ `CaptureFailed`) if `session.json` vanishes mid-capture or a tracked
+  window is closed/minimized (unless "wait while minimized" is on). Don't reintroduce silent failure.
 
 ### 2. Region / DPI
 
@@ -90,14 +99,17 @@ Small, single-maintainer app. The working bar:
   `ScreenHelper.SystemDpiScale()` (see `RegionOverlay.ShowForRegion`,
   `RegionSelectOverlay`, `RegionEditOverlay`).
 - In the WPF VM the runtime region is `_region`. Every region source
-  (`SelectRegion`, `SelectFullScreen`, `EditRegion`) funnels through the single
-  `ApplyRegion()` method, which updates `_region` + `RegionText` + the overlay AND
-  persists the region into `session.json` via `PersistRegion()` (reload-set-save,
-  frame-count safe). Loading restores `_region` from `session.CaptureRegion`,
-  validated to still intersect a current monitor. **Route any new region source
-  through `ApplyRegion()`.** (The engine does NOT persist the region — `ApplyRegion`
-  does. An earlier version of this file wrongly said the engine saved it, and the
-  region was in fact never persisted, so loading a session always lost it.)
+  (`SelectRegion`, `SelectFullScreen`, `EditRegion`, **`TrackWindow`**) funnels through the
+  single `ApplyRegion(rect, label, trackedWindow)` method, which updates `_region` + `RegionText`
+  + the overlay, **resets `_trackedWindow`** (so static sources clear tracking automatically; only
+  `TrackWindow` passes a handle), AND persists the region into `session.json` via `PersistRegion()`
+  (reload-set-save, frame-count safe). Loading restores `_region` from `session.CaptureRegion`,
+  validated to still intersect a current monitor. **Route any new region source through
+  `ApplyRegion()`.** (The engine does NOT persist the region — `ApplyRegion` does.)
+- **Window tracking:** when a window is tracked, the engine re-reads `GetWindowRect` each tick and
+  follows the window (size locked at Start). `WindowEnumerator` (Core) enumerates/reads windows in
+  physical pixels. Tracking is **not** persisted across restarts (HWNDs aren't stable) — a reloaded
+  session is a static region at the saved spot.
 - The on-screen overlay (`RegionOverlay`) draws its 2px outline in the ring
   **just outside** the region (and its dimension label **above** the top edge) so
   the outline is never captured into the frames. Don't move it onto the region.
@@ -124,7 +136,13 @@ Small, single-maintainer app. The working bar:
   frames (165 in → tiny output). Verified 165→165. Don't "simplify" back to concat.
 - Frames must be **uniform** (same WxH and same extension) for image2 to work.
   That's why the WPF app warns before changing **region** or **format** when a
-  session already has frames (`ConfirmRegionChange()` / the `UsePng` setter).
+  session already has frames (`ConfirmRegionChange()` / the `UsePng` setter). Window-tracking
+  preserves this: lock mode keeps a fixed-size box; **scale modes (Fit/Stretch) resample every
+  frame to the locked size** (`ScaleToLocked`) so output is always uniform regardless of the
+  window's live size.
+- **Trimming** encodes a contiguous frame range directly (`-start_number`/`-frames:v`), no
+  re-encode and no renumber — see `VideoEncoder.EncodeAsync(... startFrame, maxFrames, outputName)`.
+  Output filenames come from a user template (`{session}`/`{date}`/`{time}`/`{datetime}`).
 - JPEG quality only applies because the engine saves via a JPEG quality encoder
   (`CaptureEngine.SaveBitmap`) — plain `Bitmap.Save(file, ImageFormat.Jpeg)`
   silently ignores the quality. Don't revert that.
@@ -135,19 +153,26 @@ Small, single-maintainer app. The working bar:
 
 ```
 TimelapseCapture.Wpf/
-├── App.xaml(.cs)              palette + styles (Card, Btn*, DarkTextBox,
-│                              BtnOverlay toggle, BoolToVis converter, pulse)
-├── MainWindow.xaml(.cs)       two-column layout: left OUTPUT/SESSION/CAPTURE/
-│                              SMART INTERVAL cards, right STATUS + STATS cards
-├── RegionOverlay.xaml(.cs)    click-through region outline + WxH label (toggle)
-├── RegionSelectOverlay.xaml(.cs)  drag-select → physical-pixel Rectangle
+├── App.xaml(.cs)              palette + styles (Card, Btn*, Seg, SectionHeader, HeaderToggle,
+│                              DarkTextBox, themed ScrollBar + CheckBox, PulseFg/PulseRing,
+│                              BoolToVis/StrEq converters) · ThemeManager.Apply on startup
+├── ThemeManager.cs            colour themes (Terminal/Ocean/Ember/Synth/Light), live swap
+├── MainWindow.xaml(.cs)       two-column layout in a ScrollViewer (shrink-to-scroll); header
+│                              has Stay-on-top / Overlay / ⚙. Code-behind: global hotkey,
+│                              SetWindowDisplayAffinity (hide-from-capture), target commit
+├── Converters.cs / Behaviors.cs   StringEqualsConverter, NumericInput attached behaviour
+├── FramePreview.cs            loads latest / Nth frame as a small frozen image
+├── SettingsDialog · OverlayDialog · TrimDialog · LoadSessionDialog · MonitorPickerDialog ·
+│   WindowPickerDialog · TextPromptDialog   (dark modal dialogs)
+├── RegionOverlay / RegionSelectOverlay / RegionEditOverlay   (on-screen region UI)
 └── ViewModels/
     ├── MainViewModel.cs       the brain — all commands/properties/state
     ├── RelayCommand.cs        ICommand (CommandManager.RequerySuggested)
     └── ViewModelBase.cs       INotifyPropertyChanged + SetProperty
 
 TimelapseCapture.Core/
-├── Capture/  CaptureEngine, ActivityMonitor (smart interval), ScreenHelper, AspectRatio
+├── Capture/  CaptureEngine, WindowEnumerator (track-window enum + GetWindowRect/SetTopmost),
+│             ActivityMonitor (smart interval), ScreenHelper, AspectRatio, OverlayConfig
 ├── Core/     SessionManager, SettingsManager (CaptureSettings), Logger, Constants, UIState
 ├── Video/    VideoEncoder, FfmpegRunner, FfmpegDownloader
 └── Utilities/ SystemMonitor (storage/mem stats), ValidationHelper, PerformanceOptimizations
@@ -160,7 +185,19 @@ engine events → marshalled to UI; a 1s `DispatcherTimer` drives `RefreshStats(
 
 ---
 
-## WPF feature status (verified 2026-06-24)
+## WPF feature status (verified 2026-06-26)
+
+**Big features since parity (0.9.x → 0.9.3):**
+- **Window / element tracking** (0.9.3, headline) — pick a window, follow it as it moves; size
+  locked at Track time; transit frames skipped while moving; live-following Show outline; options
+  for on-minimize (stop/wait), keep-on-top, on-resize (Lock / Fit letterbox / Stretch). Engine
+  `CaptureFrameBitmap`/`ScaleToLocked` + Core `WindowEnumerator`; `MainViewModel.TrackWindow`.
+- **Capture-failure surfacing** (red banner + 3-strike auto-stop) — no more silent frozen-count.
+- **Clip trimming** (frame-range scrubber → encode a range), **custom output naming** (template).
+- **Crash recovery** (Active flag → resume prompt), **opt-in configurable global hotkey**,
+  **pause/resume**, **configurable text overlay** (own Overlay dialog), **cursor capture**,
+  **hide-this-window-from-capture**, **multi-monitor full-screen picker**, **settings
+  export/import**, **stop-at-target**, **selectable live colour themes** + themed scrollbars/checkboxes.
 
 **Done — at or beyond WinForms parity:**
 output folder picker · new/load session · open session folder · select region +
@@ -182,7 +219,8 @@ native folder browser) · **encode preset** (Fast/Medium/Slow segmented control)
 overlay** ("Edit" → drag to move, 8 handles to resize, Apply/Cancel; corners keep
 the locked ratio, edges free, Shift frees) · **live preview** of the latest frame
 (bottom-right) · **pulsing red ● REC** header indicator · **rename session** (click
-the header name) · **settings cog** (⚙ → SettingsDialog, "always on top" so far).
+the header name) · **settings cog** (⚙ → SettingsDialog: Appearance/theme, Window tracking,
+Encoding/naming, Hotkey) · **Overlay** + **Stay-on-top** header controls.
 
 **Smart interval semantics (corrected — don't re-invert):** the main **Interval**
 is the *working/active* rate; when idle, capture slows to **Idle rate**
@@ -201,39 +239,43 @@ session: a dark **segmented control** (`Seg` style + `StringEqualsConverter`, in
 `App.xaml`/`Converters.cs`) — prefer it over a ComboBox for any future discrete
 pick; and `RegionEditOverlay` for on-screen region editing.
 
-**Needs hands-on verification (built, not screen-tested by Claude):** the
-**editable overlay** drag/resize math (handle hit-testing, DPI conversion, multi-
-monitor offset) and the **aspect-ratio** constraint visuals. They build and the
-logic is straightforward, but interactive drag really wants a human eye — if a
-handle feels off or the box jumps, look at `RegionEditOverlay.OnMouseMove`.
+**Verified hands-on (Spike tests each build):** region select/edit overlays, smart interval,
+encode/trim, live themes, and window tracking (move-follow, resize Lock/Fit/Stretch, minimize +
+keep-on-top) have all been exercised live over the 0.9.x arc.
 
-**Remaining:** only the deferred **aesthetic pass** (Spike wants it *later* — clean
-dark + terminal vibe is in; richer styling is explicitly not now). The
-parity-plus-polish work is otherwise complete.
+**Remaining toward 1.0:** unattended safety (auto-stop on low disk / optional max duration,
+finish notification), **frame cull** (delete interior fumbles — needs renumber, the gapped-frame
+encode edge case), and **window-tracking slice 2** (WGC for occluded windows, persist tracking
+across restarts, client-area-only). The richer-aesthetic pass is partly underway (themed controls
++ live themes landed).
 
 ---
 
 ## Handoff notes for the next thread
 
-- This session was a long, iterative polish pass on the WPF app driven by Spike
-  testing each build and sending screenshots. Everything under "Done" is pushed to
-  `main` (latest commit ~`50022b9`).
-- The parity-plus-polish list is finished, including the last four items: in-app
-  session picker, encode preset, aspect-ratio lock, and the editable region
-  overlay. The editable overlay + aspect-ratio constraint still want Spike's
-  hands-on test (see "Needs hands-on verification" above).
-- **Next:** whatever Spike reports from testing, then optionally the remaining
-  ideas above (persist total time, picker thumbnails) and — when he's ready — the
-  deferred aesthetic pass.
-- **Ignore `C:\Users\Spike\.claude\plans\jazzy-baking-trinket.md`** — it's a plan
-  for reworking the *old WinForms* UI and is obsolete (we rebuilt in WPF instead).
-- Keep committing per-feature and relaunching the exe for Spike to verify.
+- The WPF app is at **0.9.3**: parity + a large polish/feature arc + the headline **window
+  tracking** feature, all pushed to `main`. Spike tests each build live and gives UX feedback.
+- The working loop: build green + `dotnet test` 14/14 → commit per feature → push → relaunch the
+  exe for Spike. He's git-averse (Claude owns git) and likes most new behaviour to be an **option**.
+- **Next likely:** unattended safety (auto-stop on low disk / max duration + finish notification),
+  frame cull, and window-tracking slice 2 (WGC/occluded, persist tracking). Confirm priority with Spike.
+- **Ignore `C:\Users\Spike\.claude\plans\jazzy-baking-trinket.md`** — obsolete WinForms-UI plan.
 
 ---
 
 ## Issue log (newest first)
 
-#### WPF rebuild + full feature port (in progress — 2026-06-24)
+#### 0.9.3 — window tracking + reliability/UX arc (2026-06-26)
+- **Window tracking** shipped (pick → follow; size-locked; transit-skip; live overlay; resize
+  Lock/Fit/Stretch; minimize stop/wait; keep-on-top). Designed + reviewed via multi-agent passes.
+- **Silent-failure bug fixed:** deleting the output/session folder mid-capture used to keep
+  "recording" with a frozen count and no error. Now the engine throws on a missing `session.json`
+  and the VM shows a banner + auto-stops after 3 failures.
+- UX: target field commit-pulse (no Set button), shrink-to-scroll, surfaced cursor/window options,
+  Overlay editor split out, output naming, themed scrollbars/checkboxes, full-screen no-op (no warn).
+- Stop-at-target edge fixed: sub-1s targets rounded to 0 and would instant-stop — now rejected.
+
+#### WPF rebuild + full feature port (2026-06-24)
 - New WPF/MVVM front-end on the shared `TimelapseCapture.Core` engine reached
   WinForms parity plus polish (see feature status). Fixed along the way: encode
   frame-drop (concat→image2), sub-second interval (decimal `IntervalSecondsExact`),
@@ -257,4 +299,4 @@ parity-plus-polish work is otherwise complete.
 
 ---
 
-**Last updated:** 2026-06-24 · **Maintainer:** Spike (+ Claude)
+**Last updated:** 2026-06-26 · **Maintainer:** Spike (+ Claude)

@@ -12,8 +12,9 @@ While pre-1.0 we stay on **`0.x`**: minor bumps for features, patch bumps for fi
 breaking changes are allowed but called out. The version lives in the two
 `.csproj` files (`<Version>`) and is shown in the **Settings** dialog (the cog).
 
-**Current: `0.9.2`** — the WPF rebuild has reached WinForms parity plus a large
-polish/feature pass. We're in the run-up to 1.0: closing issues and edge cases.
+**Current: `0.9.3`** — the WPF rebuild has reached WinForms parity plus a large
+polish/feature pass, and the headline **window tracking** feature has landed. We're
+in the run-up to 1.0: closing issues and edge cases.
 
 ### What 1.0 means here
 A **versatile daily driver for timelapse capture**, aimed at artists capturing
@@ -25,21 +26,24 @@ The exact 1.0 feature line is Spike's call — this file is the shortlist to cho
 
 ## Toward 1.0 — candidate features
 
-Ranked roughly by value for the artist use case. None are committed yet.
-**Current priority (2026-06-26):** clip trimming shipped (0.9.2). **Window / app
-capture (item 1)** is next — the biggest remaining want for 1.0.
+Ranked roughly by value for the artist use case.
+**Current priority (2026-06-26):** window tracking shipped (0.9.3). Next likely
+candidates: **unattended safety** (item 4) and **auto-encode / frame cull** (item 3).
 
-1. **Window / application capture** *(Spike's biggest want)* — capture a specific
-   window instead of a fixed screen rectangle, and **follow it** as it moves/resizes.
-   - *Feasibility:* easy version — pick a window (HWND), capture its `GetWindowRect`
-     region each tick (re-read each frame so it follows). Robust version —
-     **Windows.Graphics.Capture (WGC)** API (Win10 1803+): captures a window even when
-     occluded or off-screen, hardware-accelerated; the modern, correct approach.
-     `PrintWindow` is a middle option (works for many but not all windows).
+1. **Window / application capture** *(Spike's biggest want)* — ✅ **first slice done (0.9.3)**:
+   pick a window (HWND), follow its position each tick (`GetWindowRect` + BitBlt), size locked
+   at Track time so frames stay uniform; transit frames skipped while moving; live-following
+   Show outline; options for on-minimize (stop/wait), keep-on-top, and on-resize
+   (Lock / Fit letterbox-scale / Stretch). Core: `WindowEnumerator`; engine `ResolveTrackedRegion`-
+   style logic + `CaptureFrameBitmap`/`ScaleToLocked`.
+   - *Deferred (slice 2+):* **Windows.Graphics.Capture (WGC)** for occluded/off-screen windows
+     (hardware-accelerated, the modern approach; `PrintWindow` is a middle option); persisting
+     tracking across restarts (HWNDs aren't stable — re-match by title/process); client-area-only
+     capture (drop the title bar via `DwmGetWindowAttribute`); per-DPI rescale across monitors.
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
-   - **Hide-from-capture** toggle shipped (0.9.2): excludes *this app's own* window from
-     captures (`SetWindowDisplayAffinity`) — a small related win, not window capture itself.
+   - **Hide-from-capture** toggle (0.9.2): excludes *this app's own* window from captures
+     (`SetWindowDisplayAffinity`).
 2. **Hotkeys / pause** — ✅ **done (0.9.x)**: global start/stop hotkey (now opt-in +
    user-configurable in Settings) and explicit **pause/resume** that keeps the run going.
 3. **Auto-encode on stop** (optional) + **frame review/cull** before encoding
@@ -65,7 +69,18 @@ capture (item 1)** is next — the biggest remaining want for 1.0.
    default and tuck the raw-args box behind an "Advanced" toggle. Validate/escape
    args and guard against breaking the image2 input the app relies on.
 8. **Multi-monitor / all-screens** capture as a region preset.
-9. **Output naming templates** and a chosen encode output path.
+9. **Output naming templates** — ✅ **done (0.9.3)**: `{session}`/`{date}`/`{time}`/`{datetime}`
+   filename template for encodes/trims (Settings → Encoding). A chosen encode output *path*
+   (separate from the session folder) is still open.
+10. **Provenance / app signature** *(Spike's idea, for identifying the app's output in the wild)* —
+    embed an identifier into produced videos. **Recommended approach: ffmpeg metadata tags** on
+    encode (`-metadata encoder="TimelapseCapture x.y.z"` + `comment`/`software`) — standard,
+    non-destructive, doesn't touch the picture, read by ffprobe/MediaInfo/file properties. Trivial
+    to add in `VideoEncoder`. *Caveat:* metadata is often stripped when platforms (YouTube etc.)
+    re-encode, so it best identifies files shared directly. An **optional visible watermark/logo**
+    (off by default, reusing the overlay system) survives re-encode but artists will usually disable
+    it on their own work. **Avoid covert steganographic pixel watermarking** — fragile through
+    compression and a transparency/trust problem for an artist tool; prefer the open metadata route.
 
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
