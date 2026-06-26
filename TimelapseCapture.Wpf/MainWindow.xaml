@@ -71,10 +71,10 @@
 
         <!-- Content (scrolls when the window is shrunk below its natural size) -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid MinWidth="660">
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="280"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left column -->
@@ -169,10 +169,19 @@
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,0,0,14" TextWrapping="Wrap"/>
                         <Border Background="#22E5534B" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="4"
-                                Padding="9,6" Margin="0,0,0,12"
+                                Padding="9,6" Margin="0,0,0,12" ToolTip="{Binding CaptureErrorDetail}"
                                 Visibility="{Binding HasCaptureError, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="{Binding CaptureError}" Foreground="{DynamicResource DangerBrush}"
-                                       FontSize="12" TextWrapping="Wrap"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding CaptureError}" Foreground="{DynamicResource DangerBrush}"
+                                           FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="&#10005;" Command="{Binding DismissCaptureErrorCommand}"
+                                        Style="{StaticResource BtnBase}" FontSize="11" Padding="7,2" Margin="8,0,0,0"
+                                        VerticalAlignment="Top" ToolTip="Dismiss"/>
+                            </Grid>
                         </Border>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -420,21 +429,11 @@
                         <TextBlock Text="PREVIEW" Style="{StaticResource CardTitle}"/>
                         <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
                                 BorderThickness="1" Height="150" ClipToBounds="True">
-                            <Grid x:Name="previewGrid">
-                                <Image x:Name="previewImg" Source="{Binding PreviewImage}" Stretch="Uniform" Cursor="Cross"
-                                       MouseEnter="OnPreviewEnter" MouseLeave="OnPreviewLeave" MouseMove="OnPreviewMove"
-                                       ToolTip="Hover to magnify — a loupe shows the latest frame up close."/>
+                            <Grid>
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
                                 <TextBlock Text="No frames captured yet" Style="{StaticResource Muted}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Visibility="{Binding NoPreview, Converter={StaticResource BoolToVis}}"/>
-                                <!-- Magnifier lens (follows the cursor; not hit-testable so it never blocks the mouse) -->
-                                <Border x:Name="loupe" Width="118" Height="118" CornerRadius="59" Visibility="Collapsed"
-                                        HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"
-                                        BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2">
-                                    <Border.Background>
-                                        <ImageBrush x:Name="loupeBrush" ViewboxUnits="RelativeToBoundingBox" Stretch="Fill"/>
-                                    </Border.Background>
-                                </Border>
                             </Grid>
                         </Border>
                     </StackPanel>

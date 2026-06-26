@@ -2,10 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using TimelapseCapture.Wpf.ViewModels;
 
 namespace TimelapseCapture.Wpf
@@ -33,54 +30,6 @@ namespace TimelapseCapture.Wpf
         {
             if (DataContext is MainViewModel vm && vm.SetTargetCommand.CanExecute(null))
                 vm.SetTargetCommand.Execute(null);
-        }
-
-        // ----- Preview loupe: a magnifier lens that follows the cursor over the preview -----
-        private const double LoupeZoom = 3.0;
-        private ImageSource? _loupeSource;
-
-        private void OnPreviewEnter(object sender, MouseEventArgs e)
-        {
-            _loupeSource = (DataContext as MainViewModel)?.LoadLoupeFrame();
-            if (_loupeSource == null) return;          // no frames yet → nothing to magnify
-            loupeBrush.ImageSource = _loupeSource;
-            loupe.Visibility = Visibility.Visible;
-            OnPreviewMove(sender, e);
-        }
-
-        private void OnPreviewLeave(object sender, MouseEventArgs e)
-        {
-            loupe.Visibility = Visibility.Collapsed;
-            loupeBrush.ImageSource = null;
-            _loupeSource = null;
-        }
-
-        private void OnPreviewMove(object sender, MouseEventArgs e)
-        {
-            if (_loupeSource == null) return;
-            double ew = previewImg.ActualWidth, eh = previewImg.ActualHeight;
-            if (ew <= 0 || eh <= 0) return;
-
-            // Map the cursor to relative source coords, accounting for Uniform letterboxing.
-            var pos = e.GetPosition(previewImg);
-            double imgAspect = previewImg.Source is BitmapSource s && s.PixelHeight > 0
-                ? (double)s.PixelWidth / s.PixelHeight : ew / eh;
-            double boxAspect = ew / eh, rw = ew, rh = eh, ox = 0, oy = 0;
-            if (imgAspect > boxAspect) { rh = ew / imgAspect; oy = (eh - rh) / 2; }
-            else { rw = eh * imgAspect; ox = (ew - rw) / 2; }
-            double relX = Math.Clamp((pos.X - ox) / rw, 0, 1);
-            double relY = Math.Clamp((pos.Y - oy) / rh, 0, 1);
-
-            double vb = 1.0 / LoupeZoom;
-            loupeBrush.Viewbox = new Rect(
-                Math.Clamp(relX - vb / 2, 0, 1 - vb),
-                Math.Clamp(relY - vb / 2, 0, 1 - vb), vb, vb);
-
-            // Centre the lens on the cursor, clamped inside the preview box.
-            var g = e.GetPosition(previewGrid);
-            double left = Math.Clamp(g.X - loupe.Width / 2, 0, Math.Max(0, previewGrid.ActualWidth - loupe.Width));
-            double top = Math.Clamp(g.Y - loupe.Height / 2, 0, Math.Max(0, previewGrid.ActualHeight - loupe.Height));
-            loupe.Margin = new Thickness(left, top, 0, 0);
         }
 
         protected override void OnSourceInitialized(EventArgs e)

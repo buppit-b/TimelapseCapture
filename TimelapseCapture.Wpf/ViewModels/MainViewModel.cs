@@ -48,6 +48,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
+            DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             SetTargetCommand = new RelayCommand(_ => SetTarget());
@@ -382,9 +383,6 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void UpdatePreview() => PreviewImage = FramePreview.LoadLatest(_sessionFolder, 260);
 
-        // A higher-res copy of the latest frame, loaded on demand for the preview loupe.
-        public ImageSource? LoadLoupeFrame() => FramePreview.LoadLatest(_sessionFolder, 1400);
-
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
@@ -395,6 +393,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand RenameSessionCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand OpenOverlayCommand { get; }
+        public ICommand DismissCaptureErrorCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
         public ICommand SetTargetCommand { get; }
@@ -451,6 +450,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _region = null;
                 _accumulatedSeconds = 0;
                 PreviewImage = null;
+                ClearCaptureError();   // a fresh session starts with a clean slate
 
                 SessionName = _session?.Name ?? name;
                 RegionText = "Not selected";
@@ -488,6 +488,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             _session = session;
             _sessionFolder = folder;
+            ClearCaptureError();   // loading a session clears any leftover warning
 
             // Restore the saved region. Keep its exact size; if its saved spot is no longer on any
             // monitor (display unplugged / resolution changed), relocate it onto the current desktop
@@ -934,7 +935,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
-            CaptureError = "";
+            ClearCaptureError();
             _consecutiveCaptureFailures = 0;
             try
             {
@@ -986,7 +987,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private void StopCapture()
         {
-            CaptureError = "";   // a manual stop clears any warning; the auto-stop path re-sets it after this
+            ClearCaptureError();   // a manual stop clears any warning; the auto-stop path re-sets it after this
             _engine.Stop();
             if (_captureStart.HasValue)
             {
@@ -1050,6 +1051,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
         public bool HasCaptureError => !string.IsNullOrEmpty(_captureError);
 
+        // The raw error (incl. any long path) — shown as the banner's tooltip, kept out of the banner text.
+        private string _captureErrorDetail = "";
+        public string CaptureErrorDetail { get => _captureErrorDetail; set => SetProperty(ref _captureErrorDetail, value); }
+
+        public void ClearCaptureError() { CaptureError = ""; CaptureErrorDetail = ""; }
+
         private int _consecutiveCaptureFailures;
 
         private void OnFrameCaptured(int count)
@@ -1069,15 +1076,16 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 if (!IsCapturing) return;   // already stopped — ignore late failures from in-flight ticks
                 _consecutiveCaptureFailures++;
+                CaptureErrorDetail = message;   // full detail (incl. path) → tooltip only
                 if (_consecutiveCaptureFailures >= 3)
                 {
                     StopCapture();
-                    CaptureError = $"Capture stopped — couldn't save frames: {message}\n" +
-                                   "Check the output folder still exists and has free space, then start again.";
+                    CaptureErrorDetail = message;   // StopCapture clears it; restore for the tooltip
+                    CaptureError = "Capture stopped — couldn't save frames. Check the output folder still exists and has free space, then start again.";
                 }
                 else
                 {
-                    CaptureError = $"Couldn't save the last frame: {message} — retrying…";
+                    CaptureError = "Couldn't save the last frame — retrying…";
                 }
             }));
         }
