@@ -57,9 +57,9 @@
                 </Border>
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <CheckBox Content="On top" IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
-                          Foreground="{DynamicResource TextSecondaryBrush}"
-                          ToolTip="Keep this window above other windows (always on top)."/>
+                <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
+                              IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              ToolTip="Keep the Timelapse Capture window above all other windows."/>
                 <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,0,0"

@@ -238,6 +238,133 @@
                 <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
                 <Setter Property="FontFamily" Value="Consolas"/>
             </Style>
+
+            <!-- ===== Custom CheckBox: rounded box, fills accent + tick when checked (implicit, app-wide) ===== -->
+            <Style TargetType="CheckBox">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <Border x:Name="box" Width="16" Height="16" CornerRadius="3" VerticalAlignment="Center"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                    <Path x:Name="tick" Width="9" Height="9" Stretch="Uniform" Visibility="Collapsed"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Data="M 0,5 L 3.5,8.5 L 9,1" Stroke="{DynamicResource BgBrush}" StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Border>
+                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"
+                                                  TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter TargetName="tick" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.45"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ===== Header toggle (e.g. "Stay on top"): bordered when off, fills accent when active ===== -->
+            <Style x:Key="HeaderToggle" TargetType="ToggleButton">
+                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                <Setter Property="Padding" Value="11,5"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="b" CornerRadius="5" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                    BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                  TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource BgBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ===== Slim dark scrollbars (implicit, app-wide) ===== -->
+            <Style x:Key="ScrollThumb" TargetType="Thumb">
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="IsTabStop" Value="False"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border x:Name="t" CornerRadius="4" Margin="2" Background="{DynamicResource StrokeBrush}"/>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="t" Property="Background" Value="{DynamicResource TextSecondaryBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="ScrollSide" TargetType="RepeatButton">
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="IsTabStop" Value="False"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RepeatButton">
+                            <Border Background="Transparent"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style TargetType="ScrollBar">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="11"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton x:Name="PageUp" Style="{StaticResource ScrollSide}" Command="ScrollBar.PageUpCommand"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource ScrollThumb}"/>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton x:Name="PageDown" Style="{StaticResource ScrollSide}" Command="ScrollBar.PageDownCommand"/>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="Orientation" Value="Horizontal">
+                                    <Setter Property="Width" Value="Auto"/>
+                                    <Setter Property="Height" Value="11"/>
+                                    <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                                    <Setter TargetName="PageUp" Property="Command" Value="ScrollBar.PageLeftCommand"/>
+                                    <Setter TargetName="PageDown" Property="Command" Value="ScrollBar.PageRightCommand"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
