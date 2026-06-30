@@ -34,6 +34,8 @@ namespace TimelapseCapture
         public bool KeepTrackedWindowOnTop { get; set; }     // window tracking: force the tracked window topmost while capturing
         public bool StopAtTarget { get; set; }               // auto-stop capture when the frame count reaches the target
         public int TrackResizeMode { get; set; }             // tracked-window resize: 0 lock size, 1 scale-to-fit, 2 stretch
+        public bool AutoStopOnLowDisk { get; set; } = true;  // unattended safety: stop before the drive fills
+        public int LowDiskStopMB { get; set; } = 500;        // free-space threshold (MB) for the low-disk auto-stop
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
         public bool OverlayTimestamp { get; set; }          // master enable for the on-frame text overlay
         public string OverlayText { get; set; } = "{datetime}";

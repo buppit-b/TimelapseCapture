@@ -51,6 +51,22 @@
                        Style="{StaticResource Muted}" FontSize="10" Margin="64,4,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
+        <!-- Capture safety -->
+        <ToggleButton x:Name="secSafety" Style="{StaticResource SectionHeader}" Content="CAPTURE SAFETY" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secSafety, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Stop capturing when disk space runs low" IsChecked="{Binding AutoStopOnLowDisk}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="Automatically stop a run before the drive fills up — a full disk fails frame writes and can disrupt other apps. Recommended on for long unattended captures."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding AutoStopOnLowDisk, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Free-space threshold in megabytes."/>
+                <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+
         <!-- Encoding -->
         <ToggleButton x:Name="secEncoding" Style="{StaticResource SectionHeader}" Content="ENCODING" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secEncoding, Converter={StaticResource BoolToVis}}">

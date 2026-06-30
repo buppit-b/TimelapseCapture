@@ -591,6 +591,18 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.TrackResizeMode != value) { _settings.TrackResizeMode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Unattended safety: stop a run before the drive fills (a full disk fails writes + can disrupt other apps).
+        public bool AutoStopOnLowDisk
+        {
+            get => _settings.AutoStopOnLowDisk;
+            set { if (_settings.AutoStopOnLowDisk != value) { _settings.AutoStopOnLowDisk = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int LowDiskStopMB
+        {
+            get => _settings.LowDiskStopMB;
+            set { var v = Math.Max(1, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
         public string OutputNameTemplate
         {
@@ -1056,6 +1068,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
             ClearCaptureError();
             _consecutiveCaptureFailures = 0;
+            _lastPreviewedFrame = -1;   // force the first captured frame to refresh the preview
             try
             {
                 PersistRegion(_region.Value); // ensure the active region (incl. a relocated one) is saved
@@ -1422,6 +1435,19 @@ namespace TimelapseCapture.Wpf.ViewModels
                     StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
                         _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames);
                     ResourcesInfo = SystemMonitor.GetResourcesInfoString();
+
+                    // Unattended safety: stop before the drive fills (writes would start failing, and a full
+                    // disk can disrupt other apps). freeMb == 0 is treated as a probe error and ignored — the
+                    // threshold stop fires well before a genuine zero.
+                    if (IsCapturing && _settings.AutoStopOnLowDisk && _sessionFolder != null)
+                    {
+                        long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
+                        if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
+                        {
+                            StopCapture();
+                            CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space, then start again.";
+                        }
+                    }
                 }
 
                 if (IsCapturing && _frameCount != _lastPreviewedFrame) UpdatePreview();   // only on a new frame
