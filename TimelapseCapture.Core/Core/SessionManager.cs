@@ -303,16 +303,18 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Increment frame count for session.
+        /// Increment frame count for session. Returns the updated session, or null if session.json is
+        /// missing/unreadable (so the caller can detect a vanished folder without a second read).
         /// </summary>
-        public static void IncrementFrameCount(string sessionFolder)
+        public static SessionInfo? IncrementFrameCount(string sessionFolder)
         {
             var info = LoadSession(sessionFolder);
             if (info == null)
-                return;
+                return null;
 
             info.FramesCaptured++;
             SaveSession(sessionFolder, info);
+            return info;
         }
 
         /// <summary>

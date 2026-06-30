@@ -187,14 +187,14 @@ namespace TimelapseCapture
                 if (frameFiles.Length == 0)
                     return 0;
 
+                // Estimate from the most-recent frames only — frame size is roughly stable, and statting
+                // every file each refresh is O(n) on a folder that grows to tens of thousands on a long run.
+                int sample = Math.Min(8, frameFiles.Length);
                 long totalBytes = 0;
-                foreach (var file in frameFiles)
-                {
-                    var info = new FileInfo(file);
-                    totalBytes += info.Length;
-                }
+                for (int i = frameFiles.Length - sample; i < frameFiles.Length; i++)
+                    totalBytes += new FileInfo(frameFiles[i]).Length;
 
-                double avgBytes = totalBytes / (double)frameFiles.Length;
+                double avgBytes = totalBytes / (double)sample;
                 return avgBytes / 1024.0;
             }
             catch

@@ -253,15 +253,15 @@ namespace TimelapseCapture
                                 SaveBitmap(bmp, file);
                             }
 
-                            SessionManager.IncrementFrameCount(_sessionFolder);
-                            // If the session file vanished (folder moved/deleted mid-capture), IncrementFrameCount
-                            // silently no-ops and the count would freeze while frames overwrite each other — treat
-                            // it as a failure so it surfaces instead of running blind.
-                            var reloaded = SessionManager.LoadSession(_sessionFolder);
-                            if (reloaded == null)
+                            // Increment + reload in one shot. IncrementFrameCount returns the updated session,
+                            // or null if session.json vanished (folder moved/deleted mid-capture) — treat that as
+                            // a failure so it surfaces instead of running blind with a frozen count. (Avoids a
+                            // second full read+deserialize of session.json every frame in this hot path.)
+                            var updated = SessionManager.IncrementFrameCount(_sessionFolder);
+                            if (updated == null)
                                 throw new InvalidOperationException("session.json is missing — the session folder may have been moved or deleted.");
-                            _session = reloaded;
-                            newCount = (int)reloaded.FramesCaptured;
+                            _session = updated;
+                            newCount = (int)updated.FramesCaptured;
                             _lastCaptureTicks = Environment.TickCount64;
                         }
                     }

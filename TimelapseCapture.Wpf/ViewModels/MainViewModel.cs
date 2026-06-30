@@ -389,7 +389,17 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
         public bool NoPreview => _previewImage == null;
 
-        private void UpdatePreview() => PreviewImage = FramePreview.LoadLatest(_sessionFolder, 260);
+        private int _lastPreviewedFrame = -1;
+        // Load the latest frame by its known number (O(1)) rather than scanning the whole frames folder
+        // every refresh — that folder grows to tens of thousands on a long run. Falls back to a scan only
+        // if the exact-numbered file is missing (unusual / partially-deleted session).
+        private void UpdatePreview()
+        {
+            _lastPreviewedFrame = _frameCount;
+            PreviewImage = _frameCount > 0
+                ? (FramePreview.LoadAt(_sessionFolder, _frameCount, 260) ?? FramePreview.LoadLatest(_sessionFolder, 260))
+                : null;
+        }
 
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
@@ -906,11 +916,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         // Start/stop following the on-screen outline to the tracked window (only while the outline is shown
         // and a window is being tracked). The engine's capture already follows; this keeps the visible
         // outline in lock-step so it stays just-outside the captured region and never lands in a frame.
+        private System.Drawing.Rectangle _lastOverlayRect;
         private void SyncTrackOverlay()
         {
             if (_isOverlayShown && _trackedWindow != IntPtr.Zero && _overlay != null)
             {
-                if (!_trackOverlayTimer.IsEnabled) _trackOverlayTimer.Start();
+                if (!_trackOverlayTimer.IsEnabled)
+                {
+                    _lastOverlayRect = System.Drawing.Rectangle.Empty;   // force the first tick to position it
+                    _trackOverlayTimer.Start();
+                }
             }
             else
             {
@@ -925,20 +940,25 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _trackOverlayTimer.Stop();
                 return;
             }
-            if (WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive)
-                && alive && !minimized)
+            if (!WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive)
+                || !alive || minimized)
+                return;
+
+            System.Drawing.Rectangle rect;
+            if (_settings.TrackResizeMode == 0)   // lock size: outline is the locked box at the window's top-left
             {
-                if (_settings.TrackResizeMode == 0)   // lock size: outline is the locked box at the window's top-left
-                {
-                    var locked = _region.Value;
-                    var candidate = new System.Drawing.Rectangle(b.X, b.Y, locked.Width, locked.Height);
-                    _overlay.ShowForRegion(ScreenHelper.FitRegionOnScreen(candidate, out _) ?? locked);
-                }
-                else                                  // scale modes: outline tracks the whole window (follows resize)
-                {
-                    _overlay.ShowForRegion(b);
-                }
+                var locked = _region.Value;
+                var candidate = new System.Drawing.Rectangle(b.X, b.Y, locked.Width, locked.Height);
+                rect = ScreenHelper.FitRegionOnScreen(candidate, out _) ?? locked;
             }
+            else                                  // scale modes: outline tracks the whole window (follows resize)
+            {
+                rect = b;
+            }
+
+            if (rect == _lastOverlayRect) return;   // unchanged → don't relayout the overlay window
+            _lastOverlayRect = rect;
+            _overlay.ShowForRegion(rect);
         }
 
         private void SelectFullScreen()
@@ -1404,7 +1424,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     ResourcesInfo = SystemMonitor.GetResourcesInfoString();
                 }
 
-                if (IsCapturing) UpdatePreview();
+                if (IsCapturing && _frameCount != _lastPreviewedFrame) UpdatePreview();   // only on a new frame
             }
             catch { /* stats are best-effort */ }
         }
