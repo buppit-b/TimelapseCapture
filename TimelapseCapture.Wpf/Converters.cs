@@ -23,4 +23,20 @@ namespace TimelapseCapture.Wpf
             return parameter;
         }
     }
+
+    /// <summary>
+    /// Visible when the bound width (double) is at least the ConverterParameter threshold, else Collapsed.
+    /// Used to hide the title-bar caption text before it would collide with the right-hand controls.
+    /// </summary>
+    public sealed class MinWidthToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            double width = value is double d ? d : 0;
+            double threshold = double.TryParse(parameter?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var t) ? t : 0;
+            return width >= threshold ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+    }
 }

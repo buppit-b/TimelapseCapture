@@ -268,7 +268,10 @@ namespace TimelapseCapture
                 long availableMB = GetAvailableDiskSpaceMB(sessionFolder);
                 if (availableMB > 0)
                 {
-                    result.AppendLine($"💿 Available: {availableMB:F0} MB");
+                    // Show which drive is being watched — the low-disk safety guards this same disk (the one
+                    // the active session writes to), so it's clear where the threshold applies.
+                    string drive = (Path.GetPathRoot(sessionFolder) ?? "").TrimEnd('\\');
+                    result.AppendLine($"💿 Available: {availableMB:F0} MB free{(drive.Length > 0 ? $" on {drive}" : "")}");
                     
                     // Warning if low space
                     double frameSize = actualFrameSizeKB > 0 ? actualFrameSizeKB : estimatedFrameSizeKB;

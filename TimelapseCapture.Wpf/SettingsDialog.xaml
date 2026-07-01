@@ -56,7 +56,7 @@
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secSafety, Converter={StaticResource BoolToVis}}">
             <CheckBox Content="Stop capturing when disk space runs low" IsChecked="{Binding AutoStopOnLowDisk}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
-                      ToolTip="Automatically stop a run before the drive fills up — a full disk fails frame writes and can disrupt other apps. Recommended on for long unattended captures."/>
+                      ToolTip="Automatically stop a run before the drive fills up — a full disk fails frame writes and can disrupt other apps. Watches the disk your active session writes to (shown in Stats). Recommended on for long unattended captures."/>
             <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
                         Visibility="{Binding AutoStopOnLowDisk, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
