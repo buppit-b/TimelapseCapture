@@ -66,6 +66,22 @@
                          ToolTip="Free-space threshold in megabytes."/>
                 <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
             </StackPanel>
+
+            <CheckBox Content="Stop after a maximum duration" IsChecked="{Binding MaxDurationEnabled}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Automatically stop a run after this much accumulated capture time — a hard cap for unattended runs."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding MaxDurationEnabled, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop after" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding MaxDurationMinutes}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Minutes of accumulated capture time (e.g. 480 = 8 hours)."/>
+                <TextBlock Text="minutes" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <CheckBox Content="Notify (sound + taskbar flash) when a capture or encode finishes"
+                      IsChecked="{Binding NotifyOnFinish}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Play a sound and flash the taskbar when a capture auto-stops (target / disk / duration) or an encode completes."/>
         </StackPanel>
 
         <!-- Encoding -->

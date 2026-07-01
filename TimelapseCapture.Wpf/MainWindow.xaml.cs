@@ -14,6 +14,9 @@ namespace TimelapseCapture.Wpf
         [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
         [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+        [DllImport("user32.dll")] private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+        [StructLayout(LayoutKind.Sequential)] private struct FLASHWINFO { public uint cbSize; public IntPtr hwnd; public uint dwFlags; public uint uCount; public uint dwTimeout; }
+        private const uint FLASHW_ALL = 3, FLASHW_TIMERNOFG = 12; // flash caption+taskbar until the window is focused
         private const int WM_HOTKEY = 0x0312;
         private const int WM_GETMINMAXINFO = 0x0024;
         private const int HOTKEY_TOGGLE = 1; // start/stop capture (configurable, off by default)
@@ -50,9 +53,28 @@ namespace TimelapseCapture.Wpf
             {
                 vm.HotkeysChanged += RefreshHotkey;
                 vm.WindowAffinityChanged += ApplyAffinity;
+                vm.FinishNotified += OnFinishNotified;
             }
             RefreshHotkey();
             ApplyAffinity();
+        }
+
+        // A capture auto-stopped or an encode finished — chime and flash the taskbar (draws attention if
+        // the window is in the background; the flash stops once you focus it).
+        private void OnFinishNotified()
+        {
+            try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+            var h = new WindowInteropHelper(this).Handle;
+            if (h == IntPtr.Zero) return;
+            var fi = new FLASHWINFO
+            {
+                cbSize = (uint)Marshal.SizeOf<FLASHWINFO>(),
+                hwnd = h,
+                dwFlags = FLASHW_ALL | FLASHW_TIMERNOFG,
+                uCount = uint.MaxValue,
+                dwTimeout = 0,
+            };
+            try { FlashWindowEx(ref fi); } catch { }
         }
 
         // Hide (or show) this window in screen captures per the setting.
@@ -123,7 +145,7 @@ namespace TimelapseCapture.Wpf
             base.OnClosing(e);
             var handle = new WindowInteropHelper(this).Handle;
             if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
-            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; }
+            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
             _source?.RemoveHook(WndProc);
             (DataContext as MainViewModel)?.OnAppClosing();
         }

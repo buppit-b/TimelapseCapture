@@ -612,6 +612,32 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { var v = Math.Max(1, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Opt-in: stop after a maximum accumulated capture duration (a hard wall-clock cap for unattended runs).
+        public bool MaxDurationEnabled
+        {
+            get => _settings.MaxDurationEnabled;
+            set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int MaxDurationMinutes
+        {
+            get => _settings.MaxDurationMinutes;
+            set { var v = Math.Max(1, value); if (_settings.MaxDurationMinutes != v) { _settings.MaxDurationMinutes = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        // Sound + taskbar flash when a capture auto-stops or an encode finishes (so you don't have to watch).
+        public bool NotifyOnFinish
+        {
+            get => _settings.NotifyOnFinish;
+            set { if (_settings.NotifyOnFinish != value) { _settings.NotifyOnFinish = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public event Action? FinishNotified;
+        private void NotifyFinished()
+        {
+            if (_settings.NotifyOnFinish)
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() => FinishNotified?.Invoke()));
+        }
+
         // Filename template for encoded/trimmed videos. Tokens resolved in ResolveOutputName().
         public string OutputNameTemplate
         {
@@ -1263,7 +1289,10 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // Optional unattended stop: end the run once we've reached the target number of frames.
                 long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);   // long: never wraps negative
                 if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
+                {
                     StopCapture();
+                    NotifyFinished();
+                }
             }));
 
         // A frame failed to save (folder deleted, disk full, permissions…). Surface it — and if it keeps
@@ -1281,6 +1310,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     StopCapture();
                     CaptureErrorDetail = message;   // StopCapture clears it; restore for the tooltip
                     CaptureError = "Capture stopped — couldn't save frames. Check the output folder still exists and has free space, then start again.";
+                    NotifyFinished();
                 }
                 else
                 {
@@ -1358,6 +1388,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 long bytes = 0;
                 try { bytes = new FileInfo(result.OutputPath).Length; } catch { }
                 EncodeStatus = $"Encoded ✓ ({FormatBytes(bytes)})";
+                NotifyFinished();   // sound + taskbar flash — encodes can take a while
                 bool open = _settings.OpenFolderAfterEncode ||
                     MessageBox.Show($"Video encoded ({FormatBytes(bytes)}):\n{result.OutputPath}\n\nOpen the output folder?",
                         "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes;
@@ -1454,7 +1485,17 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // Elapsed (current run) + total across start/stop — updated every tick (1s) so it counts smoothly.
                 double current = (IsCapturing && _captureStart.HasValue) ? (DateTime.Now - _captureStart.Value).TotalSeconds : 0;
                 ElapsedText = FormatTime(current);
-                TotalElapsedText = FormatTime(_accumulatedSeconds + current);
+                double totalCaptureSeconds = _accumulatedSeconds + current;
+                TotalElapsedText = FormatTime(totalCaptureSeconds);
+
+                // Opt-in max-duration cap: stop once accumulated capture time reaches the limit (a normal
+                // completion — notify, but no red error banner).
+                if (IsCapturing && _settings.MaxDurationEnabled && totalCaptureSeconds >= _settings.MaxDurationMinutes * 60.0)
+                {
+                    StopCapture();
+                    NotifyFinished();
+                    return;   // nothing else to refresh this tick
+                }
 
                 int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
                 double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
@@ -1483,6 +1524,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         {
                             StopCapture();
                             CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space, then start again.";
+                            NotifyFinished();
                         }
                     }
                 }
