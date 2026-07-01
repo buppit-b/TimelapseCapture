@@ -59,6 +59,15 @@ namespace TimelapseCapture
         private Rectangle _lastTrackedRect;   // last followed rect (pos+size), to detect (and skip) motion/resize
         private bool _trackingInitialized;
         private bool _pauseOnTrackedMinimize; // true = hold while a tracked window is minimized; false = stop
+        private int _consecutiveTrackSkips;   // bound transit-skipping so a perpetually-moving window still captures
+        private const int MaxTrackSkips = 10;
+
+        // Thrown when the screen can't be grabbed (secure desktop / lock screen / UAC / RDP disconnect). Treated
+        // as a skip-this-tick (transient) rather than a hard failure, so a UAC prompt doesn't bake black frames.
+        private sealed class ScreenUnavailableException : Exception
+        {
+            public ScreenUnavailableException(string message) : base(message) { }
+        }
 
         private ActivityMonitor? _activityMonitor;
         private bool _smartEnabled;
@@ -100,6 +109,7 @@ namespace TimelapseCapture
                 _trackedWindow = trackedWindow;                         // zero = static region (default)
                 _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
                 _trackingInitialized = false;                           // first tracked tick always captures
+                _consecutiveTrackSkips = 0;
                 _pauseOnTrackedMinimize = pauseOnTrackedMinimize;
                 _resizeMode = resizeMode;
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
@@ -217,40 +227,65 @@ namespace TimelapseCapture
                             }
                             else
                             {
-                                // Lock mode: follow the top-left at the locked size, clamped onto the desktop (reuse
-                                // the last region if it can't fit). Scale modes: capture the whole visible window, to
-                                // be resampled to the locked size when saved.
+                                // Lock mode: follow the top-left at the locked size, clamped onto the desktop. Scale
+                                // modes: capture the whole visible window, to be resampled to the locked size on save.
                                 Rectangle resolved;
+                                bool cantPlace = false;
                                 if (_resizeMode == ResizeLock)
                                 {
                                     var box = new Rectangle(live.X, live.Y, _lockedSize.Width, _lockedSize.Height);
-                                    resolved = ScreenHelper.FitRegionOnScreen(box, out _) ?? _region;
+                                    var fit = ScreenHelper.FitRegionOnScreen(box, out _);
+                                    if (fit == null) { cantPlace = true; resolved = _region; } // box can't be placed → wait
+                                    else resolved = fit.Value;
                                 }
                                 else
                                 {
                                     var vis = Rectangle.Intersect(live, ScreenHelper.VirtualScreenBounds());
-                                    resolved = (vis.Width >= 2 && vis.Height >= 2) ? vis : _region;
+                                    if (vis.Width < 2 || vis.Height < 2) { cantPlace = true; resolved = _region; } // off-screen → wait
+                                    else resolved = vis;
                                 }
-                                // Skip the frame while the window is moving OR resizing (on-screen pixels lag the rect).
-                                if (_trackingInitialized && resolved != _lastTrackedRect)
-                                    skipFrame = true;
+
+                                if (cantPlace)
+                                {
+                                    skipFrame = true;   // window not placeable on-screen — don't capture stale pixels
+                                }
+                                else if (_trackingInitialized && resolved != _lastTrackedRect)
+                                {
+                                    // Moving/resizing → skip the transit frame (pixels lag the rect), but bound the
+                                    // skipping so a perpetually-moving window still yields frames instead of starving.
+                                    if (_consecutiveTrackSkips < MaxTrackSkips) { skipFrame = true; _consecutiveTrackSkips++; }
+                                    else _consecutiveTrackSkips = 0;
+                                }
+                                else
+                                {
+                                    _consecutiveTrackSkips = 0;
+                                }
                                 _lastTrackedRect = resolved;
                                 _trackingInitialized = true;
                                 _region = resolved;
                             }
                         }
 
+                        // A blocked screen grab (secure desktop / lock / UAC) is transient — skip this tick and
+                        // resume automatically, rather than baking a black frame or hard-failing a long run.
+                        Bitmap? frame = null;
                         if (!skipFrame)
+                        {
+                            try { frame = CaptureFrameBitmap(); }
+                            catch (ScreenUnavailableException ex) { Logger.Log("CaptureEngine", $"Skipped frame: {ex.Message}"); }
+                        }
+
+                        if (frame != null)
                         {
                             long next = (_session?.FramesCaptured ?? 0) + 1;
                             string file = Path.Combine(_framesFolder, $"{next:D5}.{_extension}");
 
-                            using (var bmp = CaptureFrameBitmap())
+                            using (frame)
                             {
-                                if (bmp.Width == 0 || bmp.Height == 0)
+                                if (frame.Width == 0 || frame.Height == 0)
                                     throw new InvalidOperationException("Captured bitmap is invalid");
-                                if (_overlay?.Enabled == true) DrawOverlay(bmp, _overlay);  // overlay sits on the final frame
-                                SaveBitmap(bmp, file);
+                                if (_overlay?.Enabled == true) DrawOverlay(frame, _overlay);  // overlay sits on the final frame
+                                SaveBitmap(frame, file);
                             }
 
                             // Increment + reload in one shot. IncrementFrameCount returns the updated session,
@@ -419,20 +454,31 @@ namespace TimelapseCapture
         private static Bitmap CaptureRegion(Rectangle region)
         {
             IntPtr hdcScreen = GetDC(IntPtr.Zero);
+            // A null screen DC means GDI handles are exhausted — a real problem worth surfacing (→ auto-stop).
+            if (hdcScreen == IntPtr.Zero)
+                throw new InvalidOperationException("Screen capture failed — no screen device context (GDI handles may be exhausted).");
             try
             {
                 var bmp = new Bitmap(region.Width, region.Height);
+                bool ok;
                 using (var g = Graphics.FromImage(bmp))
                 {
                     IntPtr hdcBitmap = g.GetHdc();
                     try
                     {
-                        BitBlt(hdcBitmap, 0, 0, region.Width, region.Height, hdcScreen, region.X, region.Y, SRCCOPY);
+                        ok = BitBlt(hdcBitmap, 0, 0, region.Width, region.Height, hdcScreen, region.X, region.Y, SRCCOPY);
                     }
                     finally
                     {
                         g.ReleaseHdc(hdcBitmap);
                     }
+                }
+                // BitBlt fails against the secure desktop / lock screen / a protected window. Don't return the
+                // freshly-zeroed (all-black) bitmap as a valid frame — signal a transient skip instead.
+                if (!ok)
+                {
+                    bmp.Dispose();
+                    throw new ScreenUnavailableException("Screen capture unavailable (secure desktop, lock screen or a protected window is active).");
                 }
                 return bmp;
             }

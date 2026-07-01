@@ -129,7 +129,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
 
         private int _encodeFps = 30;
-        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, value < 1 ? 1 : value)) { RefreshStats(); BumpRecalc(); } } }
+        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, Math.Clamp(value, 1, 240))) { RefreshStats(); BumpRecalc(); } } }
 
         private int _encodeCrf = 23;
         public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
@@ -337,8 +337,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             else if (t.EndsWith("s")) { mult = 1; t = t[..^1]; }
             if (double.TryParse(t.Trim(), out var v) && v > 0)
             {
-                seconds = (int)(v * mult);
-                if (seconds < 1) return false;   // sub-1s targets round to 0 → reject (else "0 sec ✓" + instant stop-at-target)
+                double totalSec = v * mult;
+                if (totalSec < 1 || totalSec > 360000) return false;   // sub-1s rounds to 0; cap 100h (avoid int overflow)
+                seconds = (int)totalSec;
                 human = seconds >= 3600 ? $"{seconds / 3600.0:0.##} hr"
                       : seconds >= 60 ? $"{seconds / 60.0:0.##} min"
                       : $"{seconds} sec";
@@ -516,8 +517,16 @@ namespace TimelapseCapture.Wpf.ViewModels
             bool regionMoved = false, regionCantFit = false;
             if (_region.HasValue)
             {
-                _region = ScreenHelper.FitRegionOnScreen(_region.Value, out regionMoved);
-                regionCantFit = _region == null;
+                // A region from an older build / hand-edited / foreign session.json isn't guaranteed even or
+                // sane. Force even dims (H.264) and reject a degenerate one, matching the fresh-selection path.
+                var raw = _region.Value;
+                raw.Width -= raw.Width % 2;
+                raw.Height -= raw.Height % 2;
+                if (raw.Width < 2 || raw.Height < 2)
+                    _region = null;   // unusable → treated as "not selected" below
+                else
+                    _region = ScreenHelper.FitRegionOnScreen(raw, out regionMoved);
+                regionCantFit = _region == null && raw.Width >= 2 && raw.Height >= 2;
             }
 
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
@@ -742,9 +751,22 @@ namespace TimelapseCapture.Wpf.ViewModels
                 MessageBox.Show("That file isn't a valid settings file.", "Import settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            NormalizeSettings(imported);   // an imported file bypasses the property-setter clamps — re-bound here
             _settings = imported;
             SettingsManager.Save(_settings);
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
+        }
+
+        // Clamp fields that aren't already re-clamped at point of use, so a hand-edited/foreign settings.json
+        // can't push out-of-range values into the app. (JpegQuality/intervals/CRF are re-clamped in the engine/
+        // encoder; EncodePreset is allowlisted in VideoEncoder — those don't need re-clamping here.)
+        private static void NormalizeSettings(CaptureSettings s)
+        {
+            s.JpegQuality = Math.Clamp(s.JpegQuality, 1, 100);
+            s.OverlayPosition = Math.Clamp(s.OverlayPosition, 0, 3);
+            s.TrackResizeMode = Math.Clamp(s.TrackResizeMode, 0, 2);
+            s.LowDiskStopMB = Math.Max(1, s.LowDiskStopMB);
+            if (s.Format != "JPEG" && s.Format != "PNG") s.Format = "JPEG";
         }
 
         // Crash recovery: a session left Active means the app died mid-capture. On launch, offer to
@@ -1224,7 +1246,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 FrameCount = count;
 
                 // Optional unattended stop: end the run once we've reached the target number of frames.
-                int targetFrames = _desiredVideoSeconds * Math.Max(1, EncodeFps);
+                long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);   // long: never wraps negative
                 if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
                     StopCapture();
             }));

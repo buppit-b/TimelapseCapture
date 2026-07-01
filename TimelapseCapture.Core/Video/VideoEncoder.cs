@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,10 @@ namespace TimelapseCapture
     /// </summary>
     public static class VideoEncoder
     {
+        // The valid x264 -preset values; anything else is coerced to "medium" (see EncodeAsync).
+        private static readonly string[] ValidPresets =
+            { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" };
+
         public sealed class Result
         {
             public bool Success { get; init; }
@@ -26,12 +31,19 @@ namespace TimelapseCapture
             if (frames.Length == 0)
                 return new Result { Success = false, Error = "No frames to encode." };
 
+            // The image2 demuxer reads one extension pattern. A folder with mixed extensions (a mid-session
+            // format switch) would silently encode only the subset matching frames[0] — fail clearly instead.
+            var exts = frames.Select(f => Path.GetExtension(f).TrimStart('.').ToLowerInvariant())
+                             .Where(e => e.Length > 0).Distinct().ToArray();
+            if (exts.Length > 1)
+                return new Result { Success = false, Error =
+                    $"This session mixes frame formats ({string.Join("/", exts)}). All frames must be the same format to encode — recapture in a single format." };
+
             // Use the image2 demuxer over the numbered frame sequence (00001.ext, 00002.ext, …):
             // exactly one output frame per captured image. The old concat demuxer with -r resampled
             // timestamps and dropped frames (a long session produced a far-too-short video).
             string framesFolder = SessionManager.GetFramesFolder(sessionFolder);
-            string ext = Path.GetExtension(frames[0]).TrimStart('.');
-            if (string.IsNullOrEmpty(ext)) ext = "jpg";
+            string ext = exts.Length == 1 ? exts[0] : "jpg";
             string pattern = Path.Combine(framesFolder, "%05d." + ext);
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
@@ -46,7 +58,10 @@ namespace TimelapseCapture
 
             if (fps < 1) fps = 30;
             crf = Math.Clamp(crf, 0, 51);
-            if (string.IsNullOrWhiteSpace(preset)) preset = "medium";
+            // Allowlist the x264 preset — it's interpolated UNQUOTED into the ffmpeg args, so a value containing
+            // spaces (e.g. from a crafted/imported settings.json) could otherwise inject extra ffmpeg arguments.
+            preset = (preset ?? "").Trim().ToLowerInvariant();
+            if (Array.IndexOf(ValidPresets, preset) < 0) preset = "medium";
             if (startFrame < 1) startFrame = 1;
             string limit = maxFrames > 0 ? $"-frames:v {maxFrames} " : ""; // trim: only this many frames from startFrame
 
