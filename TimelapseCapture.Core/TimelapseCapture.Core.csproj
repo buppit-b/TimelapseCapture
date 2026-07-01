@@ -15,4 +15,9 @@
     <Version>0.9.3</Version>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Expose internal pure helpers (scale-rect math, filename sanitiser) to the test project. -->
+    <InternalsVisibleTo Include="TimelapseCapture.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -25,8 +25,11 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 14 tests, cover `SessionManager`, `ValidationHelper`,
-  `ScreenHelper` (region-relocate geometry), and `WindowEnumerator` (filtering + dead handle).
+- **`TimelapseCapture.Tests`** — 31 tests, cover `SessionManager`, `ValidationHelper`,
+  `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering + dead handle), the
+  window-tracking scale-rect math (`CaptureEngine.ComputeScaledDest`), and the output-name
+  sanitiser (`VideoEncoder.SanitizeFileName`). Core exposes internals to the test project via
+  `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
 - **Build:** `dotnet build TimelapseCapture.sln`
@@ -59,7 +62,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 14/14.
+- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 31/31.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -67,9 +70,31 @@ Small, single-maintainer app. The working bar:
 - **Aesthetics + UX now matter** (Spike drives this actively): clean dark + terminal vibe,
   themed controls (scrollbars/checkboxes), live theme switching. Function still comes first,
   but polish is in scope — Spike often asks for my UX best-practice input on a change.
-- **Most things are options.** Spike's strong preference: when adding behaviour that some
-  users want and others don't, make it an opt-in setting (additive `CaptureSettings` field)
-  with a sensible default, rather than forcing it.
+- **Think for the project, not just the ticket.** Ask what's best for the app overall,
+  **recommend** rather than just execute, and **pivot** when a better approach appears.
+  **Proactively flag what's missing or risky** — a safety/coverage/efficiency gap nobody asked
+  about is as important to raise as the requested feature. Spike explicitly values this.
+- **Preference options vs safety defaults.** *Opt-in (default off)* for taste/behaviour some users
+  want and others don't — make it an additive `CaptureSettings` field. But *default **on** (still
+  configurable)* for **safety / data-integrity** behaviour: a user who never opens Settings should
+  still be protected (low-disk auto-stop, capture-failure auto-stop). Don't reflexively make
+  everything opt-in — match the default to whether it's a preference or a protection.
+
+### Standing 1.0 quality bar (weigh every change against these; call out regressions/gaps)
+Toward a stable daily-driver for long, often-unattended capture:
+- **Correctness & edge cases** — multi-monitor/DPI, window tracking (resize/minimize/close/off-screen/
+  cross-DPI), encode/trim ranges, corrupt/missing/foreign session files, numeric bounds.
+- **Reliability & recovery** — surface failures (never silent), crash-safe atomic persistence,
+  auto-stop on trouble (low disk / repeated failure), resume after a crash.
+- **Security** — any user/file input that reaches a path, a process, or an ffmpeg arg must be
+  sanitised + quoted (`SanitizeFileName`/`SanitizeFolderName`; ffmpeg runs `UseShellExecute=false`).
+  No path traversal; JSON deserialised only into known types.
+- **Efficiency for the long run** — the per-frame hot path and per-tick UI work must stay cheap at
+  hour 6 (tens of thousands of frames), not just minute 1: no O(n) folder scans per tick, no
+  redundant per-frame IO, dispose every GDI/Bitmap/HDC.
+- **Testing** — the capture engine is the riskiest, least-covered code; prefer **extracting pure
+  logic** (scale-rect math, parsing, sanitisation, range bounds) into testable units and covering it.
+- **Observability** — `Logger` exists; keep failures diagnosable (and consider surfacing the log).
 
 ---
 

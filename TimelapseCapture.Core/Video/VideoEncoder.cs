@@ -69,7 +69,7 @@ namespace TimelapseCapture
         }
 
         // Strip anything illegal in a Windows filename; collapse whitespace; trim trailing dots/spaces.
-        private static string SanitizeFileName(string? name)
+        internal static string SanitizeFileName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name)) return "";
             var sb = new System.Text.StringBuilder(name.Length);

@@ -396,21 +396,24 @@ namespace TimelapseCapture
             g.Clear(Color.Black);
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-
-            Rectangle d;
-            if (_resizeMode == ResizeStretch)
-            {
-                d = new Rectangle(0, 0, _lockedSize.Width, _lockedSize.Height);
-            }
-            else // Fit: scale to fit inside the frame, centred, letterboxed
-            {
-                double scale = Math.Min((double)_lockedSize.Width / src.Width, (double)_lockedSize.Height / src.Height);
-                int w = Math.Max(1, (int)Math.Round(src.Width * scale));
-                int h = Math.Max(1, (int)Math.Round(src.Height * scale));
-                d = new Rectangle((_lockedSize.Width - w) / 2, (_lockedSize.Height - h) / 2, w, h);
-            }
-            g.DrawImage(src, d);
+            g.DrawImage(src, ComputeScaledDest(src.Size, _lockedSize, _resizeMode));
             return dest;
+        }
+
+        /// <summary>
+        /// Destination rect for drawing a <paramref name="src"/>-sized image into a <paramref name="dest"/>-sized
+        /// frame: Stretch fills exactly; Fit (and any non-stretch mode) scales to fit inside, centred (letterbox).
+        /// Pure + side-effect-free so it can be unit-tested. Assumes positive sizes.
+        /// </summary>
+        internal static Rectangle ComputeScaledDest(Size src, Size dest, int resizeMode)
+        {
+            if (resizeMode == ResizeStretch)
+                return new Rectangle(0, 0, dest.Width, dest.Height);
+
+            double scale = Math.Min((double)dest.Width / src.Width, (double)dest.Height / src.Height);
+            int w = Math.Max(1, (int)Math.Round(src.Width * scale));
+            int h = Math.Max(1, (int)Math.Round(src.Height * scale));
+            return new Rectangle((dest.Width - w) / 2, (dest.Height - h) / 2, w, h);
         }
 
         private static Bitmap CaptureRegion(Rectangle region)
