@@ -3,27 +3,32 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
-        Title="Timelapse Capture" Width="920" Height="840" MinHeight="320" MinWidth="480"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Timelapse Capture" Width="1040" Height="920" MinHeight="320" MinWidth="480"
         Background="{DynamicResource BgBrush}"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="CenterScreen" WindowStyle="None"
         Topmost="{Binding AlwaysOnTop}"
         TextOptions.TextFormattingMode="Display"
         FontFamily="Segoe UI">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="6" CornerRadius="0"
+                            GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
     <Window.DataContext>
         <vm:MainViewModel/>
     </Window.DataContext>
 
-    <Grid Margin="22">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="44"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,18">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#128247;" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+        <!-- Custom title bar (draggable via the WindowChrome caption; controls are hit-test-visible in chrome) -->
+        <Grid Grid.Row="0" Background="{DynamicResource BgBrush}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
+                <TextBlock Text="&#128247;" FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"/>
                 <!-- Classic red recording indicator -->
                 <Border Margin="14,0,0,0" Background="#22E5534B" CornerRadius="10" Padding="9,3"
                         BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" VerticalAlignment="Center"
@@ -56,25 +61,29 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
-            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
                 <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
                               IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
                               ToolTip="Keep the Timelapse Capture window above all other windows."/>
-                <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}"
+                <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}" VerticalAlignment="Center"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
-                <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0"
+                <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
                         Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
-                <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,0,0"
+                <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
+                <Button Style="{StaticResource WindowBtn}" Content="&#xE921;" Click="OnMinimize" ToolTip="Minimize"/>
+                <Button x:Name="maxButton" Style="{StaticResource WindowBtn}" Content="&#xE922;" Click="OnMaxRestore" ToolTip="Maximize"/>
+                <Button Style="{StaticResource WindowCloseBtn}" Content="&#xE8BB;" Click="OnClose" ToolTip="Close"/>
             </StackPanel>
         </Grid>
 
         <!-- Content (scrolls when the window is shrunk below its natural size) -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid>
+        <Grid Margin="22,6,22,22">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="300"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left column -->
@@ -369,7 +378,7 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <CheckBox Content="Stop capturing when the target is reached" IsChecked="{Binding StopAtTarget}"
+                        <CheckBox Content="Stop at target" IsChecked="{Binding StopAtTarget}"
                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
                                   ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps)."/>
                     </StackPanel>

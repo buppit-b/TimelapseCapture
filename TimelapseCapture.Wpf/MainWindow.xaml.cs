@@ -12,9 +12,18 @@ namespace TimelapseCapture.Wpf
         [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+        [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+        [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
         private const int WM_HOTKEY = 0x0312;
+        private const int WM_GETMINMAXINFO = 0x0024;
         private const int HOTKEY_TOGGLE = 1; // start/stop capture (configurable, off by default)
         private const uint WDA_NONE = 0x0, WDA_EXCLUDEFROMCAPTURE = 0x11; // hide window from screen capture
+        private const int MONITOR_DEFAULTTONEAREST = 2;
+
+        [StructLayout(LayoutKind.Sequential)] private struct POINTL { public int X, Y; }
+        [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
+        [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public int dwFlags; }
+        [StructLayout(LayoutKind.Sequential)] private struct MINMAXINFO { public POINTL ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize; }
 
         private HwndSource? _source;
         private bool _hotkeyRegistered;
@@ -74,7 +83,39 @@ namespace TimelapseCapture.Wpf
                 (DataContext as MainViewModel)?.ToggleCaptureHotkey();
                 handled = true;
             }
+            else if (msg == WM_GETMINMAXINFO)
+            {
+                // Borderless (WindowStyle=None) maximize would cover the taskbar — clamp the maximized
+                // size/position to the monitor's WORK area instead.
+                var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                IntPtr mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                if (mon != IntPtr.Zero)
+                {
+                    var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                    if (GetMonitorInfo(mon, ref mi))
+                    {
+                        mmi.ptMaxPosition.X = mi.rcWork.Left - mi.rcMonitor.Left;
+                        mmi.ptMaxPosition.Y = mi.rcWork.Top - mi.rcMonitor.Top;
+                        mmi.ptMaxSize.X = mi.rcWork.Right - mi.rcWork.Left;
+                        mmi.ptMaxSize.Y = mi.rcWork.Bottom - mi.rcWork.Top;
+                        Marshal.StructureToPtr(mmi, lParam, true);
+                    }
+                }
+            }
             return IntPtr.Zero;
+        }
+
+        private void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+        private void OnMaxRestore(object sender, RoutedEventArgs e)
+            => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        private void OnClose(object sender, RoutedEventArgs e) => Close();
+
+        protected override void OnStateChanged(EventArgs e)
+        {
+            base.OnStateChanged(e);
+            // Swap the caption glyph between Maximize (E922) and Restore (E923).
+            if (FindName("maxButton") is System.Windows.Controls.Button b)
+                b.Content = WindowState == WindowState.Maximized ? "" : "";
         }
 
         protected override void OnClosing(CancelEventArgs e)
