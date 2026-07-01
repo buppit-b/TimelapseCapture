@@ -34,6 +34,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private readonly DispatcherTimer _statsTimer;
         private readonly DispatcherTimer _trackOverlayTimer;   // moves the on-screen outline with a tracked window
         private bool _trackedWindowMadeTopmost;                // true if we forced the tracked window topmost
+        private string _pinnedIdentity = "";                   // identity of the pinned window (guards HWND reuse)
 
         public MainViewModel()
         {
@@ -52,6 +53,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
             DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
+            OpenLogCommand = new RelayCommand(_ => OpenLog());
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             SetTargetCommand = new RelayCommand(_ => SetTarget());
@@ -414,6 +416,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand OpenSettingsCommand { get; }
         public ICommand OpenOverlayCommand { get; }
         public ICommand DismissCaptureErrorCommand { get; }
+        public ICommand OpenLogCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
         public ICommand SetTargetCommand { get; }
@@ -759,6 +762,21 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
+        }
+
+        // Open the diagnostics log (or its folder if it doesn't exist yet) — observability for "what happened?".
+        private void OpenLog()
+        {
+            try
+            {
+                string path = Logger.FilePath;
+                string open = File.Exists(path) ? path : (Path.GetDirectoryName(path) ?? path);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = open, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Couldn't open the log: {ex.Message}", "Open log", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void ExportSettings()
@@ -1158,6 +1176,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_trackedWindow != IntPtr.Zero && _settings.KeepTrackedWindowOnTop)
             {
                 WindowEnumerator.SetTopmost(_trackedWindow, true);
+                _pinnedIdentity = WindowEnumerator.GetWindowIdentity(_trackedWindow);   // remember what we pinned
                 _trackedWindowMadeTopmost = true;
             }
         }
@@ -1166,8 +1185,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_trackedWindowMadeTopmost)
             {
-                WindowEnumerator.SetTopmost(_trackedWindow, false);
+                // Only demote if it's still the same window we pinned — the HWND could have been closed and
+                // recycled onto a different window, which we must not touch.
+                if (WindowEnumerator.GetWindowIdentity(_trackedWindow) == _pinnedIdentity)
+                    WindowEnumerator.SetTopmost(_trackedWindow, false);
                 _trackedWindowMadeTopmost = false;
+                _pinnedIdentity = "";
             }
         }
 

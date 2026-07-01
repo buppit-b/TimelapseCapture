@@ -12,6 +12,9 @@ namespace TimelapseCapture
         private static readonly string LogPath = Path.Combine(
             AppContext.BaseDirectory, "debug.log");
 
+        /// <summary>Full path to the log file (for an "open log" affordance in the UI).</summary>
+        public static string FilePath => LogPath;
+
         private static readonly object _lock = new object();
 
         // Cap the log so an unattended multi-day run can't grow debug.log without bound.

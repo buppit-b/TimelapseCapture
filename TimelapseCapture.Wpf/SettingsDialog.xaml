@@ -124,6 +124,8 @@
                         Margin="0,0,8,0" ToolTip="Save all preferences to a file."/>
                 <Button Content="Import&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ImportSettingsCommand}"
                         ToolTip="Load preferences from a file."/>
+                <Button Content="Open log" Style="{StaticResource BtnBase}" Command="{Binding OpenLogCommand}" Margin="8,0,0,0"
+                        ToolTip="Open the diagnostics log — useful if something went wrong."/>
             </StackPanel>
             <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"
                     MinWidth="84" IsCancel="True"/>

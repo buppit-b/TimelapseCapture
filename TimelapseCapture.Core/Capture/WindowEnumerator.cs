@@ -24,6 +24,7 @@ namespace TimelapseCapture
         [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
+        [DllImport("user32.dll", SetLastError = true)] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         private const uint GW_OWNER = 4;
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
@@ -80,6 +81,20 @@ namespace TimelapseCapture
             if (!GetWindowRect(hWnd, out var r)) return false;
             bounds = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
             return true;
+        }
+
+        /// <summary>
+        /// A stable-ish identity ("pid|title") for a window, to detect a closed or recycled HWND before acting
+        /// on it (e.g. releasing a topmost pin). Empty string if the window no longer exists.
+        /// </summary>
+        public static string GetWindowIdentity(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return "";
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            int len = GetWindowTextLength(hWnd);
+            var sb = new StringBuilder(len + 1);
+            GetWindowText(hWnd, sb, sb.Capacity);
+            return $"{pid}|{sb}";
         }
 
         /// <summary>Force a window topmost (or release it) — used to keep a tracked window un-occluded.</summary>
