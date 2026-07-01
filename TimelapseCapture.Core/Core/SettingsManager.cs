@@ -39,6 +39,7 @@ namespace TimelapseCapture
         public bool MaxDurationEnabled { get; set; }         // opt-in: stop after a maximum capture duration
         public int MaxDurationMinutes { get; set; } = 480;   // the cap (minutes of accumulated capture time)
         public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
+        public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls
         public bool CaptureCursor { get; set; }             // draw the mouse cursor into each frame
         public bool OverlayTimestamp { get; set; }          // master enable for the on-frame text overlay
         public string OverlayText { get; set; } = "{datetime}";

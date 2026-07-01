@@ -70,6 +70,9 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <ToggleButton Style="{StaticResource HeaderToggle}" Content="Simple" IsChecked="{Binding SimpleMode}"
+                              VerticalAlignment="Center" Margin="0,0,14,0"
+                              ToolTip="Simple mode: a speed slider and just the essentials. Turn off for full control."/>
                 <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
                               IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
                               ToolTip="Keep the Timelapse Capture window above all other windows."/>
@@ -179,7 +182,18 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="CAPTURE" Style="{StaticResource CardTitle}"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <!-- Simple mode: a speed slider with a plain-language outcome hint -->
+                        <StackPanel Margin="0,0,0,12" Visibility="{Binding SimpleMode, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Speed" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                            <Slider Minimum="0" Maximum="4" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
+                                    TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1"
+                                    IsEnabled="{Binding NotCapturing}"/>
+                            <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                                       FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <!-- Advanced: the raw interval field -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                      local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
@@ -222,7 +236,8 @@
                             <TextBlock Grid.Column="3" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="14"
                                        Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}">
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="Frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <TextBlock Text="JPEG Q" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox Text="{Binding JpegQuality}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
@@ -233,7 +248,8 @@
                                       ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG. Frame quality is the ceiling for the video — for maximum fidelity use PNG with a low CRF."/>
                         </StackPanel>
                         <!-- Options that change what lands in the frame — surfaced here, not buried in Settings. -->
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                             <CheckBox Content="Capture cursor" IsChecked="{Binding CaptureCursor}"
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                       ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
@@ -244,7 +260,8 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Card}">
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
                         <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
                         <StackPanel IsEnabled="{Binding NotCapturing}">
@@ -303,8 +320,10 @@
                                 Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
 
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}">
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"
+                            Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
                                  local:NumericInput.AllowDecimal="False"
@@ -315,6 +334,7 @@
                                  ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
                         <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
@@ -335,9 +355,11 @@
                                 Command="{Binding EncodeCommand}"/>
                         <Button Grid.Column="1" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
                                 Command="{Binding TrimCommand}" Margin="8,0,0,0"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Encode only a selected range of the captured frames."/>
                         <Button Grid.Column="2" Content="Cull&#8230;" Style="{StaticResource BtnBase}"
                                 Command="{Binding CullCommand}" Margin="8,0,0,0"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Delete fumble frames and renumber the rest before encoding."/>
                         <TextBlock Grid.Column="3" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
                                    VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>

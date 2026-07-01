@@ -103,7 +103,50 @@ namespace TimelapseCapture.Wpf.ViewModels
                     SettingsManager.Save(_settings);
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(StatusText));
+                    OnPropertyChanged(nameof(SpeedNotch));
+                    OnPropertyChanged(nameof(SpeedHint));
                 }
+            }
+        }
+
+        // ---- Simple mode: a curated view over the same settings (speed slider instead of raw interval) ----
+        public bool SimpleMode
+        {
+            get => _settings.SimpleMode;
+            set { if (_settings.SimpleMode != value) { _settings.SimpleMode = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(AdvancedVisible)); } }
+        }
+        public bool AdvancedVisible => !SimpleMode;
+
+        // Speed slider: named notches → sensible art-timelapse intervals. The slider binds to SpeedNotch.
+        private static readonly decimal[] SpeedIntervals = { 1m, 3m, 5m, 15m, 60m };
+        private static readonly string[] SpeedNames = { "Detailed", "Standard", "Relaxed", "Long haul", "All-day" };
+
+        public int SpeedNotch
+        {
+            get
+            {
+                int best = 0; decimal bestDiff = decimal.MaxValue;
+                for (int i = 0; i < SpeedIntervals.Length; i++)
+                {
+                    decimal d = Math.Abs(SpeedIntervals[i] - IntervalSeconds);
+                    if (d < bestDiff) { bestDiff = d; best = i; }
+                }
+                return best;
+            }
+            set { IntervalSeconds = SpeedIntervals[Math.Clamp(value, 0, SpeedIntervals.Length - 1)]; }
+        }
+
+        // Plain-language outcome preview so a slider position means something concrete.
+        public string SpeedHint
+        {
+            get
+            {
+                double interval = (double)IntervalSeconds;
+                if (interval <= 0) return "";
+                int fps = Math.Max(1, EncodeFps);
+                double framesPerMin = 60.0 / interval;
+                double oneHourVideoSec = 3600.0 / interval / fps;
+                return $"{SpeedNames[SpeedNotch]}  ·  ≈{framesPerMin:F0} frames/min  ·  a 1-hour session → ~{oneHourVideoSec:F0}s video @ {fps}fps";
             }
         }
 
@@ -132,7 +175,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
 
         private int _encodeFps = 30;
-        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, Math.Clamp(value, 1, 240))) { RefreshStats(); BumpRecalc(); } } }
+        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, Math.Clamp(value, 1, 240))) { RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); } } }
 
         private int _encodeCrf = 23;
         public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
