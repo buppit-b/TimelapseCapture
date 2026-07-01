@@ -49,11 +49,12 @@ candidates: **unattended safety** (item 4) and **auto-encode / frame cull** (ite
 3. **Auto-encode on stop** (optional) + **frame review/cull** before encoding
    (scrub the frames, delete fumbles) — makes finishing one step.
    - **Clip trimming** — ✅ **done (0.9.2)**: a scrubber picks a start/end frame and encodes
-     only that contiguous range (image2 `-start_number`/`-frames:v`, no re-encode). A range
-     needs no renumber; *frame cull* (deleting interior fumbles, which gaps the sequence) is
-     the remaining, harder piece — that's where the gapped-frame encode edge case bites.
-4. **Unattended safety** — auto-stop on low disk space or an optional max duration;
-   notification when a long run / encode finishes.
+     only that contiguous range (image2 `-start_number`/`-frames:v`, no re-encode).
+   - **Frame cull** — ✅ **done**: `CullDialog` marks fumble frames; `SessionManager.CullAndRenumber`
+     deletes them and renumbers the rest gapless (keeping image2 happy) — which also closes the
+     gapped-sequence encode concern.
+4. **Unattended safety** — ✅ **done**: pre-flight + low-disk auto-stop, opt-in max-duration cap,
+   stop-at-target, capture-failure auto-stop, and a finish notification (sound + taskbar flash).
 5. **Crash recovery** — ✅ **done (0.9.x)**: the Active flag is managed (start/stop),
    and on launch the app offers to resume a session left recording when it died.
 6. **Frame overlay** — ✅ **configurable text overlay done (0.9.x)**: tokens

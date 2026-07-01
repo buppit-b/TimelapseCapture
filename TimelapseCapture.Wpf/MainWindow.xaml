@@ -328,6 +328,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
@@ -335,7 +336,10 @@
                         <Button Grid.Column="1" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
                                 Command="{Binding TrimCommand}" Margin="8,0,0,0"
                                 ToolTip="Encode only a selected range of the captured frames."/>
-                        <TextBlock Grid.Column="2" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
+                        <Button Grid.Column="2" Content="Cull&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding CullCommand}" Margin="8,0,0,0"
+                                ToolTip="Delete fumble frames and renumber the rest before encoding."/>
+                        <TextBlock Grid.Column="3" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
                                    VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
                     </Grid>
                 </StackPanel>

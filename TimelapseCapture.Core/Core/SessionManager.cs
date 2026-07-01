@@ -402,6 +402,47 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// User-initiated frame cull: delete the given frame numbers, then renumber the remaining frames to a
+        /// gapless 00001..N sequence (so the image2 encoder stays happy) and update the session's frame count.
+        /// Destructive — the caller must confirm. Returns the new frame count.
+        /// </summary>
+        public static int CullAndRenumber(string sessionFolder, ISet<int> deleteNumbers)
+        {
+            var framesPath = GetFramesFolder(sessionFolder);
+            if (!Directory.Exists(framesPath)) return 0;
+
+            // GetFrameFiles is ordinal-sorted, i.e. ascending frame number for zero-padded names. Process in
+            // that order and re-assign the next sequential number; because the new number is always <= the old
+            // one and lower slots are already vacated, no rename can clobber a not-yet-processed frame.
+            int next = 1;
+            foreach (var file in GetFrameFiles(sessionFolder))
+            {
+                if (!int.TryParse(Path.GetFileNameWithoutExtension(file), out int num))
+                    continue; // ignore anything that isn't a numbered frame
+
+                if (deleteNumbers.Contains(num))
+                {
+                    try { File.Delete(file); }
+                    catch (Exception ex) { Logger.Log("Cull", $"Delete {file} failed: {ex.Message}"); }
+                    continue;
+                }
+
+                string target = Path.Combine(framesPath, $"{next:D5}{Path.GetExtension(file)}");
+                if (!string.Equals(file, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Move(file, target, true); }
+                    catch (Exception ex) { Logger.Log("Cull", $"Renumber {file} -> {target} failed: {ex.Message}"); }
+                }
+                next++;
+            }
+
+            int newCount = GetFrameFiles(sessionFolder).Length;   // true count from what's actually on disk
+            var info = LoadSession(sessionFolder);
+            if (info != null) { info.FramesCaptured = newCount; SaveSession(sessionFolder, info); }
+            return newCount;
+        }
+
+        /// <summary>
         /// Clean up temp folder (delete filelist.txt, etc).
         /// </summary>
         public static void CleanTempFolder(string sessionFolder)

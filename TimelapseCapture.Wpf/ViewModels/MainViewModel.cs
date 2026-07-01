@@ -69,6 +69,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             TrimCommand = new RelayCommand(async _ => await Trim(), _ => CanEncode);
+            CullCommand = new RelayCommand(_ => Cull(), _ => CanEncode);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
@@ -426,6 +427,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand OpenFolderCommand { get; }
         public ICommand EncodeCommand { get; }
         public ICommand TrimCommand { get; }
+        public ICommand CullCommand { get; }
         public ICommand DownloadFfmpegCommand { get; }
         public ICommand BrowseFfmpegCommand { get; }
         public ICommand CancelDownloadCommand { get; }
@@ -1336,6 +1338,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             var dlg = new TrimDialog(_sessionFolder, _frameCount) { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() == true)
                 await Encode(dlg.StartFrame, dlg.EndFrame);
+        }
+
+        // Review frames and delete fumbles, renumbering the rest so the sequence stays gapless (encodable).
+        private void Cull()
+        {
+            if (_session == null || _sessionFolder == null || _frameCount < 1) return;
+            var dlg = new CullDialog(_sessionFolder, _frameCount) { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true || dlg.MarkedForDeletion.Count == 0) return;
+
+            int newCount = SessionManager.CullAndRenumber(_sessionFolder, new HashSet<int>(dlg.MarkedForDeletion));
+            FrameCount = newCount;
+            UpdatePreview();   // the "latest" frame likely changed
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private async Task Encode(int startFrame = 1, int endFrame = 0)
