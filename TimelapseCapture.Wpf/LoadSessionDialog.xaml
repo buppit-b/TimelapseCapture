@@ -4,7 +4,8 @@
         Title="Load Session" Height="520" Width="460"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
-        MinHeight="320" MinWidth="380">
+        MinHeight="320" MinWidth="380" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

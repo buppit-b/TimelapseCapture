@@ -4,7 +4,8 @@
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         Title="Settings" Width="460" SizeToContent="Height" MaxHeight="780"
         Background="{DynamicResource BgBrush}"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}">
     <StackPanel Margin="18">
         <TextBlock Text="SETTINGS" Style="{StaticResource CardTitle}"/>
 

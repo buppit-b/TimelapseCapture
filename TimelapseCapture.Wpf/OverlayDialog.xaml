@@ -4,7 +4,8 @@
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         Title="Overlay" Width="470" SizeToContent="Height"
         Background="{DynamicResource BgBrush}"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}">
     <StackPanel Margin="18">
         <TextBlock Text="FRAME OVERLAY" Style="{StaticResource CardTitle}"/>
         <TextBlock Text="Burn text into every captured frame — handy for stamping the date/time onto a timelapse."

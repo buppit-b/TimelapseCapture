@@ -1088,6 +1088,21 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
+
+            // Pre-flight: don't begin a run onto a disk that's already below the low-disk safety limit
+            // (it would auto-stop almost immediately) — let the user decide, but default to not starting.
+            if (_settings.AutoStopOnLowDisk)
+            {
+                long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
+                if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
+                {
+                    var r = MessageBox.Show(
+                        $"Only {freeMb} MB free on the capture drive — below your {_settings.LowDiskStopMB} MB low-disk limit, so the run would stop almost immediately.\n\nStart anyway?",
+                        "Low disk space", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (r != MessageBoxResult.Yes) return;
+                }
+            }
+
             ClearCaptureError();
             _consecutiveCaptureFailures = 0;
             _lastPreviewedFrame = -1;   // force the first captured frame to refresh the preview
