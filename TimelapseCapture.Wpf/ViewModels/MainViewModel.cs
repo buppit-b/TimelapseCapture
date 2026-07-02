@@ -96,6 +96,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.IntervalSecondsExact > 0 ? _settings.IntervalSecondsExact : _settings.IntervalSeconds;
             set
             {
+                // 0.1s (10 fps) is the engine floor: each tick synchronously grabs + encodes + writes a
+                // frame, and below ~100ms ticks overlap and get dropped — that's screen-recorder territory.
                 decimal v = value < 0.1m ? 0.1m : value;
                 if (_settings.IntervalSecondsExact != v)
                 {
@@ -107,8 +109,45 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged(nameof(SpeedNotch));
                     OnPropertyChanged(nameof(SpeedHint));
                 }
+                // A clamped/rounded entry must be VISIBLE: re-notify after the binding transfer completes so
+                // the field snaps back to the real value instead of displaying e.g. "0.01" while running 0.1s.
+                // (Raised deferred and unconditionally — WPF can ignore a PropertyChanged fired inside the
+                // same transfer, and the fps view needs refreshing when edited via seconds and vice versa.)
+                Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    OnPropertyChanged(nameof(IntervalSeconds));
+                    OnPropertyChanged(nameof(CaptureFps));
+                }));
             }
         }
+
+        // The same interval viewed as a capture rate (frames per second) — some users think in fps.
+        // Round-trips through IntervalSeconds so every clamp/rule lives in one place.
+        public decimal CaptureFps
+        {
+            get => IntervalSeconds > 0 ? Math.Round(1m / IntervalSeconds, 2) : 0;
+            set { if (value > 0) IntervalSeconds = Math.Round(1m / value, 4); }
+        }
+
+        // 0 = seconds, 1 = fps — which unit the Advanced interval field shows (persisted preference).
+        public int IntervalUnitIndex
+        {
+            get => _settings.IntervalShownAsFps ? 1 : 0;
+            set
+            {
+                bool fps = value == 1;
+                if (_settings.IntervalShownAsFps != fps)
+                {
+                    _settings.IntervalShownAsFps = fps;
+                    SettingsManager.Save(_settings);
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ShowIntervalSeconds));
+                    OnPropertyChanged(nameof(ShowIntervalFps));
+                }
+            }
+        }
+        public bool ShowIntervalSeconds => !_settings.IntervalShownAsFps;
+        public bool ShowIntervalFps => _settings.IntervalShownAsFps;
 
         // First-run flag: the setup wizard shows once on launch, then stays available from Settings.
         public bool FirstRunCompleted
