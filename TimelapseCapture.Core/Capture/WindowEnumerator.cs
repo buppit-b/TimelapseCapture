@@ -27,6 +27,10 @@ namespace TimelapseCapture
         [DllImport("user32.dll", SetLastError = true)] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder sb, int max);
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+        [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+        [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+        [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public int dwFlags; }
         private const uint GW_OWNER = 4;
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
@@ -97,6 +101,29 @@ namespace TimelapseCapture
             var sb = new StringBuilder(256);
             GetClassName(hWnd, sb, sb.Capacity);
             return $"{pid}|{sb}";
+        }
+
+        /// <summary>
+        /// True when the window covers (nearly) its entire monitor — a fullscreen/borderless game or a
+        /// maximized-borderless app. Pinning such a window topmost hijacks the desktop: it stays above
+        /// EVERYTHING even after alt-tab, leaving the user no way to reach any other window (including
+        /// this app) to stop the capture. Fullscreen surfaces can't be occluded while focused anyway.
+        /// </summary>
+        public static bool CoversFullMonitor(IntPtr hWnd, double threshold = 0.98)
+        {
+            if (!TryGetLiveBounds(hWnd, out var b, out bool minimized, out bool alive) || !alive || minimized)
+                return false;
+            IntPtr mon = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            if (mon == IntPtr.Zero) return false;
+            var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (!GetMonitorInfo(mon, ref mi)) return false;
+
+            var monRect = new Rectangle(mi.rcMonitor.Left, mi.rcMonitor.Top,
+                mi.rcMonitor.Right - mi.rcMonitor.Left, mi.rcMonitor.Bottom - mi.rcMonitor.Top);
+            long monArea = (long)monRect.Width * monRect.Height;
+            var overlap = Rectangle.Intersect(b, monRect);
+            long coverage = (long)overlap.Width * overlap.Height;
+            return monArea > 0 && coverage >= (long)(monArea * threshold);
         }
 
         /// <summary>Force a window topmost (or release it) — used to keep a tracked window un-occluded.</summary>

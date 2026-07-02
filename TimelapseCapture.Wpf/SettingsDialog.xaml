@@ -35,7 +35,7 @@
                       ToolTip="When tracking a window: off (default) = stop capturing if it's minimized; on = pause and resume automatically when you restore it."/>
             <CheckBox Content="Keep the tracked window on top while capturing" IsChecked="{Binding KeepTrackedWindowOnTop}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"
-                      ToolTip="Force the tracked window above all others while capturing so nothing can cover it. Released when capture stops."/>
+                      ToolTip="Force the tracked window above all others while capturing so nothing can cover it. Released when capture stops. Skipped for fullscreen-sized windows (a fullscreen window pinned on top would block alt-tab)."/>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                 <TextBlock Text="On resize" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="64"/>
                 <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Lock size"

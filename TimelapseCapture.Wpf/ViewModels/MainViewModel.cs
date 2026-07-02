@@ -1291,12 +1291,21 @@ namespace TimelapseCapture.Wpf.ViewModels
         // so a paused capture doesn't leave the window jammed on top.
         private void PinTrackedWindow()
         {
-            if (_trackedWindow != IntPtr.Zero && _settings.KeepTrackedWindowOnTop)
+            if (_trackedWindow == IntPtr.Zero || !_settings.KeepTrackedWindowOnTop) return;
+
+            // NEVER pin a fullscreen-sized window (fullscreen/borderless game): topmost on it hijacks the
+            // desktop — it stays above everything even after alt-tab, and the user can't reach any other
+            // window (including this app) to stop the capture. It gains nothing anyway: a focused
+            // fullscreen surface can't be occluded.
+            if (WindowEnumerator.CoversFullMonitor(_trackedWindow))
             {
-                WindowEnumerator.SetTopmost(_trackedWindow, true);
-                _pinnedIdentity = WindowEnumerator.GetWindowIdentity(_trackedWindow);   // remember what we pinned
-                _trackedWindowMadeTopmost = true;
+                Logger.Log("Wpf", "Keep-on-top skipped: the tracked window is fullscreen-sized (pinning it would block alt-tab).");
+                return;
             }
+
+            WindowEnumerator.SetTopmost(_trackedWindow, true);
+            _pinnedIdentity = WindowEnumerator.GetWindowIdentity(_trackedWindow);   // remember what we pinned
+            _trackedWindowMadeTopmost = true;
         }
 
         private void UnpinTrackedWindow()
@@ -1665,6 +1674,14 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StorageInfo))
                 {
                     RefreshOutputFolderMissing();   // folder can vanish while the app is running
+
+                    // Safety: if the tracked window went fullscreen after we pinned it (game toggled modes),
+                    // release the pin — a fullscreen topmost window blocks alt-tab for the whole desktop.
+                    if (_trackedWindowMadeTopmost && WindowEnumerator.CoversFullMonitor(_trackedWindow))
+                    {
+                        UnpinTrackedWindow();
+                        Logger.Log("Wpf", "Keep-on-top released: the tracked window went fullscreen.");
+                    }
 
                     int w = _region?.Width ?? 0;
                     int h = _region?.Height ?? 0;
