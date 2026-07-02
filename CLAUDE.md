@@ -37,9 +37,10 @@ front-end.** The two front-ends share one engine:
   (or launch `TimelapseCapture.Wpf/bin/Debug/net9.0-windows/TimelapseCapture.Wpf.exe`)
 - **Test:** `dotnet test TimelapseCapture.sln`
 - Windows only (.NET 9, `net9.0-windows`).
-- **Version:** `0.9.3` (SemVer; `<Version>` in both `.csproj`, shown in the Settings
-  cog). Pre-1.0 stays on `0.x`. See `ROADMAP.md` (versioning + 1.0 candidates + known
-  issues) and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
+- **Version:** `0.9.4` — **the 1.0 release candidate** (SemVer; `<Version>` in both `.csproj`,
+  shown in the Settings cog). 1.0 = this RC + a passing multi-hour soak test (protocol in
+  `ROADMAP.md` "1.0 gate"). See `ROADMAP.md` (also: 1.1 candidates + pre-distribution blockers)
+  and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
 
 > **Testing note:** computer-use/automation **cannot drive the dev-built exe**
 > (the resolver won't target it). The maintainer (Spike) runs each build by hand
@@ -269,7 +270,7 @@ pick; and `RegionEditOverlay` for on-screen region editing.
 encode/trim, live themes, and window tracking (move-follow, resize Lock/Fit/Stretch, minimize +
 keep-on-top) have all been exercised live over the 0.9.x arc.
 
-**Since 0.9.3 (post-release arc, on `main`):** **unattended safety complete** (pre-flight +
+**0.9.4 — the 1.0 release candidate (2026-07-02):** **unattended safety complete** (pre-flight +
 low-disk auto-stop default-on, opt-in max-duration cap, stop-at-target, finish notification =
 sound + taskbar flash) · **frame cull** (`CullDialog` + `SessionManager.CullAndRenumber`,
 renumbers gapless) · **custom themed title bars** (main window WindowChrome caption + shared

@@ -3,6 +3,46 @@
 All notable changes to TimelapseCapture are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [0.9.4] — 2026-07-02 — the 1.0 release candidate
+
+Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
+
+### Added
+- **Simple mode** — a header toggle that swaps the raw interval for a **speed slider** with
+  named notches (Rapid 0.5s … All-day 60s) and a plain-language outcome hint ("every 3s ·
+  ≈20 frames/min · a 1-hour session → ~40s video @ 30fps"), and hides the advanced surface.
+  Full control stays one toggle away.
+- **First-run setup wizard** — folder → what to capture → speed (slider + exact field) →
+  one-click FFmpeg download → done. Shows once on first launch; re-runnable from Settings.
+- **Frame cull** — scrub the captured frames, mark fumbles, delete them; the rest renumber to a
+  gapless sequence so the encode stays exact.
+- **Unattended safety completed** — pre-flight + low-disk auto-stop (default on, configurable
+  threshold; Stats names the watched drive), opt-in **max-duration cap**, **stop at target**,
+  and a **finish notification** (sound + taskbar flash) when a capture auto-stops or an encode
+  completes.
+- **Custom themed title bars** — the main window and every dialog use the app's own caption
+  (native resize/snap/maximize preserved); larger default window so nothing opens cut off.
+- **sec ⇄ fps interval toggle** + the outcome hint in Advanced mode; interval clamping is now
+  visible (out-of-range entries snap back instead of silently displaying a value the app isn't
+  using).
+- **"Open log"** button in Settings (observability), **keep-on-top release** hardened against
+  recycled window handles.
+
+### Fixed
+- **Silent black frames** — a blocked screen grab (UAC prompt, lock screen, RDP disconnect) used
+  to save valid all-black frames with no error; now it pauses and resumes automatically.
+- **ffmpeg preset injection** hardened (allowlist), mixed JPEG+PNG sessions refuse to encode
+  with a clear message, imported settings are re-clamped, huge targets can't overflow the
+  stop-at-target math, loaded/foreign session regions are validated to even dimensions.
+- Perf for long runs: no double session-file read per frame, O(1) preview lookup, sampled
+  frame-size stats, the overlay follow-timer skips no-op relayouts.
+- Settings footer buttons could overlap Close; title-bar text could overlap header controls on
+  narrow windows; stats text no longer clips.
+- Solution builds with **0 warnings** (legacy WinForms noise suppressed in that project only);
+  tests 31 → **33**.
+
+[0.9.4]: https://github.com/buppit-b/TimelapseCapture
+
 ## [0.9.3] — 2026-06-26
 
 The headline 1.0 feature plus a big reliability + UX pass.

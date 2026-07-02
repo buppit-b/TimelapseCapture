@@ -12,9 +12,10 @@ While pre-1.0 we stay on **`0.x`**: minor bumps for features, patch bumps for fi
 breaking changes are allowed but called out. The version lives in the two
 `.csproj` files (`<Version>`) and is shown in the **Settings** dialog (the cog).
 
-**Current: `0.9.3`** — the WPF rebuild has reached WinForms parity plus a large
-polish/feature pass, and the headline **window tracking** feature has landed. We're
-in the run-up to 1.0: closing issues and edge cases.
+**Current: `0.9.4` — the 1.0 release candidate.** Everything on the 1.0 feature line has
+landed (window tracking, unattended safety, trim + cull, Simple mode + setup wizard, custom
+chrome, hardening/perf passes; 0-warning build, 33/33 tests). **1.0 = this RC + a clean
+soak test** (see "1.0 gate" below) + whatever that soak reveals.
 
 ### What 1.0 means here
 A **versatile daily driver for timelapse capture**, aimed at artists capturing
@@ -27,8 +28,8 @@ The exact 1.0 feature line is Spike's call — this file is the shortlist to cho
 ## Toward 1.0 — candidate features
 
 Ranked roughly by value for the artist use case.
-**Current priority (2026-06-26):** window tracking shipped (0.9.3). Next likely
-candidates: **unattended safety** (item 4) and **auto-encode / frame cull** (item 3).
+**Current priority (2026-07-02):** the 1.0 line is complete — see the **1.0 gate + 1.1
+candidates** section below for what happens next.
 
 1. **Window / application capture** *(Spike's biggest want)* — ✅ **first slice done (0.9.3)**:
    pick a window (HWND), follow its position each tick (`GetWindowRect` + BitBlt), size locked
@@ -84,6 +85,43 @@ candidates: **unattended safety** (item 4) and **auto-encode / frame cull** (ite
     - **Ruled out:** covert steganographic pixel watermarking — fragile through compression, and a
       transparency/trust problem for an artist tool. Keep provenance open, not hidden.
 
+## 1.0 gate + 1.1 candidates (agreed with Spike, 2026-07-02)
+
+### The 1.0 gate: a real soak test
+The one thing never validated is the thing the app is for — a multi-hour unattended run.
+Protocol (Spike runs it; costs no code): start a tracked-window or region capture at a ~1s
+interval and leave it 6–8 hours. Pass criteria: memory roughly flat (Task Manager at start vs
+end), frame count ≈ elapsed/interval (minus idle skips), `debug.log` quiet, and the resulting
+session encodes clean end-to-end. **1.0 is the RC + a passing soak.**
+
+### Pre-distribution blockers (must happen before shipping 1.0 to anyone else)
+- **Settings/log/ffmpeg live next to the exe** — breaks under Program Files (no write
+  permission). Move config to `%APPDATA%` (keep a portable-mode fallback) before any installer.
+- **Packaging** — an installer or at least a versioned release zip on GitHub Releases.
+- **LICENSE** — the repo has none; Spike's call (MIT recommended for a tool like this). Plus a
+  one-line in-app note that the downloaded ffmpeg is BtbN's GPL build (invoked as a separate
+  process, so it doesn't constrain the app's own licence).
+
+### 1.1 candidates (top three, in recommended order)
+1. **Tray icon with recording state** — minimize to tray, red-dot "recording" glance state,
+   right-click start/stop/open; plus an optional **chime on hotkey start/stop** (today the
+   global hotkey gives zero feedback when the window is hidden). The missing daily-driver
+   affordance for a background app.
+2. **Finish-line encode options** — **hold the final frame** for N seconds (ffmpeg `tpad`; the
+   finished artwork is the frame viewers want to see), and **encode to a target duration**
+   ("make it exactly 60s" — fps computed from frame count; social platforms have ceilings).
+3. **Multi-session combine** — select several sessions and encode one continuous video (the
+   "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
+
+### 1.x smaller ideas (parked, roughly by value)
+Start-capture-on-launch (+ optional launch-with-Windows) · GIF export · all-screens preset
+(item 8) · in-app playback preview at target fps · zoom/loupe frame viewer (parked from 0.9.x) ·
+{elapsed}/{frame} overlay tokens (item 6 follow-up) · provenance (item 10, direction decided).
+
+### Explicitly out of scope (identity discipline)
+Webcam/facecam, audio, a general video editor, cloud sync, sub-0.1s capture — those pull
+toward OBS/editor territory; this app stays the reliable art-timelapse tool.
+
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
   multi-monitor setups (`ScreenHelper.SystemDpiScale` is system-DPI only today).
@@ -124,8 +162,8 @@ Still to verify/fix (roughly by value):
 - **Concurrent `session.json` writes** — engine `IncrementFrameCount` vs VM writes
   could race in theory, but VM writes happen outside the capture loop and writes are
   atomic (temp+replace), so low risk — worth a confirm.
-- **Encode on gapped/renumbered frames** — image2 `%05d` + `-start_number 1` stops at
-  the first gap; only relevant once frame-cull/editing lands (which would renumber).
+- **Encode on gapped/renumbered frames** — ✅ resolved: frame cull renumbers to a gapless
+  sequence by design, and the encoder now refuses mixed-format frame folders with a clear error.
 - **Numeric fields** — ✅ done: numeric-only input (`NumericInput` behavior) + range
   clamping, so they can't hold junk.
 - **Mixed-DPI**: a single system-DPI is used for all monitors (region/cursor offset
