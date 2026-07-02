@@ -20,7 +20,7 @@
         <!-- Step 1 — output folder -->
         <StackPanel x:Name="step1" Visibility="Collapsed">
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
-                       Text="Sessions (frames + finished videos) are saved under this folder."/>
+                       Text="Sessions (frames + finished videos) are saved under this folder, inside a 'captures' subfolder — one folder per session."/>
             <Grid Margin="0,10,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -59,9 +59,12 @@
                     TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1" Margin="0,12,0,0"/>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="or exactly" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                         local:NumericInput.AllowDecimal="True"
-                         ToolTip="Type a precise interval in seconds (decimals allowed, minimum 0.1)."/>
+                <Border x:Name="wizardIntervalRing" BorderThickness="1.5" CornerRadius="4" Padding="2">
+                    <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
+                    <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="True"
+                             ToolTip="Type a precise interval in seconds (decimals allowed). Minimum 0.1s — out-of-range entries snap back with a red flash."/>
+                </Border>
                 <TextBlock Text="seconds between frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
             </StackPanel>
             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"

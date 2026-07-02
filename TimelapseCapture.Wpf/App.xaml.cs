@@ -15,8 +15,19 @@ namespace TimelapseCapture.Wpf
 
         private static Mutex? _instanceMutex;   // held for the app's lifetime (field so it can't be GC'd)
 
+        /// <summary>
+        /// A session path passed on the command line (e.g. a session folder dragged onto the exe in
+        /// Explorer) — consumed by MainWindow once it's rendered. Note: if the app is ALREADY running,
+        /// the single-instance guard activates it and this arg is dropped (arg forwarding is a
+        /// follow-up); drag-and-drop onto the window covers that case.
+        /// </summary>
+        public static string? PendingSessionPath { get; set; }
+
         protected override void OnStartup(StartupEventArgs e)
         {
+            if (e.Args.Length > 0 && !string.IsNullOrWhiteSpace(e.Args[0]))
+                PendingSessionPath = e.Args[0];
+
             // Single instance: two copies would race on settings.json (each holds an in-memory snapshot
             // and rewrites the whole file on any change — last writer silently reverts the other's
             // choices, e.g. a newly picked output folder) and could double-capture into one session.

@@ -87,12 +87,15 @@ candidates** section below for what happens next.
 
 ## 1.0 gate + 1.1 candidates (agreed with Spike, 2026-07-02)
 
-### The 1.0 gate: a real soak test
+### The 1.0 gate: a real soak test + scenario pass
 The one thing never validated is the thing the app is for — a multi-hour unattended run.
 Protocol (Spike runs it; costs no code): start a tracked-window or region capture at a ~1s
 interval and leave it 6–8 hours. Pass criteria: memory roughly flat (Task Manager at start vs
 end), frame count ≈ elapsed/interval (minus idle skips), `debug.log` quiet, and the resulting
-session encodes clean end-to-end. **1.0 is the RC + a passing soak.**
+session encodes clean end-to-end. Alongside it, run **`docs/QA_CHECKLIST.md`** — the interactive
+scenario matrix (fullscreen games, lock screen, multi-monitor/DPI, drag interactions) that
+automated tests can't reach; the 0.9.4 fullscreen-lockup bug is exactly the class it exists to
+catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 
 ### Pre-distribution blockers (must happen before shipping 1.0 to anyone else)
 - **Settings/log/ffmpeg live next to the exe** — breaks under Program Files (no write
@@ -119,7 +122,9 @@ Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report*
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
 to the clipboard)* · GIF export · all-screens preset (item 8) · in-app playback preview at
 target fps · zoom/loupe frame viewer (parked from 0.9.x) · {elapsed}/{frame} overlay tokens
-(item 6 follow-up) · provenance (item 10, direction decided).
+(item 6 follow-up) · provenance (item 10, direction decided) · forward an open-session argument
+from a second launch to the running instance via WM_COPYDATA (today the single-instance guard
+drops it; drag-and-drop onto the window covers the case meanwhile).
 
 ### Explicitly out of scope (identity discipline)
 Webcam/facecam, audio, a general video editor, cloud sync, sub-0.1s capture — those pull

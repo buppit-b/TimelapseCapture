@@ -49,7 +49,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             ChooseFolderCommand = new RelayCommand(_ => ChooseFolder(), _ => !IsCapturing);
             NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
-            LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing);
+            LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing && !IsEncoding);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
@@ -114,6 +114,9 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // the field snaps back to the real value instead of displaying e.g. "0.01" while running 0.1s.
                 // (Raised deferred and unconditionally — WPF can ignore a PropertyChanged fired inside the
                 // same transfer, and the fps view needs refreshing when edited via seconds and vice versa.)
+                // The clamp flash fires SYNCHRONOUSLY (it's a different property, so no transfer quirk) —
+                // deferred it could land after a wizard step collapsed and play on a hidden ring.
+                if (value != v) IntervalClampPulse++;   // flash the field red: "adjusted, see tooltip for why"
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     OnPropertyChanged(nameof(IntervalSeconds));
@@ -121,6 +124,10 @@ namespace TimelapseCapture.Wpf.ViewModels
                 }));
             }
         }
+
+        // Bumped when an out-of-range interval entry was clamped — drives a brief red ring on the field.
+        private int _intervalClampPulse;
+        public int IntervalClampPulse { get => _intervalClampPulse; set => SetProperty(ref _intervalClampPulse, value); }
 
         // The same interval viewed as a capture rate (frames per second) — some users think in fps.
         // Round-trips through IntervalSeconds so every clamp/rule lives in one place.
@@ -511,6 +518,54 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void RefreshOutputFolderMissing() =>
             OutputFolderMissing = !string.IsNullOrWhiteSpace(_settings.SaveFolder) && !Directory.Exists(_settings.SaveFolder);
 
+        // Make the layout explicit: sessions land in a "captures" subfolder of the chosen folder.
+        public bool HasSaveFolderSet => !string.IsNullOrWhiteSpace(_settings.SaveFolder);
+        public string CapturesRootHint => HasSaveFolderSet
+            ? $"Sessions are saved to {Path.Combine(_settings.SaveFolder!, "captures")}\\<session name>"
+            : "";
+
+        /// <summary>
+        /// Load a session from an arbitrary path: the session folder itself, its session.json, or a file/
+        /// subfolder inside it (frames, output). Used by drag-drop onto the window and by a command-line
+        /// argument (e.g. dragging a session folder onto the exe in Explorer). Returns false if no session
+        /// was found at or above the path.
+        /// </summary>
+        public bool TryLoadSessionPath(string path)
+        {
+            // Swapping the session mid-capture is unsafe; mid-encode it would misattribute the encode's
+            // completion UI to the newly loaded session — refuse both (the drop handler explains).
+            if (IsCapturing || IsEncoding || string.IsNullOrWhiteSpace(path)) return false;
+            try
+            {
+                string? dir = File.Exists(path) ? Path.GetDirectoryName(path) : path;
+                // Walk up a couple of levels so session.json / frames\00001.jpg / output\x.mp4 all resolve.
+                for (int i = 0; dir != null && i < 3; i++, dir = Path.GetDirectoryName(dir))
+                {
+                    if (Directory.Exists(dir) && SessionManager.LoadSession(dir) != null)
+                    {
+                        // A parseable session.json OUTSIDE the captures root could be a stray copy (backup on
+                        // the Desktop, an extracted zip) — loading it would make that folder the live capture
+                        // target. Confirm rather than adopt silently.
+                        string root = string.IsNullOrWhiteSpace(_settings.SaveFolder)
+                            ? "" : Path.GetFullPath(Path.Combine(_settings.SaveFolder!, "captures"));
+                        bool outsideRoot = root.Length == 0 ||
+                            !Path.GetFullPath(dir).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                        if (outsideRoot)
+                        {
+                            var r = MessageBox.Show(
+                                $"Load this session from outside your captures folder?\n\n{dir}\n\nNew frames would be captured into that folder.",
+                                "Open session", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                            if (r != MessageBoxResult.Yes) return true;   // handled — don't show "not a session"
+                        }
+                        LoadSessionFromFolder(dir, fromPicker: false);
+                        return true;
+                    }
+                }
+            }
+            catch { /* fall through to false */ }
+            return false;
+        }
+
         // ---- commands ----
         public ICommand ChooseFolderCommand { get; }
         public ICommand NewSessionCommand { get; }
@@ -555,31 +610,57 @@ namespace TimelapseCapture.Wpf.ViewModels
                 SettingsManager.Save(_settings);
                 OutputFolder = dlg.FolderName;
                 RefreshOutputFolderMissing();
+                OnPropertyChanged(nameof(HasSaveFolderSet));
+                OnPropertyChanged(nameof(CapturesRootHint));
                 CommandManager.InvalidateRequerySuggested();
             }
         }
 
         private void NewSession()
         {
+            // Guard against losing your place with a stray click: if the current session already
+            // has frames, confirm before switching away (the old one stays safe on disk).
+            if (_session != null && _frameCount > 0 && !IsCapturing)
+            {
+                var r = MessageBox.Show(
+                    $"The current session “{SessionName}” has {_frameCount} frame(s).\n\nIt will be kept on disk, but a new session will replace it here. Start a new session?",
+                    "New session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (r != MessageBoxResult.Yes) return;
+            }
+
+            // The current session with no frames yet IS a fresh session — don't spawn another folder;
+            // the name prompt below just renames it if the user picks something different.
+            bool reuseEmpty = _session != null && _sessionFolder != null && _frameCount == 0 && !IsCapturing;
+
+            // Name it up front (prefilled — Enter accepts the default; Cancel aborts).
+            string defaultName = $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
+            var dlg = new TextPromptDialog("New session", "Session name",
+                reuseEmpty ? (_session!.Name ?? defaultName) : defaultName)
+            { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true) return;
+            string name = string.IsNullOrWhiteSpace(dlg.Value) ? defaultName : dlg.Value.Trim();
+
+            if (reuseEmpty)
+            {
+                if (!string.Equals(name, _session!.Name, StringComparison.Ordinal))
+                    ApplySessionName(name);
+                return;
+            }
+            CreateSession(name);
+        }
+
+        /// <summary>Create a default-named session if none exists — used by the setup wizard (no prompt mid-flow).</summary>
+        public void EnsureDefaultSession()
+        {
+            if (!SessionNeeded || !HasOutputFolder || IsCapturing) return;
+            CreateSession($"Session_{DateTime.Now:yyyyMMdd_HHmmss}");
+        }
+
+        private void CreateSession(string name)
+        {
             try
             {
-                // Guard against losing your place with a stray click: if the current session already
-                // has frames, confirm before switching away (the old one stays safe on disk).
-                if (_session != null && _frameCount > 0 && !IsCapturing)
-                {
-                    var r = MessageBox.Show(
-                        $"The current session “{SessionName}” has {_frameCount} frame(s).\n\nIt will be kept on disk, but a new session will replace it here. Start a new session?",
-                        "New session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (r != MessageBoxResult.Yes) return;
-                }
-
-                // Don't spawn another empty folder on repeated clicks — if the current session has no
-                // frames yet, it already IS a fresh session; keep it.
-                if (_session != null && _sessionFolder != null && _frameCount == 0 && !IsCapturing)
-                    return;
-
                 string capturesRoot = Path.Combine(_settings.SaveFolder!, "captures");
-                string name = $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
                 _sessionFolder = SessionManager.CreateNamedSession(
                     capturesRoot, name, _settings.IntervalSeconds, null, _settings.Format ?? "JPEG", _settings.JpegQuality);
                 _session = SessionManager.LoadSession(_sessionFolder);
@@ -918,6 +999,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             NormalizeSettings(imported);   // an imported file bypasses the property-setter clamps — re-bound here
             _settings = imported;
             SettingsManager.Save(_settings);
+            // Resync cached display state the blanket notify can't recompute (they have backing fields).
+            OutputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
+            RefreshOutputFolderMissing();
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
         }
 
@@ -1033,10 +1117,16 @@ namespace TimelapseCapture.Wpf.ViewModels
                 Owner = Application.Current?.MainWindow
             };
             if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Value)) return;
-            var newName = dlg.Value.Trim();
+            ApplySessionName(dlg.Value.Trim());
+        }
+
+        // Rename the current session: folder to match (sanitised + de-duplicated), display name verbatim.
+        // Shared by RenameSession and the New Session name prompt (reusing an empty session).
+        private void ApplySessionName(string newName)
+        {
+            if (_session == null || _sessionFolder == null || string.IsNullOrWhiteSpace(newName)) return;
             try
             {
-                // Rename the folder to match (sanitised + de-duplicated), then update the display name.
                 string? parent = Path.GetDirectoryName(_sessionFolder);
                 string safe = SanitizeFolderName(newName);
                 if (parent != null && safe.Length > 0 &&
@@ -1485,7 +1575,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         private async Task Trim()
         {
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
-            var dlg = new TrimDialog(_sessionFolder, _frameCount) { Owner = Application.Current?.MainWindow };
+            // Offer the Stats target as a one-click range ("clip to your target") when it's meaningful.
+            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);
+            int target = (targetFrames > 0 && targetFrames < _frameCount) ? (int)targetFrames : 0;
+            var dlg = new TrimDialog(_sessionFolder, _frameCount, target,
+                $"{_desiredVideoSeconds}s @ {Math.Max(1, EncodeFps)}fps")
+            { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() == true)
                 await Encode(dlg.StartFrame, dlg.EndFrame);
         }

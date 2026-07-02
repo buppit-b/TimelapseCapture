@@ -18,9 +18,10 @@ namespace TimelapseCapture.Wpf
 
         private void OnOk(object sender, RoutedEventArgs e)
         {
+            // Blank + OK is an ACCEPT with an empty value (callers apply their own fallback/keep-current),
+            // not a fake cancel — closing with false here made "clear the text, press Enter" a silent no-op.
             var t = input.Text?.Trim();
-            if (string.IsNullOrEmpty(t)) { DialogResult = false; return; }
-            Value = t;
+            Value = string.IsNullOrEmpty(t) ? null : t;
             DialogResult = true;
         }
     }

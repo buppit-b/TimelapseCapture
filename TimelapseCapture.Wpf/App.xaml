@@ -21,6 +21,11 @@
                 <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
                                 To="#3FB950" Duration="0:0:0.22" AutoReverse="True"/>
             </Storyboard>
+            <!-- Red variant: an entry was out of range and got adjusted (e.g. interval below the floor). -->
+            <Storyboard x:Key="PulseRingDanger">
+                <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
+                                To="#E5534B" Duration="0:0:0.22" AutoReverse="True" RepeatBehavior="2x"/>
+            </Storyboard>
             <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#161616"/>
             <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F"/>

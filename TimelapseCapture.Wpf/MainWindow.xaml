@@ -7,6 +7,7 @@
         Title="Timelapse Capture" Width="1040" Height="920" MinHeight="320" MinWidth="560"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen" WindowStyle="None"
+        AllowDrop="True" Drop="OnWindowDrop"
         Topmost="{Binding AlwaysOnTop}"
         TextOptions.TextFormattingMode="Display"
         FontFamily="Segoe UI">
@@ -117,6 +118,9 @@
                         <TextBlock Text="&#9888; This folder no longer exists on disk — click Choose… to pick one."
                                    Foreground="{DynamicResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
                                    Visibility="{Binding OutputFolderMissing, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{Binding CapturesRootHint}" Style="{StaticResource Muted}" FontSize="10"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding HasSaveFolderSet, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </Border>
 
@@ -199,14 +203,21 @@
                                     Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
-                                         Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="Seconds between captured frames (decimals allowed). Minimum 0.1s — faster is screen-recording territory and the capture pipeline can't sustain it; out-of-range entries snap back."/>
-                                <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
-                                         Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="Capture rate in frames per second. Maximum 10 fps (= the 0.1s interval floor); out-of-range entries snap back."/>
+                                <!-- Ring flashed red from code-behind when an out-of-range entry gets adjusted
+                                     (IntervalClampPulse) — code-behind so it can't false-flash on startup. -->
+                                <Border x:Name="intervalRing" BorderThickness="1.5" CornerRadius="4" Padding="2">
+                                    <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                                 local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
+                                                 Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
+                                                 ToolTip="Seconds between captured frames (decimals allowed). Minimum 0.1s — faster is screen-recording territory and the capture pipeline can't sustain it; out-of-range entries snap back."/>
+                                        <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                                 local:NumericInput.AllowDecimal="True" IsEnabled="{Binding NotCapturing}"
+                                                 Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
+                                                 ToolTip="Capture rate in frames per second. Maximum 10 fps (= the 0.1s interval floor); out-of-range entries snap back."/>
+                                    </StackPanel>
+                                </Border>
                                 <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="sec" Margin="10,0,0,0"
                                              IsChecked="{Binding IntervalUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
                                              ToolTip="Edit the interval as seconds between frames."/>

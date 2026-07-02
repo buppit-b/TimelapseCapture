@@ -11,21 +11,39 @@ namespace TimelapseCapture.Wpf
     {
         private readonly string _folder;
         private readonly int _count;
+        private readonly int _targetFrames;
 
         public int StartFrame { get; private set; }
         public int EndFrame { get; private set; }
 
-        public TrimDialog(string sessionFolder, int frameCount)
+        public TrimDialog(string sessionFolder, int frameCount, int targetFrames = 0, string? targetLabel = null)
         {
             InitializeComponent();
             _folder = sessionFolder;
             _count = Math.Max(1, frameCount);
+            _targetFrames = targetFrames;
             StartFrame = 1;
             EndFrame = _count;
+
+            // Offer the Stats target as a one-click range when the session overshot it (e.g. the user
+            // didn't enable stop-at-target but still wants a video of exactly the planned length).
+            if (_targetFrames > 0 && _targetFrames < _count)
+            {
+                targetRow.Visibility = Visibility.Visible;
+                targetText.Text = $"Target: {_targetFrames} frames ({targetLabel})";
+            }
 
             scrub.Maximum = _count;
             scrub.ValueChanged += (s, e) => ShowFrame((int)e.NewValue);
             Loaded += (s, e) => { scrub.Value = 1; ShowFrame(1); UpdateRange(); };
+        }
+
+        private void OnClipToTarget(object sender, RoutedEventArgs e)
+        {
+            StartFrame = 1;
+            EndFrame = Math.Min(_targetFrames, _count);
+            scrub.Value = EndFrame;
+            UpdateRange();
         }
 
         private void ShowFrame(int n)

@@ -38,14 +38,53 @@ namespace TimelapseCapture.Wpf
 
         // First launch: show the guided setup once the window is actually visible. Marked completed
         // immediately so a mid-wizard close can't make it nag on every launch (it stays available
-        // from Settings → "Setup wizard…").
+        // from Settings → "Setup wizard…"). Afterwards, honor a session path passed on the command
+        // line (e.g. a session folder dragged onto the exe in Explorer).
         protected override void OnContentRendered(EventArgs e)
         {
             base.OnContentRendered(e);
-            if (DataContext is MainViewModel vm && !vm.FirstRunCompleted)
+            if (DataContext is not MainViewModel vm) return;
+            // Honor a command-line session FIRST: with it loaded, a first-run wizard operates on the real
+            // session instead of silently discarding one it auto-created (its EnsureDefaultSession no-ops).
+            if (App.PendingSessionPath is { } pending)
+            {
+                App.PendingSessionPath = null;
+                if (!vm.TryLoadSessionPath(pending))
+                    MessageBox.Show($"No session found at:\n{pending}\n\n(A session folder contains a session.json.)",
+                        "Open session", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            if (!vm.FirstRunCompleted)
             {
                 vm.FirstRunCompleted = true;
                 vm.OpenWizard();
+            }
+        }
+
+        // Flash the interval field's ring red when an out-of-range entry was adjusted. Driven from
+        // code-behind (not an EventTrigger on the binding) so it can't false-flash on the initial
+        // binding transfer at startup.
+        private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.IntervalClampPulse) &&
+                FindResource("PulseRingDanger") is System.Windows.Media.Animation.Storyboard sb)
+                sb.Begin(intervalRing);
+        }
+
+        // Drag a session folder (or any file inside one) onto the window to load that session.
+        private void OnWindowDrop(object sender, DragEventArgs e)
+        {
+            if (DataContext is not MainViewModel vm) return;
+            if (vm.IsCapturing || vm.IsEncoding)
+            {
+                MessageBox.Show("Finish (or cancel) the current capture/encode before loading another session.",
+                    "Open session", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 &&
+                !vm.TryLoadSessionPath(paths[0]))
+            {
+                MessageBox.Show("That doesn't look like a session — drop a session folder (it contains a session.json), or any file inside one.",
+                    "Open session", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -67,6 +106,7 @@ namespace TimelapseCapture.Wpf
                 vm.HotkeysChanged += RefreshHotkey;
                 vm.WindowAffinityChanged += ApplyAffinity;
                 vm.FinishNotified += OnFinishNotified;
+                vm.PropertyChanged += OnVmPropertyChanged;
             }
             RefreshHotkey();
             ApplyAffinity();
@@ -158,7 +198,7 @@ namespace TimelapseCapture.Wpf
             base.OnClosing(e);
             var handle = new WindowInteropHelper(this).Handle;
             if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
-            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
+            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; vm.PropertyChanged -= OnVmPropertyChanged; }
             _source?.RemoveHook(WndProc);
             (DataContext as MainViewModel)?.OnAppClosing();
         }
