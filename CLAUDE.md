@@ -25,11 +25,11 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 31 tests, cover `SessionManager`, `ValidationHelper`,
-  `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering + dead handle), the
-  window-tracking scale-rect math (`CaptureEngine.ComputeScaledDest`), and the output-name
-  sanitiser (`VideoEncoder.SanitizeFileName`). Core exposes internals to the test project via
-  `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
+- **`TimelapseCapture.Tests`** — 33 tests, cover `SessionManager` (incl. `CullAndRenumber`),
+  `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
+  dead handle), the window-tracking scale-rect math (`CaptureEngine.ComputeScaledDest`), and the
+  output-name sanitiser (`VideoEncoder.SanitizeFileName`). Core exposes internals to the test
+  project via `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
 - **Build:** `dotnet build TimelapseCapture.sln`
@@ -62,7 +62,8 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors, `dotnet test` at 31/31.
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings (the legacy `src/` project
+  suppresses its pre-nullable noise), `dotnet test` at 33/33.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -268,11 +269,22 @@ pick; and `RegionEditOverlay` for on-screen region editing.
 encode/trim, live themes, and window tracking (move-follow, resize Lock/Fit/Stretch, minimize +
 keep-on-top) have all been exercised live over the 0.9.x arc.
 
-**Remaining toward 1.0:** unattended safety (auto-stop on low disk / optional max duration,
-finish notification), **frame cull** (delete interior fumbles — needs renumber, the gapped-frame
-encode edge case), and **window-tracking slice 2** (WGC for occluded windows, persist tracking
-across restarts, client-area-only). The richer-aesthetic pass is partly underway (themed controls
-+ live themes landed).
+**Since 0.9.3 (post-release arc, on `main`):** **unattended safety complete** (pre-flight +
+low-disk auto-stop default-on, opt-in max-duration cap, stop-at-target, finish notification =
+sound + taskbar flash) · **frame cull** (`CullDialog` + `SessionManager.CullAndRenumber`,
+renumbers gapless) · **custom themed title bars** (main window WindowChrome caption + shared
+`DialogWindow` style for every dialog) · **Simple mode** (header toggle; speed slider with named
+notches 0.5s–60s + plain-language outcome hint; hides the advanced surface) · **first-run setup
+wizard** (`SetupWizard`: folder → capture area → speed → ffmpeg download → done; re-run from
+Settings) · hardening pass from a multi-agent audit (BitBlt secure-desktop skip — no more silent
+black frames; ffmpeg preset allowlist; perf: no per-frame double session read, O(1) preview,
+sampled frame-size stat) · "Open log" in Settings · solution builds at 0 warnings.
+
+**Remaining toward 1.0:** **window-tracking slice 2** (WGC for occluded windows, persist tracking
+across restarts, client-area-only), seconds⇄fps interval toggle + optional power-user interval
+floor, provenance (ffmpeg metadata + optional watermark — direction decided in ROADMAP item 10),
+packaging/installer. The richer-aesthetic pass is well underway (themed controls, live themes,
+custom chrome all landed).
 
 ---
 
