@@ -1,6 +1,7 @@
 <Window x:Class="TimelapseCapture.Wpf.SetupWizard"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         Title="Welcome" Width="520" SizeToContent="Height"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
@@ -54,14 +55,38 @@
         <StackPanel x:Name="step3" Visibility="Collapsed">
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
                        Text="How often to grab a frame. Slower speeds are fine for long sessions — the hint shows what you'll get."/>
-            <Slider Minimum="0" Maximum="4" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
+            <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
                     TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1" Margin="0,12,0,0"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Text="or exactly" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                         local:NumericInput.AllowDecimal="True"
+                         ToolTip="Type a precise interval in seconds (decimals allowed, minimum 0.1)."/>
+                <TextBlock Text="seconds between frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </StackPanel>
             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
-                       FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                       FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
         </StackPanel>
 
-        <!-- Step 4 — done -->
+        <!-- Step 4 — ffmpeg (the encoder that turns frames into the video) -->
         <StackPanel x:Name="step4" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
+                       Text="Frames are turned into the final video by FFmpeg, a free encoder. Grab it now with one click — or skip: capturing works without it, you'll only need it when you press Encode."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="FFmpeg:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <Button Content="Download" Style="{StaticResource BtnPrimary}" Command="{Binding DownloadFfmpegCommand}" Margin="0,0,8,0"/>
+                <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" Command="{Binding BrowseFfmpegCommand}" Margin="0,0,8,0"
+                        ToolTip="Already have ffmpeg.exe? Point the app at it."/>
+                <Button Content="Cancel" Style="{StaticResource BtnBase}" Command="{Binding CancelDownloadCommand}"
+                        Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Step 5 — done -->
+        <StackPanel x:Name="step5" Visibility="Collapsed">
             <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap"
                        Text="You're set. Press ▶ Start when you begin working, ⏹ Stop when you're done, then Encode Video to build the timelapse."/>
             <CheckBox x:Name="simpleModeBox" Content="Keep the app in Simple mode (recommended)" IsChecked="True"

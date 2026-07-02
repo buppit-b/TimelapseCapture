@@ -125,9 +125,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
         public bool AdvancedVisible => !SimpleMode;
 
-        // Speed slider: named notches → sensible art-timelapse intervals. The slider binds to SpeedNotch.
-        private static readonly decimal[] SpeedIntervals = { 1m, 3m, 5m, 15m, 60m };
-        private static readonly string[] SpeedNames = { "Detailed", "Standard", "Relaxed", "Long haul", "All-day" };
+        // Speed slider: named notches → sensible art-timelapse intervals (denser at the fast end, 0.5s floor).
+        // The slider binds to SpeedNotch; typing an exact interval still works — the hint then reads "Custom".
+        private static readonly decimal[] SpeedIntervals = { 0.5m, 1m, 2m, 3m, 5m, 15m, 60m };
+        private static readonly string[] SpeedNames = { "Rapid", "Detailed", "Fine", "Standard", "Relaxed", "Long haul", "All-day" };
+
+        public int SpeedMaxNotch => SpeedIntervals.Length - 1;   // sliders bind Maximum to this — one source of truth
 
         public int SpeedNotch
         {
@@ -144,17 +147,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { IntervalSeconds = SpeedIntervals[Math.Clamp(value, 0, SpeedIntervals.Length - 1)]; }
         }
 
-        // Plain-language outcome preview so a slider position means something concrete.
+        // Plain-language outcome preview so an interval means something concrete. Always shows the ACTUAL
+        // interval — a hand-typed value that sits between notches is labelled "Custom", not a notch name.
         public string SpeedHint
         {
             get
             {
-                double interval = (double)IntervalSeconds;
+                decimal interval = IntervalSeconds;
                 if (interval <= 0) return "";
                 int fps = Math.Max(1, EncodeFps);
-                double framesPerMin = 60.0 / interval;
-                double oneHourVideoSec = 3600.0 / interval / fps;
-                return $"{SpeedNames[SpeedNotch]}  ·  ≈{framesPerMin:F0} frames/min  ·  a 1-hour session → ~{oneHourVideoSec:F0}s video @ {fps}fps";
+                double framesPerMin = 60.0 / (double)interval;
+                double oneHourVideoSec = 3600.0 / (double)interval / fps;
+                string name = SpeedIntervals[SpeedNotch] == interval ? SpeedNames[SpeedNotch] : "Custom";
+                return $"{name}  ·  every {interval}s  ·  ≈{framesPerMin:F0} frames/min  ·  a 1-hour session → ~{oneHourVideoSec:F0}s video @ {fps}fps";
             }
         }
 

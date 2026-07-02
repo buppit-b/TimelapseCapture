@@ -17,6 +17,7 @@ namespace TimelapseCapture.Wpf
             "STEP 1 — WHERE TO SAVE",
             "STEP 2 — WHAT TO CAPTURE",
             "STEP 3 — CAPTURE SPEED",
+            "STEP 4 — VIDEO ENCODER (FFMPEG)",
             "ALL SET",
         };
 
@@ -29,7 +30,7 @@ namespace TimelapseCapture.Wpf
         }
 
         private MainViewModel? Vm => DataContext as MainViewModel;
-        private StackPanel[] Steps => new[] { step0, step1, step2, step3, step4 };
+        private StackPanel[] Steps => new[] { step0, step1, step2, step3, step4, step5 };
 
         private void Refresh()
         {

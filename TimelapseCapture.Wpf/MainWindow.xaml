@@ -185,7 +185,7 @@
                         <!-- Simple mode: a speed slider with a plain-language outcome hint -->
                         <StackPanel Margin="0,0,0,12" Visibility="{Binding SimpleMode, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="Speed" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                            <Slider Minimum="0" Maximum="4" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
+                            <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
                                     TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1"
                                     IsEnabled="{Binding NotCapturing}"/>
                             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"

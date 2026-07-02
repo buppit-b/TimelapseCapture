@@ -25,6 +25,7 @@ namespace TimelapseCapture
         [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
         [DllImport("user32.dll", SetLastError = true)] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder sb, int max);
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         private const uint GW_OWNER = 4;
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
@@ -84,16 +85,17 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// A stable-ish identity ("pid|title") for a window, to detect a closed or recycled HWND before acting
-        /// on it (e.g. releasing a topmost pin). Empty string if the window no longer exists.
+        /// A stable identity ("pid|class") for a window, to detect a closed or recycled HWND before acting
+        /// on it (e.g. releasing a topmost pin). PID + window CLASS are fixed for a window's lifetime —
+        /// unlike the title, which mutates constantly (open document, active tab) and would make the
+        /// identity check fail on the very window we pinned. Empty string if the window no longer exists.
         /// </summary>
         public static string GetWindowIdentity(IntPtr hWnd)
         {
             if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return "";
             GetWindowThreadProcessId(hWnd, out uint pid);
-            int len = GetWindowTextLength(hWnd);
-            var sb = new StringBuilder(len + 1);
-            GetWindowText(hWnd, sb, sb.Capacity);
+            var sb = new StringBuilder(256);
+            GetClassName(hWnd, sb, sb.Capacity);
             return $"{pid}|{sb}";
         }
 
