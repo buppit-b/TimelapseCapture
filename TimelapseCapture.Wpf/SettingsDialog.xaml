@@ -126,6 +126,8 @@
                         ToolTip="Load preferences from a file."/>
                 <Button Content="Open log" Style="{StaticResource BtnBase}" Command="{Binding OpenLogCommand}" Margin="8,0,0,0"
                         ToolTip="Open the diagnostics log — useful if something went wrong."/>
+                <Button Content="Setup wizard&#8230;" Style="{StaticResource BtnBase}" Command="{Binding OpenWizardCommand}" Margin="8,0,0,0"
+                        ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
             </StackPanel>
             <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"
                     MinWidth="84" IsCancel="True"/>

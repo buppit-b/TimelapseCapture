@@ -1,0 +1,85 @@
+<Window x:Class="TimelapseCapture.Wpf.SetupWizard"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome" Width="520" SizeToContent="Height"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="stepTitle" Style="{StaticResource CardTitle}"/>
+
+        <!-- Step 0 — welcome -->
+        <StackPanel x:Name="step0">
+            <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap"
+                       Text="Timelapse Capture takes a frame of your screen (or a window) on a timer, then turns the frames into a timelapse video."/>
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"
+                       Text="This quick setup takes under a minute: where to save, what to capture, and how fast. You can re-run it any time from Settings."/>
+        </StackPanel>
+
+        <!-- Step 1 — output folder -->
+        <StackPanel x:Name="step1" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
+                       Text="Sessions (frames + finished videos) are saved under this folder."/>
+            <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding OutputFolder}" FontFamily="Consolas" FontSize="12"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <Button Grid.Column="1" Content="Choose&#8230;" Style="{StaticResource BtnBase}"
+                        Command="{Binding ChooseFolderCommand}" Margin="10,0,0,0"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- Step 2 — what to capture -->
+        <StackPanel x:Name="step2" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
+                       Text="Pick what gets captured. Full screen is the simplest; Track Window follows an app around as you move it."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button Content="Full Screen" Style="{StaticResource BtnRegion}" Click="OnPickFullScreen" Margin="0,0,8,0"/>
+                <Button Content="Select Region" Style="{StaticResource BtnRegion}" Click="OnPickRegion" Margin="0,0,8,0"/>
+                <Button Content="Track Window" Style="{StaticResource BtnRegion}" Click="OnPickWindow"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="Current:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Step 3 — speed -->
+        <StackPanel x:Name="step3" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
+                       Text="How often to grab a frame. Slower speeds are fine for long sessions — the hint shows what you'll get."/>
+            <Slider Minimum="0" Maximum="4" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
+                    TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1" Margin="0,12,0,0"/>
+            <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                       FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+        </StackPanel>
+
+        <!-- Step 4 — done -->
+        <StackPanel x:Name="step4" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap"
+                       Text="You're set. Press ▶ Start when you begin working, ⏹ Stop when you're done, then Encode Video to build the timelapse."/>
+            <CheckBox x:Name="simpleModeBox" Content="Keep the app in Simple mode (recommended)" IsChecked="True"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Shows just the essentials with a speed slider. Switch to full control any time with the Simple toggle in the header."/>
+        </StackPanel>
+
+        <!-- Nav -->
+        <Grid Margin="0,20,0,0">
+            <Button x:Name="backBtn" Content="&#9664;  Back" Style="{StaticResource BtnBase}" HorizontalAlignment="Left"
+                    Click="OnBack" MinWidth="84"/>
+            <TextBlock x:Name="stepDots" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontFamily="Consolas" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Skip for now" Style="{StaticResource BtnBase}" Margin="0,0,8,0" IsCancel="True"
+                        ToolTip="Close setup — everything here is also available in the main window and Settings."/>
+                <Button x:Name="nextBtn" Content="Next  &#9654;" Style="{StaticResource BtnPrimary}" Click="OnNext" MinWidth="100"/>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</Window>

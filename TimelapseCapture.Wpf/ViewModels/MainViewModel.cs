@@ -54,6 +54,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
             DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
             OpenLogCommand = new RelayCommand(_ => OpenLog());
+            OpenWizardCommand = new RelayCommand(_ => OpenWizard(), _ => !IsCapturing);
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
             SetTargetCommand = new RelayCommand(_ => SetTarget());
@@ -107,6 +108,13 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged(nameof(SpeedHint));
                 }
             }
+        }
+
+        // First-run flag: the setup wizard shows once on launch, then stays available from Settings.
+        public bool FirstRunCompleted
+        {
+            get => _settings.FirstRunCompleted;
+            set { if (_settings.FirstRunCompleted != value) { _settings.FirstRunCompleted = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
         // ---- Simple mode: a curated view over the same settings (speed slider instead of raw interval) ----
@@ -460,6 +468,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand OpenOverlayCommand { get; }
         public ICommand DismissCaptureErrorCommand { get; }
         public ICommand OpenLogCommand { get; }
+        public ICommand OpenWizardCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
         public ICommand SetTargetCommand { get; }
@@ -804,6 +813,13 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void OpenOverlay()
         {
             var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
+            dlg.ShowDialog();
+        }
+
+        /// <summary>Guided setup — shown automatically on first run, re-runnable from Settings.</summary>
+        public void OpenWizard()
+        {
+            var dlg = new SetupWizard { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
         }
 

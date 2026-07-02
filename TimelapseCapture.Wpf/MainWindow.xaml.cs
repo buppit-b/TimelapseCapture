@@ -36,6 +36,19 @@ namespace TimelapseCapture.Wpf
             InitializeComponent();
         }
 
+        // First launch: show the guided setup once the window is actually visible. Marked completed
+        // immediately so a mid-wizard close can't make it nag on every launch (it stays available
+        // from Settings → "Setup wizard…").
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+            if (DataContext is MainViewModel vm && !vm.FirstRunCompleted)
+            {
+                vm.FirstRunCompleted = true;
+                vm.OpenWizard();
+            }
+        }
+
         // Apply the capture-length target when the field loses focus (tab away / click out),
         // mirroring the Enter key binding — so there's no separate "Set" button.
         private void OnTargetCommit(object sender, RoutedEventArgs e)
