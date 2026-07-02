@@ -114,9 +114,12 @@ session encodes clean end-to-end. **1.0 is the RC + a passing soak.**
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
 
 ### 1.x smaller ideas (parked, roughly by value)
-Start-capture-on-launch (+ optional launch-with-Windows) · GIF export · all-screens preset
-(item 8) · in-app playback preview at target fps · zoom/loupe frame viewer (parked from 0.9.x) ·
-{elapsed}/{frame} overlay tokens (item 6 follow-up) · provenance (item 10, direction decided).
+Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report** *(Spike,
+2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
+a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
+to the clipboard)* · GIF export · all-screens preset (item 8) · in-app playback preview at
+target fps · zoom/loupe frame viewer (parked from 0.9.x) · {elapsed}/{frame} overlay tokens
+(item 6 follow-up) · provenance (item 10, direction decided).
 
 ### Explicitly out of scope (identity discipline)
 Webcam/facecam, audio, a general video editor, cloud sync, sub-0.1s capture — those pull

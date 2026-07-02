@@ -114,6 +114,9 @@
                             <Button Grid.Column="1" Content="Choose&#8230;" Style="{StaticResource BtnBase}"
                                     Command="{Binding ChooseFolderCommand}" Margin="10,0,0,0"/>
                         </Grid>
+                        <TextBlock Text="&#9888; This folder no longer exists on disk — click Choose… to pick one."
+                                   Foreground="{DynamicResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding OutputFolderMissing, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </Border>
 

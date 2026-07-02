@@ -40,6 +40,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             _settings = SettingsManager.Load();
             _outputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
+            RefreshOutputFolderMissing();   // warn immediately if the saved folder was deleted since last run
             RefreshFfmpegStatus();
 
             _engine.FrameCaptured += OnFrameCaptured;
@@ -503,6 +504,13 @@ namespace TimelapseCapture.Wpf.ViewModels
         private bool HasOutputFolder =>
             !string.IsNullOrWhiteSpace(_settings.SaveFolder) && Directory.Exists(_settings.SaveFolder);
 
+        // Surfaced when the saved output folder no longer exists on disk (deleted/renamed/unplugged) —
+        // otherwise the card shows a healthy-looking path while New Session is mysteriously disabled.
+        private bool _outputFolderMissing;
+        public bool OutputFolderMissing { get => _outputFolderMissing; private set => SetProperty(ref _outputFolderMissing, value); }
+        private void RefreshOutputFolderMissing() =>
+            OutputFolderMissing = !string.IsNullOrWhiteSpace(_settings.SaveFolder) && !Directory.Exists(_settings.SaveFolder);
+
         // ---- commands ----
         public ICommand ChooseFolderCommand { get; }
         public ICommand NewSessionCommand { get; }
@@ -535,11 +543,18 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void ChooseFolder()
         {
             var dlg = new OpenFolderDialog { Title = "Select output folder for captures" };
+            // Open at the current folder — or its nearest ancestor that still exists (it may be deleted).
+            string? seed = _settings.SaveFolder;
+            while (!string.IsNullOrWhiteSpace(seed) && !Directory.Exists(seed))
+                seed = Path.GetDirectoryName(seed);
+            if (!string.IsNullOrWhiteSpace(seed)) dlg.InitialDirectory = seed;
+
             if (dlg.ShowDialog() == true)
             {
                 _settings.SaveFolder = dlg.FolderName;
                 SettingsManager.Save(_settings);
                 OutputFolder = dlg.FolderName;
+                RefreshOutputFolderMissing();
                 CommandManager.InvalidateRequerySuggested();
             }
         }
@@ -1649,6 +1664,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.
                 if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StorageInfo))
                 {
+                    RefreshOutputFolderMissing();   // folder can vanish while the app is running
+
                     int w = _region?.Width ?? 0;
                     int h = _region?.Height ?? 0;
                     StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
