@@ -4,6 +4,13 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
+    <!--
+      This legacy WinForms app is FROZEN (kept for reference/parity only — see CLAUDE.md; the WPF
+      app is the active front-end). Its code predates nullable annotations, so nullable-analysis
+      warnings (uninitialised designer fields CS8618, possible-null derefs CS8602) are pure noise
+      here. Suppress them in THIS project only, so real warnings in the active projects stand out.
+    -->
+    <NoWarn>$(NoWarn);CS8618;CS8602</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
