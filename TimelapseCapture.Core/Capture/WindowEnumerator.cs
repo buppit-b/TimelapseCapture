@@ -29,6 +29,8 @@ namespace TimelapseCapture
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
         [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
+        [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr hWnd, int attr, out int value, int size);
+        private const int DWMWA_CLOAKED = 14;
         private const uint MONITOR_DEFAULTTONEAREST = 2;
         [StructLayout(LayoutKind.Sequential)] private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public int dwFlags; }
         private const uint GW_OWNER = 4;
@@ -44,10 +46,12 @@ namespace TimelapseCapture
         {
             var windows = new List<WindowInfo>();
             IntPtr shell = GetShellWindow();
+            uint ownPid = (uint)Environment.ProcessId;
 
             EnumWindows((hWnd, _) =>
             {
                 if (!IsWindowVisible(hWnd)) return true;
+                if (IsCloaked(hWnd)) return true;                        // other virtual desktop / suspended UWP
                 int len = GetWindowTextLength(hWnd);
                 if (len == 0) return true;
 
@@ -58,6 +62,11 @@ namespace TimelapseCapture
 
                 if (hWnd == shell) return true;                          // the desktop
                 if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero) return true; // owned/system popups
+
+                // Never offer THIS app's own windows: tracking ourselves recurses (capture-of-capture),
+                // and keep-on-top would pin the app above its own dialogs.
+                GetWindowThreadProcessId(hWnd, out uint pid);
+                if (pid == ownPid) return true;
 
                 if (!GetWindowRect(hWnd, out var r)) return true;
                 var b = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
@@ -73,7 +82,10 @@ namespace TimelapseCapture
 
         /// <summary>
         /// Fresh bounds/state for a handle (pick-time and per-tick). <paramref name="alive"/> is false if the
-        /// window no longer exists; <paramref name="minimized"/> true if iconic (its rect is off-screen junk).
+        /// window no longer exists; <paramref name="minimized"/> means "not showing pixels right now" —
+        /// iconic, hidden (some apps close-to-tray via SW_HIDE, leaving a stale on-screen rect), or DWM-cloaked
+        /// (moved to another virtual desktop). All three would otherwise make BitBlt silently capture whatever
+        /// is BEHIND the window at its last coordinates — the silent-wrong-content class of bug.
         /// </summary>
         public static bool TryGetLiveBounds(IntPtr hWnd, out Rectangle bounds, out bool minimized, out bool alive)
         {
@@ -82,10 +94,17 @@ namespace TimelapseCapture
             alive = hWnd != IntPtr.Zero && IsWindow(hWnd);
             if (!alive) return false;
 
-            minimized = IsIconic(hWnd);
+            minimized = IsIconic(hWnd) || !IsWindowVisible(hWnd) || IsCloaked(hWnd);
             if (!GetWindowRect(hWnd, out var r)) return false;
             bounds = new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
             return true;
+        }
+
+        /// <summary>DWM-cloaked: composited but not drawn (another virtual desktop, suspended UWP).</summary>
+        private static bool IsCloaked(IntPtr hWnd)
+        {
+            try { return DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int v, sizeof(int)) == 0 && v != 0; }
+            catch { return false; }   // dwmapi always present on Win10/11; belt-and-braces
         }
 
         /// <summary>
@@ -120,17 +139,26 @@ namespace TimelapseCapture
 
             var monRect = new Rectangle(mi.rcMonitor.Left, mi.rcMonitor.Top,
                 mi.rcMonitor.Right - mi.rcMonitor.Left, mi.rcMonitor.Bottom - mi.rcMonitor.Top);
-            long monArea = (long)monRect.Width * monRect.Height;
-            var overlap = Rectangle.Intersect(b, monRect);
+            return CoversArea(b, monRect, threshold);
+        }
+
+        /// <summary>Pure coverage test (extracted for unit tests): window overlaps ≥ threshold of the area.</summary>
+        internal static bool CoversArea(Rectangle window, Rectangle area, double threshold)
+        {
+            long areaSize = (long)area.Width * area.Height;
+            var overlap = Rectangle.Intersect(window, area);
             long coverage = (long)overlap.Width * overlap.Height;
-            return monArea > 0 && coverage >= (long)(monArea * threshold);
+            return areaSize > 0 && coverage >= (long)(areaSize * threshold);
         }
 
         /// <summary>Force a window topmost (or release it) — used to keep a tracked window un-occluded.</summary>
         public static void SetTopmost(IntPtr hWnd, bool on)
         {
             if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return;
-            SetWindowPos(hWnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            // UIPI blocks SetWindowPos on ELEVATED (admin) windows from a non-elevated process — it fails
+            // silently, so at least leave a trace for diagnosis.
+            if (!SetWindowPos(hWnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE))
+                Logger.Log("WindowEnumerator", $"SetTopmost({on}) failed — the target may be an elevated (admin) window (UIPI).");
         }
     }
 }

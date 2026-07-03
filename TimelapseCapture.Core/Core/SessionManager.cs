@@ -544,6 +544,27 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// Find the session folder containing <paramref name="path"/>: the folder itself, or up to
+        /// <paramref name="maxLevelsUp"/> parents — the first with a loadable session.json wins. Accepts a
+        /// file path (a frame, the mp4, session.json itself) or a folder. Null if nothing resolves — e.g.
+        /// the captures root or an unrelated drop, where walking UP would find the wrong thing.
+        /// Used by drag-drop onto the window and the exe's command-line argument.
+        /// </summary>
+        public static string? FindSessionRoot(string? path, int maxLevelsUp = 2)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            try
+            {
+                string? dir = File.Exists(path) ? Path.GetDirectoryName(path) : path;
+                for (int i = 0; dir != null && i <= maxLevelsUp; i++, dir = Path.GetDirectoryName(dir))
+                    if (Directory.Exists(dir) && LoadSession(dir) != null)
+                        return dir;
+            }
+            catch { /* malformed path → null */ }
+            return null;
+        }
+
+        /// <summary>
         /// Load session without triggering migration (to avoid recursion).
         /// </summary>
         private static SessionInfo? LoadSessionRaw(string sessionFolder)

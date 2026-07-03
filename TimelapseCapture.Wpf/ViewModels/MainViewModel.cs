@@ -535,35 +535,30 @@ namespace TimelapseCapture.Wpf.ViewModels
             // Swapping the session mid-capture is unsafe; mid-encode it would misattribute the encode's
             // completion UI to the newly loaded session — refuse both (the drop handler explains).
             if (IsCapturing || IsEncoding || string.IsNullOrWhiteSpace(path)) return false;
+
+            string? dir = SessionManager.FindSessionRoot(path);   // folder, or walk up from a file inside one
+            if (dir == null) return false;
+
+            // A parseable session.json OUTSIDE the captures root could be a stray copy (backup on the
+            // Desktop, an extracted zip) — loading it would make that folder the live capture target.
+            // Confirm rather than adopt silently.
             try
             {
-                string? dir = File.Exists(path) ? Path.GetDirectoryName(path) : path;
-                // Walk up a couple of levels so session.json / frames\00001.jpg / output\x.mp4 all resolve.
-                for (int i = 0; dir != null && i < 3; i++, dir = Path.GetDirectoryName(dir))
+                string root = string.IsNullOrWhiteSpace(_settings.SaveFolder)
+                    ? "" : Path.GetFullPath(Path.Combine(_settings.SaveFolder!, "captures"));
+                bool outsideRoot = root.Length == 0 ||
+                    !Path.GetFullPath(dir).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                if (outsideRoot)
                 {
-                    if (Directory.Exists(dir) && SessionManager.LoadSession(dir) != null)
-                    {
-                        // A parseable session.json OUTSIDE the captures root could be a stray copy (backup on
-                        // the Desktop, an extracted zip) — loading it would make that folder the live capture
-                        // target. Confirm rather than adopt silently.
-                        string root = string.IsNullOrWhiteSpace(_settings.SaveFolder)
-                            ? "" : Path.GetFullPath(Path.Combine(_settings.SaveFolder!, "captures"));
-                        bool outsideRoot = root.Length == 0 ||
-                            !Path.GetFullPath(dir).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-                        if (outsideRoot)
-                        {
-                            var r = MessageBox.Show(
-                                $"Load this session from outside your captures folder?\n\n{dir}\n\nNew frames would be captured into that folder.",
-                                "Open session", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                            if (r != MessageBoxResult.Yes) return true;   // handled — don't show "not a session"
-                        }
-                        LoadSessionFromFolder(dir, fromPicker: false);
-                        return true;
-                    }
+                    var r = MessageBox.Show(
+                        $"Load this session from outside your captures folder?\n\n{dir}\n\nNew frames would be captured into that folder.",
+                        "Open session", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (r != MessageBoxResult.Yes) return true;   // handled — don't show "not a session"
                 }
+                LoadSessionFromFolder(dir, fromPicker: false);
+                return true;
             }
-            catch { /* fall through to false */ }
-            return false;
+            catch { return false; }
         }
 
         // ---- commands ----

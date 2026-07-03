@@ -215,14 +215,19 @@ namespace TimelapseCapture
                             if (!alive)
                                 throw new InvalidOperationException("The tracked window was closed.");
                             if (!ok)
-                                throw new InvalidOperationException("Couldn't read the tracked window's position.");
-
-                            if (minimized)
                             {
-                                // A minimized window's rect is off-screen junk. Default: stop (surface a failure).
-                                // Opt-in: hold and resume when it's restored.
+                                // A rect read can fail transiently (window mid-transition / briefly hung). Skip a few
+                                // ticks like a transit frame; only a PERSISTENT failure should end a long run.
+                                if (_consecutiveTrackSkips < MaxTrackSkips) { skipFrame = true; _consecutiveTrackSkips++; }
+                                else throw new InvalidOperationException("Couldn't read the tracked window's position.");
+                            }
+                            else if (minimized)
+                            {
+                                // Minimized, hidden (closed-to-tray), or cloaked (another virtual desktop): the window
+                                // is showing no pixels, so capturing its rect would record whatever is BEHIND it.
+                                // Default: stop (surface a failure). Opt-in: hold and resume when it's back.
                                 if (!_pauseOnTrackedMinimize)
-                                    throw new InvalidOperationException("The tracked window is minimized — restore it to keep capturing.");
+                                    throw new InvalidOperationException("The tracked window is minimized or hidden — restore it to keep capturing.");
                                 skipFrame = true;
                             }
                             else
