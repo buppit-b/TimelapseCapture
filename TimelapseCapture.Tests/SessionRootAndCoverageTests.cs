@@ -80,6 +80,44 @@ namespace TimelapseCapture.Tests
     }
 
     /// <summary>
+    /// OverlayRenderer.ResolveTokens — the overlay text token substitution, with a fixed clock.
+    /// </summary>
+    public class OverlayTokenTests
+    {
+        private static readonly DateTime T = new(2026, 7, 3, 14, 5, 9);
+
+        [Fact]
+        public void ResolvesAllBuiltInTokens()
+        {
+            OverlayRenderer.ResolveTokens("{datetime}", T).Should().Be("2026-07-03 14:05:09");
+            OverlayRenderer.ResolveTokens("{date}", T).Should().Be("2026-07-03");
+            OverlayRenderer.ResolveTokens("{time}", T).Should().Be("14:05:09");
+            OverlayRenderer.ResolveTokens("{time12}", T).Should().Be("2:05:09 PM");
+        }
+
+        [Fact]
+        public void CustomFormatToken_AndLiteralsAroundIt()
+        {
+            OverlayRenderer.ResolveTokens("day {t:ddd}!", T).Should().Be("day Fri!");
+        }
+
+        [Fact]
+        public void InvalidCustomFormat_IsLeftVerbatim_NotAThrow()
+        {
+            // A format that makes DateTime.ToString THROW ("%" alone is invalid) must come back
+            // verbatim, not crash — a bad format must never break the capture loop.
+            OverlayRenderer.ResolveTokens("{t:%}", T).Should().Be("{t:%}");
+        }
+
+        [Fact]
+        public void NullAndPlainText()
+        {
+            OverlayRenderer.ResolveTokens(null!, T).Should().Be("");
+            OverlayRenderer.ResolveTokens("plain label", T).Should().Be("plain label");
+        }
+    }
+
+    /// <summary>
     /// WindowEnumerator.CoversArea — the pure math behind the fullscreen keep-on-top skip
     /// (the 0.9.4 alt-tab lockup fix). A fullscreen-sized window must be detected as covering
     /// its monitor; a normal window must not.

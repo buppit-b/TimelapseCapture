@@ -127,6 +127,82 @@
                 </Setter>
             </Style>
 
+            <!-- Dark ComboBox (first use: the overlay font picker). Themed toggle + popup list;
+                 virtualized so a few hundred items (installed fonts) open instantly. -->
+            <Style x:Key="DarkCombo" TargetType="ComboBox">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="MaxDropDownHeight" Value="320"/>
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <ToggleButton x:Name="toggle" Focusable="False" ClickMode="Press"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{DynamicResource SurfaceAltBrush}"
+                                                    BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                                    CornerRadius="6">
+                                                <TextBlock Text="&#x25BE;" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                           Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  Margin="10,5,24,5" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                                       AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+                                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                            BorderThickness="1" CornerRadius="6" Margin="0,4,0,0"
+                                            MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsPresenter/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemContainerStyle">
+                    <Setter.Value>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            <Setter Property="Padding" Value="10,4"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ComboBoxItem">
+                                        <Border x:Name="b" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsHighlighted" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- Small hold-to-repeat stepper (frame-precise scrubbing in Trim/Cull). -->
             <Style x:Key="BtnStep" TargetType="RepeatButton">
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

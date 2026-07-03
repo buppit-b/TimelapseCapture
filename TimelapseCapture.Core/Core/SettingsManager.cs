@@ -38,6 +38,8 @@ namespace TimelapseCapture
         public int LowDiskStopMB { get; set; } = 500;        // free-space threshold (MB) for the low-disk auto-stop
         public bool MaxDurationEnabled { get; set; }         // opt-in: stop after a maximum capture duration
         public int MaxDurationMinutes { get; set; } = 480;   // the cap (minutes of accumulated capture time)
+        public bool StopAtStorageEnabled { get; set; }       // opt-in: stop once the session's frames reach a size
+        public int StopAtStorageMB { get; set; } = 2000;     // the cap (MB of captured frames in this session)
         public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
         public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls
         public bool FirstRunCompleted { get; set; }          // the setup wizard has been shown once

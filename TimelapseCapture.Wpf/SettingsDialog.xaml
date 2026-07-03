@@ -79,6 +79,18 @@
                 <TextBlock Text="minutes" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
             </StackPanel>
 
+            <CheckBox Content="Stop at a storage budget" IsChecked="{Binding StopAtStorageEnabled}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Automatically stop once this session's captured frames reach a size — cap the disk a long run can use."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding StopAtStorageEnabled, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop at" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding StopAtStorageMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Megabytes of captured frames in this session (e.g. 2000 = 2 GB). Checked every ~2s against the session's measured average frame size."/>
+                <TextBlock Text="MB of frames" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+
             <CheckBox Content="Notify (sound + taskbar flash) when a capture or encode finishes"
                       IsChecked="{Binding NotifyOnFinish}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
                       ToolTip="Play a sound and flash the taskbar when a capture auto-stops (target / disk / duration) or an encode completes."/>

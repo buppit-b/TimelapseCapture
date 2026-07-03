@@ -207,7 +207,7 @@
                                 <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                          local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="Seconds between captured frames (decimals allowed). Minimum 0.1s — faster is screen-recording territory and the capture pipeline can't sustain it; out-of-range entries snap back."/>
+                                         ToolTip="Seconds between captured frames (decimals allowed). Minimum 0.1s — faster is screen-recording territory and the capture pipeline can't sustain it. Maximum 3600s (one frame an hour). Out-of-range entries snap back."/>
                                 <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                          local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"

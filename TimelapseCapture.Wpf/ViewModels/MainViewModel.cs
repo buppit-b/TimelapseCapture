@@ -99,7 +99,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 // 0.1s (10 fps) is the engine floor: each tick synchronously grabs + encodes + writes a
                 // frame, and below ~100ms ticks overlap and get dropped — that's screen-recorder territory.
-                decimal v = value < 0.1m ? 0.1m : value;
+                // Ceiling 3600s (one frame an hour) — beyond that is almost certainly a typo, not a plan.
+                decimal v = value < 0.1m ? 0.1m : value > 3600m ? 3600m : value;
+                // Normalize: 4 dp is plenty, and strip decimal's trailing-zero scale so a pasted
+                // "0.1000000000000000000000000000" (or an fps round-trip artifact) displays as "0.1".
+                v = decimal.Parse(Math.Round(v, 4).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
+                    System.Globalization.CultureInfo.InvariantCulture);
                 if (_settings.IntervalSecondsExact != v)
                 {
                     _settings.IntervalSecondsExact = v;
@@ -517,6 +522,11 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void RefreshOutputFolderMissing() =>
             OutputFolderMissing = !string.IsNullOrWhiteSpace(_settings.SaveFolder) && !Directory.Exists(_settings.SaveFolder);
 
+        // For the Overlay dialog's live preview: render at the REAL frame size over the latest frame,
+        // so the example is exactly what will be burned in.
+        public string? CurrentSessionFolder => _sessionFolder;
+        public System.Drawing.Size? CurrentRegionSize => _region?.Size;
+
         // Make the layout explicit: sessions land in a "captures" subfolder of the chosen folder.
         public bool HasSaveFolderSet => !string.IsNullOrWhiteSpace(_settings.SaveFolder);
         public string CapturesRootHint => HasSaveFolderSet
@@ -809,6 +819,17 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.MaxDurationEnabled;
             set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
+        public bool StopAtStorageEnabled
+        {
+            get => _settings.StopAtStorageEnabled;
+            set { if (_settings.StopAtStorageEnabled != value) { _settings.StopAtStorageEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int StopAtStorageMB
+        {
+            get => _settings.StopAtStorageMB;
+            set { var v = Math.Max(10, value); if (_settings.StopAtStorageMB != v) { _settings.StopAtStorageMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public int MaxDurationMinutes
         {
             get => _settings.MaxDurationMinutes;
@@ -1008,6 +1029,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             s.OverlayPosition = Math.Clamp(s.OverlayPosition, 0, 3);
             s.TrackResizeMode = Math.Clamp(s.TrackResizeMode, 0, 2);
             s.LowDiskStopMB = Math.Max(1, s.LowDiskStopMB);
+            s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
+            s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
+            if (s.IntervalSecondsExact > 0)
+                s.IntervalSecondsExact = Math.Clamp(s.IntervalSecondsExact, 0.1m, 3600m);
             if (s.Format != "JPEG" && s.Format != "PNG") s.Format = "JPEG";
         }
 
@@ -1799,6 +1824,20 @@ namespace TimelapseCapture.Wpf.ViewModels
                             StopCapture();
                             CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space, then start again.";
                             NotifyFinished();
+                        }
+                    }
+
+                    // Opt-in session-size cap: stop once the captured frames reach the chosen size (a normal
+                    // completion, like stop-at-target — notify, no error banner). Sized via the sampled
+                    // average frame size — no O(n) folder walk on the stats tick.
+                    if (IsCapturing && _settings.StopAtStorageEnabled && _sessionFolder != null && _frameCount > 0)
+                    {
+                        double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
+                        if (sessionMb >= _settings.StopAtStorageMB)
+                        {
+                            StopCapture();
+                            NotifyFinished();
+                            return;
                         }
                     }
                 }
