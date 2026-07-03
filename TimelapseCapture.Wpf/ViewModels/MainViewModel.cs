@@ -1712,6 +1712,15 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (formats.Count > 1)
                 {
                     string majority = formats.OrderByDescending(kv => kv.Value).First().Key;
+                    // Only offer conversion INTO formats the app itself writes. A foreign session could
+                    // be majority-bmp — converting into that would mislabel the bytes.
+                    if (majority != "jpg" && majority != "png")
+                    {
+                        MessageBox.Show(
+                            $"This session mixes frame formats ({string.Join(" + ", formats.Select(kv => $"{kv.Value} {kv.Key.ToUpperInvariant()}"))}) — mixed sessions can't encode, and the dominant format isn't one this app can convert to.",
+                            "Mixed frame formats", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
                     int odd = formats.Where(kv => kv.Key != majority).Sum(kv => kv.Value);
                     var r = MessageBox.Show(
                         $"This session mixes frame formats ({string.Join(" + ", formats.Select(kv => $"{kv.Value} {kv.Key.ToUpperInvariant()}"))}) — mixed sessions can't encode.\n\n" +
