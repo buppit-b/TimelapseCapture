@@ -543,6 +543,53 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>Frame counts by extension (lowercase, no dot) — more than one key = a mixed session.</summary>
+        public static Dictionary<string, int> GetFrameFormatCounts(string sessionFolder)
+        {
+            return GetFrameFiles(sessionFolder)
+                .GroupBy(f => Path.GetExtension(f).TrimStart('.').ToLowerInvariant())
+                .Where(g => g.Key.Length > 0)
+                .ToDictionary(g => g.Key, g => g.Count());
+        }
+
+        /// <summary>
+        /// Unify a mixed-format session (a mid-session PNG toggle breaks the image2 encode): re-encode
+        /// every frame whose extension differs from <paramref name="targetExt"/> ("jpg"/"png") in place —
+        /// same frame number, new extension, original deleted only after the replacement is written.
+        /// Returns the number converted. Never call while capturing into this session.
+        /// </summary>
+        public static int ConvertFramesToFormat(string sessionFolder, string targetExt, int jpegQuality = 90)
+        {
+            targetExt = targetExt.TrimStart('.').ToLowerInvariant();
+            int converted = 0;
+            foreach (var src in GetFrameFiles(sessionFolder))
+            {
+                string ext = Path.GetExtension(src).TrimStart('.').ToLowerInvariant();
+                if (ext == targetExt) continue;
+                string dst = Path.ChangeExtension(src, "." + targetExt);
+                using (var img = Image.FromFile(src))
+                {
+                    if (targetExt == "png") img.Save(dst, System.Drawing.Imaging.ImageFormat.Png);
+                    else SaveJpeg(img, dst, jpegQuality);
+                }
+                File.Delete(src);   // only after the replacement exists — a crash mid-run loses nothing
+                converted++;
+            }
+            return converted;
+        }
+
+        // JPEG must go through a quality-parameterised encoder — plain Image.Save(file, Jpeg) silently
+        // ignores quality (the same trap CaptureEngine.SaveBitmap avoids).
+        private static void SaveJpeg(Image img, string path, int quality)
+        {
+            var codec = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
+                .First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+            using var p = new System.Drawing.Imaging.EncoderParameters(1);
+            p.Param[0] = new System.Drawing.Imaging.EncoderParameter(
+                System.Drawing.Imaging.Encoder.Quality, (long)Math.Clamp(quality, 1, 100));
+            img.Save(path, codec, p);
+        }
+
         /// <summary>
         /// Find the session folder containing <paramref name="path"/>: the folder itself, or up to
         /// <paramref name="maxLevelsUp"/> parents — the first with a loadable session.json wins. Accepts a

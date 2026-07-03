@@ -26,7 +26,7 @@ namespace TimelapseCapture
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
             int fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
-            Action<int>? onFrameProgress = null)
+            Action<int>? onFrameProgress = null, int everyNth = 1)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -64,12 +64,28 @@ namespace TimelapseCapture
             preset = (preset ?? "").Trim().ToLowerInvariant();
             if (Array.IndexOf(ValidPresets, preset) < 0) preset = "medium";
             if (startFrame < 1) startFrame = 1;
+            everyNth = Math.Clamp(everyNth, 1, 1000);
             string limit = maxFrames > 0 ? $"-frames:v {maxFrames} " : ""; // trim: only this many frames from startFrame
 
+            // Frame-skip speed-up: keep every Nth input frame, then re-pace timestamps (setpts) so the
+            // output is clean constant-rate. NOTE -frames:v counts OUTPUT frames, so with a filter active
+            // the trim range must be enforced INSIDE select (lt(n, maxFrames), n being the 0-based input
+            // index from startFrame) — otherwise the demuxer reads past the range end to fill the quota.
+            string vf = "";
+            if (everyNth > 1)
+            {
+                string sel = maxFrames > 0
+                    ? $"lt(n\\,{maxFrames})*not(mod(n\\,{everyNth}))"
+                    : $"not(mod(n\\,{everyNth}))";
+                vf = $"-vf \"select='{sel}',setpts=N/FRAME_RATE/TB\" ";
+                if (maxFrames > 0) limit = $"-frames:v {(maxFrames + everyNth - 1) / everyNth} ";
+            }
+
             // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
-            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {limit}" +
+            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}" +
                           $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
-            Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}");
+            Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}" +
+                (everyNth > 1 ? $" everyNth={everyNth}" : ""));
 
             // ffmpeg reports live progress on stderr as "frame=  123 fps=…" lines — tap them for the UI.
             Action<string>? tap = onFrameProgress == null ? null : line =>

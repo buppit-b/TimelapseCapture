@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -819,6 +820,13 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.MaxDurationEnabled;
             set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
+        // Encode speed-up: use every Nth captured frame (1 = all). Non-destructive — frames stay on disk.
+        public int EncodeEveryNth
+        {
+            get => _settings.EncodeEveryNth;
+            set { var v = Math.Clamp(value, 1, 1000); if (_settings.EncodeEveryNth != v) { _settings.EncodeEveryNth = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public bool StopAtStorageEnabled
         {
             get => _settings.StopAtStorageEnabled;
@@ -1031,6 +1039,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             s.LowDiskStopMB = Math.Max(1, s.LowDiskStopMB);
             s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
+            s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
             if (s.IntervalSecondsExact > 0)
                 s.IntervalSecondsExact = Math.Clamp(s.IntervalSecondsExact, 0.1m, 3600m);
             if (s.Format != "JPEG" && s.Format != "PNG") s.Format = "JPEG";
@@ -1595,10 +1604,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
             // Offer the Stats target as a one-click range ("clip to your target") when it's meaningful.
-            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);
+            // With frame-skip active, hitting the target VIDEO length needs Nx as many input frames.
+            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
             int target = (targetFrames > 0 && targetFrames < _frameCount) ? (int)targetFrames : 0;
             var dlg = new TrimDialog(_sessionFolder, _frameCount, target,
-                $"{_desiredVideoSeconds}s @ {Math.Max(1, EncodeFps)}fps")
+                $"{_desiredVideoSeconds}s @ {Math.Max(1, EncodeFps)}fps" +
+                (EncodeEveryNth > 1 ? $" · every {EncodeEveryNth}th" : ""))
             { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() == true)
                 await Encode(dlg.StartFrame, dlg.EndFrame);
@@ -1629,6 +1640,36 @@ namespace TimelapseCapture.Wpf.ViewModels
                 return;
             }
 
+            // A mixed-format session (a mid-session PNG toggle) can't encode — offer to unify it
+            // instead of just refusing. Converts the odd ones out to the majority format, in place.
+            // Safe here: CanEncode guarantees no capture is writing into this session.
+            try
+            {
+                var formats = SessionManager.GetFrameFormatCounts(_sessionFolder);
+                if (formats.Count > 1)
+                {
+                    string majority = formats.OrderByDescending(kv => kv.Value).First().Key;
+                    int odd = formats.Where(kv => kv.Key != majority).Sum(kv => kv.Value);
+                    var r = MessageBox.Show(
+                        $"This session mixes frame formats ({string.Join(" + ", formats.Select(kv => $"{kv.Value} {kv.Key.ToUpperInvariant()}"))}) — mixed sessions can't encode.\n\n" +
+                        $"Convert the {odd} odd frame(s) to {majority.ToUpperInvariant()} now? Frames are rewritten in place" +
+                        (majority == "jpg" ? $" (PNG → JPEG at quality {_settings.JpegQuality})." : "."),
+                        "Unify frame formats", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (r != MessageBoxResult.Yes) return;
+
+                    EncodeStatus = "Converting frames…";
+                    int done = await Task.Run(() => SessionManager.ConvertFramesToFormat(_sessionFolder, majority, _settings.JpegQuality));
+                    Logger.Log("Wpf", $"Unified session formats: {done} frame(s) → {majority}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                EncodeStatus = "Convert failed";
+                MessageBox.Show($"Couldn't unify the frame formats:\n{ex.Message}", "Unify frame formats",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             _encodeCts = new System.Threading.CancellationTokenSource();
             IsEncoding = true;
             EncodeStatus = "Encoding…";
@@ -1639,7 +1680,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             try
             {
                 int maxFrames = (endFrame >= startFrame && endFrame > 0) ? endFrame - startFrame + 1 : 0;
-                int totalFrames = maxFrames > 0 ? maxFrames : Math.Max(1, _frameCount - startFrame + 1);
+                int nth = EncodeEveryNth;
+                int inputFrames = maxFrames > 0 ? maxFrames : Math.Max(1, _frameCount - startFrame + 1);
+                int totalFrames = Math.Max(1, (inputFrames + nth - 1) / nth);   // output frames after skip
                 result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
                     _encodeCts.Token, startFrame, maxFrames, ResolveOutputName(),
                     onFrameProgress: n => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
@@ -1649,7 +1692,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         EncodeProgress = pct;
                         if (IsEncoding && !(_encodeCts?.IsCancellationRequested ?? true))
                             EncodeStatus = $"Encoding… {pct:0}%";
-                    })));
+                    })), everyNth: nth);
             }
             catch (Exception ex)
             {
@@ -1791,8 +1834,12 @@ namespace TimelapseCapture.Wpf.ViewModels
                 CaptureProgress = pct;
                 ProgressText = $"{_frameCount} / {projectedFrames} frames · {pct:F0}% of a {_desiredVideoSeconds}s video @ {Math.Max(1, EncodeFps)}fps";
 
-                double vidLen = EncodeFps > 0 ? _frameCount / (double)EncodeFps : 0;
-                VideoLengthText = $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
+                int everyNth = Math.Max(1, EncodeEveryNth);
+                int encodedFrames = (_frameCount + everyNth - 1) / everyNth;
+                double vidLen = EncodeFps > 0 ? encodedFrames / (double)EncodeFps : 0;
+                VideoLengthText = everyNth > 1
+                    ? $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s (every {everyNth}th frame)"
+                    : $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
 
                 // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.
                 if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StorageInfo))

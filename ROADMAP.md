@@ -113,11 +113,13 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 2. **Finish-line encode options** — **hold the final frame** for N seconds (ffmpeg `tpad`; the
    finished artwork is the frame viewers want to see), and **encode to a target duration**
    ("make it exactly 60s" — fps computed from frame count; social platforms have ceilings).
-   Plus *(Spike, 2026-07-03)*: **frame-skip encode** — use every Nth frame ("every 3rd") to speed
-   the timelapse up without recapturing. Natural fit alongside the other two speed levers (fps =
-   playback speed, skip = time compression, duration = the goal); non-destructive (unlike cull);
-   ffmpeg `select='not(mod(n,N))'` filter on the image2 input. UI: a "use every [N]th frame"
-   spinner in the encode card + Trim dialog, with the outcome hint updated to show the effect.
+   Plus: **frame-skip encode** — ✅ **shipped early (0.9.4)** at Spike's repeat request: "use every
+   [N]th frame" in the encode card (`select` + `setpts`, non-destructive, works with Trim ranges,
+   stats hint shows the effect). The remaining two levers (end-hold, encode-to-duration) stay 1.1.
+   Also *(Spike, 2026-07-03)*: **crop at encode** — encode only a sub-region of the frames
+   (ffmpeg `crop`, even-dims for yuv420p; UI could reuse the region-edit overlay on a frame
+   preview). Recommended non-destructive first; a destructive crop-frames-to-reclaim-space tool
+   (like Cull) is possible later but touches user data — lower priority.
 3. **Multi-session combine** — select several sessions and encode one continuous video (the
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
 
@@ -130,7 +132,11 @@ Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report*
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
 to the clipboard)* · GIF export · all-screens preset (item 8) · in-app playback preview at
-target fps · zoom/loupe frame viewer (parked from 0.9.x) · {elapsed}/{frame} overlay tokens
+target fps · zoom/loupe frame viewer (parked from 0.9.x — **Spike wants a revisit soon**; think
+click-preview → floating zoom pane with scrub, not the old cramped inline loupe) ·
+**Alt-drag region select from center** (agreed 2026-07-03: PS/Illustrator muscle memory, cheap —
+anchor the drag at its start point and grow symmetrically while Alt is held, works with ratio
+lock for easy centered squares) · {elapsed}/{frame} overlay tokens
 (item 6 follow-up) · provenance (item 10, direction decided) · forward an open-session argument
 from a second launch to the running instance via WM_COPYDATA (today the single-instance guard
 drops it; drag-and-drop onto the window covers the case meanwhile).

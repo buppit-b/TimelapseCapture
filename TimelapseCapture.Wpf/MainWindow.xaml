@@ -351,9 +351,21 @@
                                  local:NumericInput.AllowDecimal="False"
                                  ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
                         <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                        <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
+                                IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
+                                ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
                         <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
                                  local:NumericInput.AllowDecimal="False"
-                                 ToolTip="Quality (CRF): 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller. Lower is better."/>
+                                 ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Speed the timelapse up at encode time: 3 keeps every 3rd frame — the video plays 3× faster with ⅓ the frames. Applies to Encode and Trim; the frames on disk are untouched. 1 = use every frame.">
+                        <TextBlock Text="Speed-up" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="use every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBox Text="{Binding EncodeEveryNth}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
+                                 local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
+                        <TextBlock Text="th frame" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"

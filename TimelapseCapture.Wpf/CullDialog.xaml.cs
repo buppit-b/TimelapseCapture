@@ -26,9 +26,44 @@ namespace TimelapseCapture.Wpf
             scrub.ValueChanged += (s, e) => ShowFrame((int)e.NewValue);
             Loaded += (s, e) => { scrub.Value = 1; ShowFrame(1); UpdateCount(); RedrawMarkers(); };
             markerCanvas.SizeChanged += (s, e) => RedrawMarkers();
+            PreviewKeyDown += OnKey;
         }
 
         private int Current => (int)scrub.Value;
+        private int _markAnchor = 1;   // last frame a mark action touched — Shift+mark extends from here
+
+        // Keyboard workflow: ←/→ ±1 (Shift ±10), Space or M = mark, Shift+Space/M = mark range.
+        private void OnKey(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0;
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.Left: scrub.Value = Math.Clamp(Current - (shift ? 10 : 1), 1, _count); e.Handled = true; break;
+                case System.Windows.Input.Key.Right: scrub.Value = Math.Clamp(Current + (shift ? 10 : 1), 1, _count); e.Handled = true; break;
+                case System.Windows.Input.Key.Space:
+                case System.Windows.Input.Key.M:
+                    if (shift) MarkRangeToCurrent(); else ToggleMark();
+                    e.Handled = true; break;
+            }
+        }
+
+        private void ToggleMark()
+        {
+            int n = Current;
+            if (!_marked.Remove(n)) _marked.Add(n);
+            _markAnchor = n;
+            ShowFrame(n); UpdateCount(); RedrawMarkers();
+        }
+
+        // Bulk delete without clicking through every frame: marks everything between the last mark
+        // action and here (inclusive) — mark one end, scrub to the other, Shift+mark.
+        private void MarkRangeToCurrent()
+        {
+            int a = Math.Min(_markAnchor, Current), b = Math.Max(_markAnchor, Current);
+            for (int i = a; i <= b; i++) _marked.Add(i);
+            _markAnchor = Current;
+            ShowFrame(Current); UpdateCount(); RedrawMarkers();
+        }
 
         // ±1 / ±10 frame steppers (hold to repeat) — the step size rides in the button's Tag.
         private void OnStep(object sender, RoutedEventArgs e)
@@ -66,11 +101,16 @@ namespace TimelapseCapture.Wpf
 
         private void OnToggleMark(object sender, RoutedEventArgs e)
         {
-            int n = Current;
-            if (!_marked.Remove(n)) _marked.Add(n);
-            ShowFrame(n);
-            UpdateCount();
-            RedrawMarkers();
+            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0)
+                MarkRangeToCurrent();
+            else
+                ToggleMark();
+        }
+
+        private void OnClearMarks(object sender, RoutedEventArgs e)
+        {
+            _marked.Clear();
+            ShowFrame(Current); UpdateCount(); RedrawMarkers();
         }
 
         private void UpdateCount()
