@@ -60,16 +60,6 @@ namespace TimelapseCapture.Wpf
             }
         }
 
-        // Flash the interval field's ring red when an out-of-range entry was adjusted. Driven from
-        // code-behind (not an EventTrigger on the binding) so it can't false-flash on the initial
-        // binding transfer at startup.
-        private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(MainViewModel.IntervalClampPulse) &&
-                FindResource("PulseRingDanger") is System.Windows.Media.Animation.Storyboard sb)
-                sb.Begin(intervalRing);
-        }
-
         // Drag a session folder (or any file inside one) onto the window to load that session.
         private void OnWindowDrop(object sender, DragEventArgs e)
         {
@@ -106,7 +96,6 @@ namespace TimelapseCapture.Wpf
                 vm.HotkeysChanged += RefreshHotkey;
                 vm.WindowAffinityChanged += ApplyAffinity;
                 vm.FinishNotified += OnFinishNotified;
-                vm.PropertyChanged += OnVmPropertyChanged;
             }
             RefreshHotkey();
             ApplyAffinity();
@@ -198,7 +187,7 @@ namespace TimelapseCapture.Wpf
             base.OnClosing(e);
             var handle = new WindowInteropHelper(this).Handle;
             if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
-            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; vm.PropertyChanged -= OnVmPropertyChanged; }
+            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
             _source?.RemoveHook(WndProc);
             (DataContext as MainViewModel)?.OnAppClosing();
         }

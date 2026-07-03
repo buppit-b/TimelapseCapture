@@ -27,17 +27,6 @@ namespace TimelapseCapture.Wpf
         {
             InitializeComponent();
             Refresh();
-            // Red-flash the exact-interval field when an out-of-range entry gets adjusted (same cue as
-            // the main window). Code-behind so it can't false-flash on the initial binding.
-            Loaded += (s, e) => { if (Vm is { } vm) vm.PropertyChanged += OnVmPropertyChanged; };
-            Closed += (s, e) => { if (Vm is { } vm) vm.PropertyChanged -= OnVmPropertyChanged; };
-        }
-
-        private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(MainViewModel.IntervalClampPulse) &&
-                FindResource("PulseRingDanger") is System.Windows.Media.Animation.Storyboard sb)
-                sb.Begin(wizardIntervalRing);
         }
 
         private MainViewModel? Vm => DataContext as MainViewModel;

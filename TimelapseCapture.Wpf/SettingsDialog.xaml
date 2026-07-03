@@ -61,7 +61,7 @@
             <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
                         Visibility="{Binding AutoStopOnLowDisk, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
+                <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
                          Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
                          ToolTip="Free-space threshold in megabytes."/>
                 <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
@@ -73,7 +73,7 @@
             <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
                         Visibility="{Binding MaxDurationEnabled, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="Stop after" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding MaxDurationMinutes}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center"
+                <TextBox Text="{Binding MaxDurationMinutes}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
                          Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
                          ToolTip="Minutes of accumulated capture time (e.g. 480 = 8 hours)."/>
                 <TextBlock Text="minutes" Style="{StaticResource Muted}" VerticalAlignment="Center"/>

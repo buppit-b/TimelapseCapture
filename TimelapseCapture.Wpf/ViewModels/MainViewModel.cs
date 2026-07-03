@@ -114,9 +114,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // the field snaps back to the real value instead of displaying e.g. "0.01" while running 0.1s.
                 // (Raised deferred and unconditionally — WPF can ignore a PropertyChanged fired inside the
                 // same transfer, and the fps view needs refreshing when edited via seconds and vice versa.)
-                // The clamp flash fires SYNCHRONOUSLY (it's a different property, so no transfer quirk) —
-                // deferred it could land after a wizard step collapsed and play on a hidden ring.
-                if (value != v) IntervalClampPulse++;   // flash the field red: "adjusted, see tooltip for why"
+                // (The red "adjusted" flash is the generic ClampFlash behavior on the field itself —
+                // it detects the snap-back by comparing typed vs kept, no VM wiring needed.)
                 Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     OnPropertyChanged(nameof(IntervalSeconds));
@@ -124,10 +123,6 @@ namespace TimelapseCapture.Wpf.ViewModels
                 }));
             }
         }
-
-        // Bumped when an out-of-range interval entry was clamped — drives a brief red ring on the field.
-        private int _intervalClampPulse;
-        public int IntervalClampPulse { get => _intervalClampPulse; set => SetProperty(ref _intervalClampPulse, value); }
 
         // The same interval viewed as a capture rate (frames per second) — some users think in fps.
         // Round-trips through IntervalSeconds so every clamp/rule lives in one place.

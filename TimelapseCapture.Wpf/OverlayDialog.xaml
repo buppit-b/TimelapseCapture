@@ -43,7 +43,7 @@
                          ToolTip="Font family name, e.g. Consolas, Arial, Segoe UI."/>
                 <TextBlock Text="Size" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
                 <TextBox Text="{Binding OverlayFontSize}" Style="{StaticResource DarkTextBox}" Width="50" TextAlignment="Center"
-                         local:NumericInput.AllowDecimal="False"
+                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
                          ToolTip="Pixels; 0 = auto-scale to the frame height."/>
             </StackPanel>
         </StackPanel>
