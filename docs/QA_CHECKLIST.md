@@ -22,6 +22,11 @@ reasoned to be risky.
 - [ ] **Keep-on-top + fullscreen game → pin is SKIPPED; alt-tab still works** ⚠ (0.9.4 lockup bug)
 - [ ] Windowed game toggled to fullscreen mid-capture → pin auto-releases within ~2s
 - [ ] Track a window on a second / different-DPI monitor; drag it across monitors
+- [ ] Tracked app closes to TRAY (e.g. Discord/Telegram ✕) → treated as hidden: stop or hold ⚠
+- [ ] Move the tracked window to another VIRTUAL DESKTOP → treated as hidden, not wrong pixels ⚠
+- [ ] Picker lists neither cloaked windows (other desktops) nor this app's own windows ⚠
+- [ ] Exclusive-fullscreen DirectX game: KNOWN LIMIT — BitBlt may record black; use borderless
+      (fix = WGC, tracking slice 2)
 
 ## Unattended safety
 - [ ] Lock screen or UAC prompt mid-capture → frames pause + resume, none black ⚠ (silent-black bug)

@@ -353,6 +353,10 @@ namespace TimelapseCapture.Wpf.ViewModels
         private string _encodeStatus = "";
         public string EncodeStatus { get => _encodeStatus; set => SetProperty(ref _encodeStatus, value); }
 
+        // Live encode progress (0–100), fed by ffmpeg's "frame=" stderr lines — drives the bar under the button.
+        private double _encodeProgress;
+        public double EncodeProgress { get => _encodeProgress; set => SetProperty(ref _encodeProgress, value); }
+
         public string EncodeButtonText => IsEncoding ? "⏹  Cancel encode" : "🎬  Encode Video";
 
         private bool _isFfmpegBusy;
@@ -1603,14 +1607,24 @@ namespace TimelapseCapture.Wpf.ViewModels
             _encodeCts = new System.Threading.CancellationTokenSource();
             IsEncoding = true;
             EncodeStatus = "Encoding…";
+            EncodeProgress = 0;
 
             VideoEncoder.Result? result = null;
             bool cancelled = false;
             try
             {
                 int maxFrames = (endFrame >= startFrame && endFrame > 0) ? endFrame - startFrame + 1 : 0;
+                int totalFrames = maxFrames > 0 ? maxFrames : Math.Max(1, _frameCount - startFrame + 1);
                 result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
-                    _encodeCts.Token, startFrame, maxFrames, ResolveOutputName());
+                    _encodeCts.Token, startFrame, maxFrames, ResolveOutputName(),
+                    onFrameProgress: n => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        // ffmpeg emits these ~twice a second; the callback arrives on a threadpool thread.
+                        double pct = Math.Min(100.0, n * 100.0 / totalFrames);
+                        EncodeProgress = pct;
+                        if (IsEncoding && !(_encodeCts?.IsCancellationRequested ?? true))
+                            EncodeStatus = $"Encoding… {pct:0}%";
+                    })));
             }
             catch (Exception ex)
             {

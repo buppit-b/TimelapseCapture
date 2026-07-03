@@ -113,10 +113,19 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 2. **Finish-line encode options** — **hold the final frame** for N seconds (ffmpeg `tpad`; the
    finished artwork is the frame viewers want to see), and **encode to a target duration**
    ("make it exactly 60s" — fps computed from frame count; social platforms have ceilings).
+   Plus *(Spike, 2026-07-03)*: **frame-skip encode** — use every Nth frame ("every 3rd") to speed
+   the timelapse up without recapturing. Natural fit alongside the other two speed levers (fps =
+   playback speed, skip = time compression, duration = the goal); non-destructive (unlike cull);
+   ffmpeg `select='not(mod(n,N))'` filter on the image2 input. UI: a "use every [N]th frame"
+   spinner in the encode card + Trim dialog, with the outcome hint updated to show the effect.
 3. **Multi-session combine** — select several sessions and encode one continuous video (the
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
 
 ### 1.x smaller ideas (parked, roughly by value)
+**Advanced-stats visual mode** *(Spike, 2026-07-03 — direction TBD with him)*: at-a-glance visual
+elements beyond the target bar + encode bar (both shipped) — e.g. a session-storage gauge vs free
+disk, a sparkline of capture cadence (gaps = idle skips), frame-size trend. Possibly a toggleable
+"advanced stats" view so the default stays clean. ·
 Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report** *(Spike,
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail

@@ -43,7 +43,10 @@ namespace TimelapseCapture
             return null;
         }
 
-        public static Task<(int exitCode, string output, string error)> RunFfmpegAsync(string ffmpegPath, string arguments, CancellationToken cancellationToken = default)
+        /// <param name="onStderrLine">Optional live tap of stderr lines (ffmpeg writes its progress there,
+        /// e.g. "frame=  123 fps=…"). Invoked on a threadpool thread — callers marshal to UI as needed.</param>
+        public static Task<(int exitCode, string output, string error)> RunFfmpegAsync(string ffmpegPath, string arguments, CancellationToken cancellationToken = default,
+            Action<string>? onStderrLine = null)
         {
             var tcs = new TaskCompletionSource<(int, string, string)>();
             Process? p = null;
@@ -66,7 +69,12 @@ namespace TimelapseCapture
                 var stderr = new StringBuilder();
                 var sync = new object();
                 p.OutputDataReceived += (s,e) => { if (e.Data != null) lock (sync) { stdout.AppendLine(e.Data); } };
-                p.ErrorDataReceived += (s,e) => { if (e.Data != null) lock (sync) { stderr.AppendLine(e.Data); } };
+                p.ErrorDataReceived += (s,e) =>
+                {
+                    if (e.Data == null) return;
+                    lock (sync) { stderr.AppendLine(e.Data); }
+                    try { onStderrLine?.Invoke(e.Data); } catch { /* a progress-tap bug must not kill the run */ }
+                };
                 p.EnableRaisingEvents = true;
                 var proc = p;
                 p.Exited += (s,e) =>

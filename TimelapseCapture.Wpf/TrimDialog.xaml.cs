@@ -46,6 +46,13 @@ namespace TimelapseCapture.Wpf
             UpdateRange();
         }
 
+        // ±1 / ±10 frame steppers (hold to repeat) — the step size rides in the button's Tag.
+        private void OnStep(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el && el.Tag is string t && int.TryParse(t, out int delta))
+                scrub.Value = Math.Clamp((int)scrub.Value + delta, 1, _count);
+        }
+
         private void ShowFrame(int n)
         {
             preview.Source = FramePreview.LoadAt(_folder, n, 540);

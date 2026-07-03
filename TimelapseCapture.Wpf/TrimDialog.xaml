@@ -14,7 +14,27 @@
 
         <Slider x:Name="scrub" Minimum="1" Margin="0,12,0,0"
                 IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="10"/>
-        <TextBlock x:Name="posText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11" Margin="0,4,0,0"/>
+
+        <!-- Frame-precise stepping (hold to repeat) — scrubbing alone is too coarse on big sessions. -->
+        <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <RepeatButton Grid.Column="0" Content="&#9664;&#9664; 10" Tag="-10" Style="{StaticResource BtnStep}" Click="OnStep"
+                          ToolTip="Back 10 frames (hold to repeat)."/>
+            <RepeatButton Grid.Column="1" Content="&#9664; 1" Tag="-1" Style="{StaticResource BtnStep}" Click="OnStep" Margin="6,0,0,0"
+                          ToolTip="Back one frame (hold to repeat)."/>
+            <TextBlock Grid.Column="2" x:Name="posText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0"/>
+            <RepeatButton Grid.Column="3" Content="1 &#9654;" Tag="1" Style="{StaticResource BtnStep}" Click="OnStep" Margin="0,0,6,0"
+                          ToolTip="Forward one frame (hold to repeat)."/>
+            <RepeatButton Grid.Column="4" Content="10 &#9654;&#9654;" Tag="10" Style="{StaticResource BtnStep}" Click="OnStep"
+                          ToolTip="Forward 10 frames (hold to repeat)."/>
+        </Grid>
 
         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
             <Button Content="Set start" Style="{StaticResource BtnBase}" Click="OnSetStart" Margin="0,0,8,0"

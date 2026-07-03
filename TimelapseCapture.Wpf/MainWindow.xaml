@@ -93,8 +93,9 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <Grid Margin="22,6,22,22">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="300"/>
+                <!-- Right column grows with the window (was a fixed 300px — the encoder card squished). -->
+                <ColumnDefinition Width="1.8*"/>
+                <ColumnDefinition Width="*" MinWidth="300" MaxWidth="460"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left column -->
@@ -365,26 +366,29 @@
                         <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
                                      IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
                     </StackPanel>
-                    <Grid Margin="0,12,0,0">
+                    <!-- Stacked action rows: buttons keep their natural height regardless of how the status
+                         text wraps (side-by-side, wrapping status stretched the row and the buttons with it). -->
+                    <Button Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding EncodeCommand}" HorizontalAlignment="Stretch" Margin="0,12,0,0"/>
+                    <Grid Margin="0,8,0,0" Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
-                                Command="{Binding EncodeCommand}"/>
-                        <Button Grid.Column="1" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
-                                Command="{Binding TrimCommand}" Margin="8,0,0,0"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
+                        <Button Grid.Column="0" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding TrimCommand}" HorizontalAlignment="Stretch"
                                 ToolTip="Encode only a selected range of the captured frames."/>
                         <Button Grid.Column="2" Content="Cull&#8230;" Style="{StaticResource BtnBase}"
-                                Command="{Binding CullCommand}" Margin="8,0,0,0"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
+                                Command="{Binding CullCommand}" HorizontalAlignment="Stretch"
                                 ToolTip="Delete fumble frames and renumber the rest before encoding."/>
-                        <TextBlock Grid.Column="3" Text="{Binding EncodeStatus}" Style="{StaticResource Muted}"
-                                   VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"/>
                     </Grid>
+                    <ProgressBar Value="{Binding EncodeProgress}" Minimum="0" Maximum="100" Height="5"
+                                 Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
+                                 BorderThickness="0" Margin="0,10,0,0"
+                                 Visibility="{Binding IsEncoding, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="{Binding EncodeStatus}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                               FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 

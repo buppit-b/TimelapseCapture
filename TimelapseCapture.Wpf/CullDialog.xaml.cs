@@ -24,10 +24,36 @@ namespace TimelapseCapture.Wpf
 
             scrub.Maximum = _count;
             scrub.ValueChanged += (s, e) => ShowFrame((int)e.NewValue);
-            Loaded += (s, e) => { scrub.Value = 1; ShowFrame(1); UpdateCount(); };
+            Loaded += (s, e) => { scrub.Value = 1; ShowFrame(1); UpdateCount(); RedrawMarkers(); };
+            markerCanvas.SizeChanged += (s, e) => RedrawMarkers();
         }
 
         private int Current => (int)scrub.Value;
+
+        // ±1 / ±10 frame steppers (hold to repeat) — the step size rides in the button's Tag.
+        private void OnStep(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el && el.Tag is string t && int.TryParse(t, out int delta))
+                scrub.Value = Math.Clamp(Current + delta, 1, _count);
+        }
+
+        // Red ticks above the scrubber at each marked frame's position, so the damage is visible at a
+        // glance before applying. Aligned to the thumb's travel (its center spans 7 .. width-7).
+        private void RedrawMarkers()
+        {
+            markerCanvas.Children.Clear();
+            double w = markerCanvas.ActualWidth;
+            if (_count < 1 || w < 16) return;
+            var fill = TryFindResource("DangerBrush") as System.Windows.Media.Brush
+                       ?? System.Windows.Media.Brushes.IndianRed;
+            foreach (int n in _marked)
+            {
+                double t = _count == 1 ? 0 : (n - 1) / (double)(_count - 1);
+                var tick = new System.Windows.Shapes.Rectangle { Width = 2, Height = 6, Fill = fill, RadiusX = 1, RadiusY = 1 };
+                System.Windows.Controls.Canvas.SetLeft(tick, 7 + t * (w - 14) - 1);
+                markerCanvas.Children.Add(tick);
+            }
+        }
 
         private void ShowFrame(int n)
         {
@@ -38,15 +64,13 @@ namespace TimelapseCapture.Wpf
             markBtn.Content = marked ? "Unmark" : "Mark for deletion";
         }
 
-        private void OnPrev(object sender, RoutedEventArgs e) { if (Current > 1) scrub.Value = Current - 1; }
-        private void OnNext(object sender, RoutedEventArgs e) { if (Current < _count) scrub.Value = Current + 1; }
-
         private void OnToggleMark(object sender, RoutedEventArgs e)
         {
             int n = Current;
             if (!_marked.Remove(n)) _marked.Add(n);
             ShowFrame(n);
             UpdateCount();
+            RedrawMarkers();
         }
 
         private void UpdateCount()

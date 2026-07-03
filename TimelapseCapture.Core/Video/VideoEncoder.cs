@@ -25,7 +25,8 @@ namespace TimelapseCapture
 
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
             int fps, string preset, int crf, CancellationToken ct = default,
-            int startFrame = 1, int maxFrames = 0, string? outputName = null)
+            int startFrame = 1, int maxFrames = 0, string? outputName = null,
+            Action<int>? onFrameProgress = null)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -70,7 +71,14 @@ namespace TimelapseCapture
                           $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
             Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}");
 
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct);
+            // ffmpeg reports live progress on stderr as "frame=  123 fps=…" lines — tap them for the UI.
+            Action<string>? tap = onFrameProgress == null ? null : line =>
+            {
+                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
+            };
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap);
 
             if (exitCode == 0 && File.Exists(outputPath))
                 return new Result { Success = true, OutputPath = outputPath };
