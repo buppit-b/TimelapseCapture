@@ -98,8 +98,10 @@ automated tests can't reach; the 0.9.4 fullscreen-lockup bug is exactly the clas
 catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 
 ### Pre-distribution blockers (must happen before shipping 1.0 to anyone else)
-- **Settings/log/ffmpeg live next to the exe** — breaks under Program Files (no write
-  permission). Move config to `%APPDATA%` (keep a portable-mode fallback) before any installer.
+- **Settings/log/ffmpeg location** — ✅ done (2026-07-03): `AppPaths.DataDir` self-selects once at
+  startup — portable (next to the exe) when a settings.json already sits there (dev builds, USB
+  layouts stay exactly as before), else `%APPDATA%\Framewright` (what an installer needs — the
+  Program Files exe folder isn't writable). FindFfmpeg checks both locations; rule unit-tested.
 - **Packaging** — an installer or at least a versioned release zip on GitHub Releases.
 - **LICENSE** — ✅ done (2026-07-03): MIT, © Spike Tickner. README rewritten for Framewright
   (features, build, publish); the FFmpeg-is-a-separate-GPL-program note lives in the README and

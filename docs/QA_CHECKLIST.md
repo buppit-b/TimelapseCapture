@@ -41,7 +41,12 @@ reasoned to be risky.
 - [ ] Rename via the header name; weird characters sanitised in the folder, verbatim in display
 - [ ] Load via picker · drag a session folder onto the window · pass a path as an exe argument
 - [ ] Cull marks + deletes + renumbers; encode after cull is exact
-- [ ] Trim range and "Clip to target"
+- [ ] Trim range and "Clip to target"; trim/cull markers survive close-and-reopen ⚠; a cull
+      clears both marker sets
+- [ ] Speed-up (keep 1 in N): video is N× faster; works combined with a Trim range ⚠
+- [ ] Mixed JPEG+PNG session → encode offers to convert; converted session encodes clean ⚠
+- [ ] Fresh install (no exe-side settings.json) writes to %APPDATA%\Framewright; dev/portable
+      layout (settings.json beside exe) stays put ⚠
 - [ ] Deleted output folder shows the red warning line; Choose… opens at nearest surviving folder ⚠
 - [ ] Launching a second copy just focuses the first ⚠ (settings-clobber bug)
 

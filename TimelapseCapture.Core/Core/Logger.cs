@@ -10,7 +10,7 @@ namespace TimelapseCapture
     public static class Logger
     {
         private static readonly string LogPath = Path.Combine(
-            AppContext.BaseDirectory, "debug.log");
+            AppPaths.DataDir, "debug.log");
 
         /// <summary>Full path to the log file (for an "open log" affordance in the UI).</summary>
         public static string FilePath => LogPath;

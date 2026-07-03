@@ -37,7 +37,7 @@ namespace TimelapseCapture
             try
             {
                 if (string.IsNullOrWhiteSpace(targetPath))
-                    targetPath = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
+                    targetPath = Path.Combine(AppPaths.DataDir, "ffmpeg");
 
                 string exePath = Path.Combine(targetPath, "ffmpeg.exe");
                 string probePath = Path.Combine(targetPath, "ffprobe.exe");

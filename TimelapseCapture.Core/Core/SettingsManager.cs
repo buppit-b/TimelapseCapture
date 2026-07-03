@@ -63,7 +63,7 @@ namespace TimelapseCapture
 
     public static class SettingsManager
     {
-        private static readonly string SettingsFilePath = System.IO.Path.Combine(AppContext.BaseDirectory, "settings.json");
+        private static readonly string SettingsFilePath = System.IO.Path.Combine(AppPaths.DataDir, "settings.json");
 
         public static CaptureSettings Load()
         {

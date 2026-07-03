@@ -14,8 +14,12 @@ namespace TimelapseCapture
             if (!string.IsNullOrEmpty(configuredPath) && File.Exists(configuredPath))
                 return configuredPath;
 
-            var appDir = AppContext.BaseDirectory;
-            var local = Path.Combine(appDir, "ffmpeg", "ffmpeg.exe");
+            // Data dir first (where the one-click download lands), then next-to-exe for older
+            // portable layouts that predate the data-dir split.
+            var data = Path.Combine(AppPaths.DataDir, "ffmpeg", "ffmpeg.exe");
+            if (File.Exists(data))
+                return data;
+            var local = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
             if (File.Exists(local))
                 return local;
 

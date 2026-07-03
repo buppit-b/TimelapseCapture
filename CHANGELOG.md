@@ -7,6 +7,28 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
 
+### RC refinements (2026-07-02 → 03, tagged v0.9.4)
+- **The app is named Framewright** (display branding; project rename lands at 1.0), with in-app
+  credits, an MIT LICENSE, and a rewritten README.
+- **Reliability:** single-instance guard (a second copy focuses the first — two instances used to
+  silently clobber each other's settings) · never pin a FULLSCREEN window topmost (it blocked
+  alt-tab over the whole desktop) + auto-release if the tracked window goes fullscreen · a
+  tracked window that hides to the tray or moves to another virtual desktop now pauses/stops
+  instead of silently recording what's behind it · transient window-read failures no longer kill
+  an unattended run · settings/log/ffmpeg self-select portable vs `%APPDATA%\Framewright`.
+- **Encoding:** frame-skip speed-up ("keep 1 frame in every N", non-destructive, Trim-aware) ·
+  live encode progress bar + % · CRF slider · mixed-format sessions offer to self-repair
+  (convert to the majority format, with consent) · trim start/end shown on the scrubber and
+  markers persist per session · cull marks persist, range-mark AND range-unmark, position ticks ·
+  frame-precise steppers + keyboard workflow in Trim and Cull.
+- **UX:** overlay dialog rebuilt around a live real-size preview with an installed-font picker
+  (overlay stays off by default; size safe at any value) · out-of-range entries flash red
+  app-wide (one generic behavior) · interval normalize (no more 0.1000000000…) + 3600s ceiling ·
+  New Session name prompt · drag a session onto the window / pass it as an exe argument ·
+  encoder card layout fixed and the right column made responsive · Settings can never clip its
+  footer again · stop-at-a-storage-budget option · themed sliders/ComboBox.
+- Tests 33 → **51**; the interactive scenario matrix lives in `docs/QA_CHECKLIST.md`.
+
 ### Added
 - **Simple mode** — a header toggle that swaps the raw interval for a **speed slider** with
   named notches (Rapid 0.5s … All-day 60s) and a plain-language outcome hint ("every 3s ·

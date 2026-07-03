@@ -44,6 +44,11 @@ dotnet publish TimelapseCapture.Wpf -c Release -r win-x64 --self-contained true 
 (The solution and projects still carry the working name `TimelapseCapture`; the mechanical
 rename to Framewright lands with 1.0.)
 
+**Where data lives:** settings, the log, and the downloaded FFmpeg go to `%APPDATA%\Framewright`.
+Prefer a self-contained folder (USB stick)? Place a `settings.json` next to the exe and
+Framewright keeps everything there — portable mode. Captured sessions always live in the output
+folder you choose.
+
 ## Video encoding
 
 Framewright encodes video by invoking **FFmpeg** as a separate program. It is not bundled: the

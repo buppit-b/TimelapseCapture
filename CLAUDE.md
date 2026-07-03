@@ -30,7 +30,9 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 33 tests, cover `SessionManager` (incl. `CullAndRenumber`),
+- **`TimelapseCapture.Tests`** — 51 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+  `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
+  `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
   dead handle), the window-tracking scale-rect math (`CaptureEngine.ComputeScaledDest`), and the
   output-name sanitiser (`VideoEncoder.SanitizeFileName`). Core exposes internals to the test
@@ -69,7 +71,7 @@ Small, single-maintainer app. The working bar:
 
 - **Verify before you trust** (including claims in this file).
 - **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings (the legacy `src/` project
-  suppresses its pre-nullable noise), `dotnet test` at 33/33.
+  suppresses its pre-nullable noise), `dotnet test` at 51/51.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -296,12 +298,17 @@ custom chrome all landed).
 
 ## Handoff notes for the next thread
 
-- The WPF app is at **0.9.3**: parity + a large polish/feature arc + the headline **window
-  tracking** feature, all pushed to `main`. Spike tests each build live and gives UX feedback.
-- The working loop: build green + `dotnet test` 14/14 → commit per feature → push → relaunch the
-  exe for Spike. He's git-averse (Claude owns git) and likes most new behaviour to be an **option**.
-- **Next likely:** unattended safety (auto-stop on low disk / max duration + finish notification),
-  frame cull, and window-tracking slice 2 (WGC/occluded, persist tracking). Confirm priority with Spike.
+- The app (**Framewright**, display-renamed; projects still `TimelapseCapture*`) is at **0.9.4,
+  the 1.0 RC**, tagged `v0.9.4`, with a large RC-refinement arc on `main` (see CHANGELOG). MIT
+  LICENSE + README are in. Spike tests each build live and gives UX feedback.
+- The working loop: build green (0 warnings) + `dotnet test` 51/51 → commit per feature → push →
+  relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
+  (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
+- **Blocking 1.0:** Spike's 6–8h soak + a `docs/QA_CHECKLIST.md` pass, then the 1.0 cut = the
+  mechanical Framewright rename (projects/exe/namespaces/mutex) + version bump + CHANGELOG.
+- **1.1 line (agreed):** tray icon + hotkey chime · end-frame hold + encode-to-duration ·
+  multi-session combine · configurable keybindings · crop-at-encode · loupe revisit ·
+  Alt-drag-from-center region select · in-app bug report (pre-public) · WGC tracking slice 2.
 - **Ignore `C:\Users\Spike\.claude\plans\jazzy-baking-trinket.md`** — obsolete WinForms-UI plan.
 
 ---

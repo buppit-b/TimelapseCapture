@@ -80,6 +80,29 @@ namespace TimelapseCapture.Tests
     }
 
     /// <summary>
+    /// AppPaths.ResolveDataDir — the portable-vs-installed data-directory rule. Getting this wrong
+    /// either breaks dev setups (settings suddenly elsewhere) or breaks installs (writes into
+    /// Program Files) — so the pure rule is pinned by tests.
+    /// </summary>
+    public class AppPathsTests
+    {
+        [Fact]
+        public void PortableSettingsNextToExe_StaysPortable() =>
+            AppPaths.ResolveDataDir(@"C:\Apps\FW", @"C:\Users\u\AppData\Roaming", portableSettingsExist: true)
+                .Should().Be(@"C:\Apps\FW");
+
+        [Fact]
+        public void FreshInstall_UsesAppData() =>
+            AppPaths.ResolveDataDir(@"C:\Program Files\FW", @"C:\Users\u\AppData\Roaming", portableSettingsExist: false)
+                .Should().Be(@"C:\Users\u\AppData\Roaming\Framewright");
+
+        [Fact]
+        public void MissingAppData_FallsBackToExeDir() =>
+            AppPaths.ResolveDataDir(@"C:\Apps\FW", "", portableSettingsExist: false)
+                .Should().Be(@"C:\Apps\FW");
+    }
+
+    /// <summary>
     /// OverlayRenderer.ResolveTokens — the overlay text token substitution, with a fixed clock.
     /// </summary>
     public class OverlayTokenTests
