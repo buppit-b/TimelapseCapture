@@ -104,6 +104,10 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 - **LICENSE** — the repo has none; Spike's call (MIT recommended for a tool like this). Plus a
   one-line in-app note that the downloaded ffmpeg is BtbN's GPL build (invoked as a separate
   process, so it doesn't constrain the app's own licence).
+- **The Framewright rename, mechanically** — display branding is done (2026-07-03); at the 1.0
+  cut, rename the exe/projects/namespaces/repo (`TimelapseCapture*` → `Framewright*`), the
+  single-instance mutex name, and the docs. One dedicated commit; verify the FindWindow title
+  lookup and settings/log paths still line up.
 
 ### 1.1 candidates (top three, in recommended order)
 1. **Tray icon with recording state** — minimize to tray, red-dot "recording" glance state,

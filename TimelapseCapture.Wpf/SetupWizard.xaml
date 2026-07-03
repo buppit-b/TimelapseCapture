@@ -12,7 +12,7 @@
         <!-- Step 0 — welcome -->
         <StackPanel x:Name="step0">
             <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap"
-                       Text="Timelapse Capture takes a frame of your screen (or a window) on a timer, then turns the frames into a timelapse video."/>
+                       Text="Framewright takes a frame of your screen (or a window) on a timer, then turns the frames into a timelapse video."/>
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"
                        Text="This quick setup takes under a minute: where to save, what to capture, and how fast. You can re-run it any time from Settings."/>
         </StackPanel>

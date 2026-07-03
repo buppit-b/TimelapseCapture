@@ -32,6 +32,10 @@ namespace TimelapseCapture
         public int TrimStartFrame { get; set; }
         public int TrimEndFrame { get; set; }
 
+        // Cull marks-for-deletion — same persistence contract as the trim markers; cleared once a
+        // cull applies (the marks are consumed and the survivors renumber).
+        public List<int>? CullMarkedFrames { get; set; }
+
         // Track actual capture time and interval changes
         public DateTime? LastCaptureTime { get; set; }
         public double TotalCaptureSeconds { get; set; } = 0;

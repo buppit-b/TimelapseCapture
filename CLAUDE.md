@@ -13,6 +13,11 @@ A Windows desktop app that captures screen frames on a timer and encodes them
 into timelapse videos via FFmpeg. Built for digital art and long-running, often
 unattended capture. Power-user oriented, not hand-holdy.
 
+**The app is named "Framewright"** (Spike chose it, 2026-07-03). Display branding (title bar,
+Settings, wizard) says Framewright; the repo/projects/exe still say TimelapseCapture — that
+mechanical rename is scheduled for the 1.0 cut (see ROADMAP pre-distribution blockers). Credits
+(Settings footer): created and directed by Spike Tickner · engineered with Claude (Anthropic).
+
 **The app is mid-migration from WinForms to a WPF rebuild. WPF is the active
 front-end.** The two front-ends share one engine:
 

@@ -820,11 +820,34 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.MaxDurationEnabled;
             set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
-        // Encode speed-up: use every Nth captured frame (1 = all). Non-destructive — frames stay on disk.
+        // Encode speed-up: keep 1 frame in every N (stored 1 = off). Non-destructive — frames stay on
+        // disk. Surfaced as a checkbox + N field (the app's reveal pattern) so "off" is explicit
+        // instead of a magic 1, and the visible field can honestly enforce N ≥ 2.
         public int EncodeEveryNth
         {
             get => _settings.EncodeEveryNth;
-            set { var v = Math.Clamp(value, 1, 1000); if (_settings.EncodeEveryNth != v) { _settings.EncodeEveryNth = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set
+            {
+                var v = Math.Clamp(value, 1, 1000);
+                if (_settings.EncodeEveryNth != v)
+                {
+                    _settings.EncodeEveryNth = v;
+                    SettingsManager.Save(_settings);
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(SpeedUpEnabled));
+                    OnPropertyChanged(nameof(SpeedUpN));
+                }
+            }
+        }
+        public bool SpeedUpEnabled
+        {
+            get => EncodeEveryNth > 1;
+            set => EncodeEveryNth = value ? Math.Max(2, EncodeEveryNth) : 1;
+        }
+        public int SpeedUpN
+        {
+            get => Math.Max(2, EncodeEveryNth);
+            set => EncodeEveryNth = Math.Clamp(value, 2, 1000);
         }
 
         public bool StopAtStorageEnabled
@@ -1633,20 +1656,36 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void Cull()
         {
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
-            var dlg = new CullDialog(_sessionFolder, _frameCount) { Owner = Application.Current?.MainWindow };
-            if (dlg.ShowDialog() != true || dlg.MarkedForDeletion.Count == 0) return;
+            var savedSession = SessionManager.LoadSession(_sessionFolder);
+            var dlg = new CullDialog(_sessionFolder, _frameCount, savedSession?.CullMarkedFrames)
+            { Owner = Application.Current?.MainWindow };
+            bool apply = dlg.ShowDialog() == true && dlg.MarkedForDeletion.Count > 0;
+
+            if (!apply)
+            {
+                // Closed without deleting — keep the marks for a return visit (same contract as trim).
+                var keep = SessionManager.LoadSession(_sessionFolder);
+                if (keep != null)
+                {
+                    keep.CullMarkedFrames = dlg.MarkedForDeletion.Count > 0
+                        ? new List<int>(dlg.MarkedForDeletion) : null;
+                    SessionManager.SaveSession(_sessionFolder, keep);
+                }
+                return;
+            }
 
             int newCount = SessionManager.CullAndRenumber(_sessionFolder, new HashSet<int>(dlg.MarkedForDeletion));
             FrameCount = newCount;
             UpdatePreview();   // the "latest" frame likely changed
 
-            // Renumbering shifted every frame's position — saved trim markers now point at the wrong
-            // frames, so clear them rather than silently trimming the wrong range later.
+            // Renumbering shifted every frame's position — the cull marks are consumed and saved trim
+            // markers now point at the wrong frames; clear both rather than acting on stale positions.
             var s = SessionManager.LoadSession(_sessionFolder);
-            if (s != null && (s.TrimStartFrame != 0 || s.TrimEndFrame != 0))
+            if (s != null)
             {
                 s.TrimStartFrame = 0;
                 s.TrimEndFrame = 0;
+                s.CullMarkedFrames = null;
                 SessionManager.SaveSession(_sessionFolder, s);
             }
             CommandManager.InvalidateRequerySuggested();

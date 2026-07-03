@@ -16,11 +16,17 @@ namespace TimelapseCapture.Wpf
 
         public IReadOnlyCollection<int> MarkedForDeletion => _marked;
 
-        public CullDialog(string sessionFolder, int frameCount)
+        public CullDialog(string sessionFolder, int frameCount, IEnumerable<int>? savedMarks = null)
         {
             InitializeComponent();
             _folder = sessionFolder;
             _count = Math.Max(1, frameCount);
+
+            // Restore previously placed marks (persisted in session.json), dropping any that no
+            // longer point at an existing frame.
+            if (savedMarks != null)
+                foreach (int n in savedMarks)
+                    if (n >= 1 && n <= _count) _marked.Add(n);
 
             scrub.Maximum = _count;
             scrub.ValueChanged += (s, e) => ShowFrame((int)e.NewValue);

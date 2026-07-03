@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Timelapse Capture" Width="1040" Height="920" MinHeight="320" MinWidth="560"
+        Title="Framewright" Width="1040" Height="920" MinHeight="320" MinWidth="560"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen" WindowStyle="None"
         AllowDrop="True" Drop="OnWindowDrop"
@@ -34,7 +34,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0" ClipToBounds="True">
                 <TextBlock Text="&#128247;" FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <!-- Hide the title text before it would overlap the right-hand controls on a narrow window. -->
-                <TextBlock Text="Timelapse Capture" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
+                <TextBlock Text="Framewright" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
                            Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                         Converter={StaticResource MinWidthToVis}, ConverterParameter=760}"/>
                 <!-- Classic red recording indicator -->
@@ -76,7 +76,7 @@
                               ToolTip="Simple mode: a speed slider and just the essentials. Turn off for full control."/>
                 <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
                               IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
-                              ToolTip="Keep the Timelapse Capture window above all other windows."/>
+                              ToolTip="Keep the Framewright window above all other windows."/>
                 <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}" VerticalAlignment="Center"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
                 <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -277,7 +277,7 @@
                                       ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
                             <CheckBox Content="Hide this window from captures" IsChecked="{Binding HideFromCapture}"
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="18,0,0,0"
-                                      ToolTip="Exclude the Timelapse Capture window from screen captures so it never appears in frames (Win10 2004+)."/>
+                                      ToolTip="Exclude the Framewright window from screen captures so it never appears in frames (Win10 2004+)."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -358,13 +358,18 @@
                                  local:NumericInput.AllowDecimal="False"
                                  ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Speed the timelapse up at encode time: 3 keeps one frame out of every 3 — the video plays 3× faster with ⅓ the frames. Applies to Encode and Trim; the frames on disk are untouched. 1 = use every frame.">
-                        <TextBlock Text="Speed-up" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBlock Text="keep 1 frame in every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBox Text="{Binding EncodeEveryNth}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
-                                 local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
+                    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <CheckBox Content="Speed-up (skip frames at encode)" IsChecked="{Binding SpeedUpEnabled}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"
+                                  ToolTip="Make the timelapse play faster by encoding only a subset of the frames. Non-destructive — applies to Encode and Trim; the frames on disk are untouched."/>
+                        <StackPanel Orientation="Horizontal" Margin="22,6,0,0"
+                                    Visibility="{Binding SpeedUpEnabled, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="keep 1 frame in every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding SpeedUpN}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                                     ToolTip="2 = twice as fast with half the frames; 3 = three times as fast with a third. Minimum 2 (1 would mean no speed-up — untick instead)."/>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"

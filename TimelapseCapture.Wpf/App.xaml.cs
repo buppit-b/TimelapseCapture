@@ -34,7 +34,7 @@ namespace TimelapseCapture.Wpf
             _instanceMutex = new Mutex(initiallyOwned: true, @"Local\TimelapseCapture.Wpf.SingleInstance", out bool isFirst);
             if (!isFirst)
             {
-                IntPtr existing = FindWindow(null, "Timelapse Capture");
+                IntPtr existing = FindWindow(null, "Framewright");
                 if (existing != IntPtr.Zero)
                 {
                     ShowWindow(existing, SW_RESTORE);
