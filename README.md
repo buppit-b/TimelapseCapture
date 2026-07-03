@@ -1,50 +1,58 @@
-# Timelapse Capture
+# Framewright
 
-Timelapse Capture is a desktop application for recording screen timelapses. It captures frames at fixed intervals and compiles them into a video.
+**A timelapse studio for digital artists.** Framewright captures frames of your screen — a
+region, a monitor, or a window it follows around — on a timer, then turns them into a timelapse
+video. Built for long, often-unattended capture sessions: it protects your frames, tells you
+when something goes wrong, and stays out of your way while you work.
 
-## Overview
+> *A wright is a craftsman — a playwright works in plays, a shipwright in ships.
+> Framewright works in frames.*
 
-Useful for recording digital work sessions such as painting, modeling, or programming, without the overhead of continuous video capture.
+## Highlights
 
-## Features
+- **Window tracking** — pick a window and Framewright follows it as you move it; resize
+  handling (lock / fit / stretch), minimize handling (stop or wait), optional keep-on-top.
+- **Set-and-forget safety** — pre-flight disk check, low-disk auto-stop, capture-failure
+  auto-stop, optional max-duration and storage-budget caps, crash recovery, and a finish
+  notification. A locked screen or UAC prompt pauses capture instead of recording black frames.
+- **Smart interval** — capture at full speed while you work, slow down or skip while you're idle.
+- **A real editing pass before encoding** — trim to a frame range (markers persist), cull fumble
+  frames (range marking, gapless renumber), speed-up (keep 1 frame in every N), live encode
+  progress, custom output naming.
+- **Configurable frame overlay** — burn a timestamp or label into frames, previewed live at
+  real frame size with an installed-font picker. Off by default.
+- **Simple mode + a first-run wizard** for the "open the app and press go" experience; the full
+  surface is one toggle away.
+- **Clean dark terminal aesthetic** with live-switchable themes and custom window chrome.
 
-- **Region Selection** – Capture a specific area, window, or the full screen.  
-- **Overlay** – Optional on-screen indicator showing the active capture region.  
-- **Session Management** – Organizes captures into session folders with custom names.  
-- **Frame Encoding** – Uses FFmpeg to compile captured frames into a video file.
+## Building from source
 
-## Requirements
-
-- Windows 10 or 11  
-- [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download) (for building from source)
-
-## Quick Start
-
-1. Choose an output folder.  
-2. Select a capture region (canvas, window, or full screen).  
-3. Create a session and start capture.  
-4. Frames are captured automatically.  
-5. Encode the session to produce a video.
-
-## Building From Source
+Requires the [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download), Windows 10/11.
 
 ```bash
-dotnet build
-dotnet run
+dotnet build TimelapseCapture.sln            # build everything (0 warnings expected)
+dotnet test  TimelapseCapture.sln            # run the test suite
+dotnet run --project TimelapseCapture.Wpf    # launch the app
 ```
 
 For a standalone executable:
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+dotnet publish TimelapseCapture.Wpf -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
-## Keyboard Shortcuts
+(The solution and projects still carry the working name `TimelapseCapture`; the mechanical
+rename to Framewright lands with 1.0.)
 
-| Shortcut | Action |
-|-----------|--------|
-| `Ctrl + R` | Toggle capture region overlay |
+## Video encoding
 
-## How It Works
+Framewright encodes video by invoking **FFmpeg** as a separate program. It is not bundled: the
+app offers a one-click download of [BtbN's FFmpeg build](https://github.com/BtbN/FFmpeg-Builds)
+(GPL-licensed, its own terms), or you can point it at any `ffmpeg.exe` you already have.
 
-Each session saves image frames in its own directory. The built-in encoder uses FFmpeg to compile them into a timelapse video. Frames remain accessible for manual re-encoding or further processing.
+## License & credits
+
+Framewright is [MIT-licensed](LICENSE).
+
+Created and directed by **Spike Tickner** · engineered with **Claude** (Anthropic) · video by
+**FFmpeg**.

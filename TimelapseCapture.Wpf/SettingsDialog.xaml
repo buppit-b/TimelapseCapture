@@ -14,7 +14,8 @@
 
         <StackPanel DockPanel.Dock="Bottom">
             <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
-            <TextBlock x:Name="creditsText" Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+            <TextBlock x:Name="creditsText" Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
+                       ToolTip="Framewright is MIT-licensed (LICENSE in the repository). FFmpeg is a separate program — the one-click download fetches BtbN's GPL build, which keeps its own licence."/>
             <!-- Two columns + a WrapPanel so the utility buttons can never overlap Close (they wrap instead). -->
             <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>

@@ -101,9 +101,9 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 - **Settings/log/ffmpeg live next to the exe** — breaks under Program Files (no write
   permission). Move config to `%APPDATA%` (keep a portable-mode fallback) before any installer.
 - **Packaging** — an installer or at least a versioned release zip on GitHub Releases.
-- **LICENSE** — the repo has none; Spike's call (MIT recommended for a tool like this). Plus a
-  one-line in-app note that the downloaded ffmpeg is BtbN's GPL build (invoked as a separate
-  process, so it doesn't constrain the app's own licence).
+- **LICENSE** — ✅ done (2026-07-03): MIT, © Spike Tickner. README rewritten for Framewright
+  (features, build, publish); the FFmpeg-is-a-separate-GPL-program note lives in the README and
+  the Settings credits tooltip.
 - **The Framewright rename, mechanically** — display branding is done (2026-07-03); at the 1.0
   cut, rename the exe/projects/namespaces/repo (`TimelapseCapture*` → `Framewright*`), the
   single-instance mutex name, and the docs. One dedicated commit; verify the FindWindow title
