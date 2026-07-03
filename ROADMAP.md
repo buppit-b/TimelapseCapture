@@ -122,6 +122,10 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
    (like Cull) is possible later but touches user data — lower priority.
 3. **Multi-session combine** — select several sessions and encode one continuous video (the
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
+4. **Configurable keybindings** *(Spike, 2026-07-03 — power-user philosophy: every hotkey
+   rebindable)* — grow the existing hotkey-capture control into a small keymap table in Settings
+   (action · binding · reset-to-default), persisted additively. Covers the global start/stop plus
+   the Trim/Cull editing keys (step ±1/±10, mark/unmark, set start/end).
 
 ### 1.x smaller ideas (parked, roughly by value)
 **Advanced-stats visual mode** *(Spike, 2026-07-03 — direction TBD with him)*: at-a-glance visual

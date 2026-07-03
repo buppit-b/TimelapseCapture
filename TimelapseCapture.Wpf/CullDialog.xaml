@@ -47,12 +47,12 @@
                           ToolTip="Forward 10 frames (hold to repeat)."/>
         </Grid>
 
-        <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="0,6,0,0"
-                   Text="Keys:  &#8592;/&#8594; step 1  ·  Shift+&#8592;/&#8594; step 10  ·  Space/M mark  ·  Shift+Space mark range from last mark"/>
+        <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="0,6,0,0" TextWrapping="Wrap"
+                   Text="Keys:  &#8592;/&#8594; step 1  ·  Shift+&#8592;/&#8594; step 10  ·  Space/M mark  ·  Shift+Space mark range  ·  Ctrl+Space unmark range  (ranges run from the last mark action to here)"/>
 
         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
             <Button x:Name="markBtn" Content="Mark for deletion" Style="{StaticResource BtnBase}" Click="OnToggleMark"
-                    ToolTip="Mark (or unmark) this frame. Shift+click marks the whole range from the last mark to here — mark one end, scrub to the other, Shift+click."/>
+                    ToolTip="Mark (or unmark) this frame. Shift+click marks — and Ctrl+click unmarks — the whole range from the last mark action to here: anchor one end, scrub to the other, modifier+click."/>
             <Button Content="Clear marks" Style="{StaticResource BtnBase}" Click="OnClearMarks" Margin="8,0,0,0"
                     ToolTip="Unmark everything."/>
             <TextBlock x:Name="markedCount" Style="{StaticResource Body}" FontFamily="Consolas" VerticalAlignment="Center" Margin="14,0,0,0"/>

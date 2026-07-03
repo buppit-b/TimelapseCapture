@@ -16,7 +16,8 @@ namespace TimelapseCapture.Wpf
         public int StartFrame { get; private set; }
         public int EndFrame { get; private set; }
 
-        public TrimDialog(string sessionFolder, int frameCount, int targetFrames = 0, string? targetLabel = null)
+        public TrimDialog(string sessionFolder, int frameCount, int targetFrames = 0, string? targetLabel = null,
+            int savedStart = 0, int savedEnd = 0)
         {
             InitializeComponent();
             _folder = sessionFolder;
@@ -24,6 +25,14 @@ namespace TimelapseCapture.Wpf
             _targetFrames = targetFrames;
             StartFrame = 1;
             EndFrame = _count;
+
+            // Restore previously placed markers (persisted in session.json) — clamped to the current
+            // frame count, and only when they still form a sane range.
+            if (savedEnd > 0 && savedStart >= 1 && savedStart <= savedEnd)
+            {
+                StartFrame = Math.Min(savedStart, _count);
+                EndFrame = Math.Min(savedEnd, _count);
+            }
 
             // Offer the Stats target as a one-click range when the session overshot it (e.g. the user
             // didn't enable stop-at-target but still wants a video of exactly the planned length).
@@ -123,7 +132,9 @@ namespace TimelapseCapture.Wpf
 
         private void OnEncode(object sender, RoutedEventArgs e)
         {
-            if (EndFrame < StartFrame) return;
+            // Defense in depth: Set start/end mutually clamp so an inverted range shouldn't exist,
+            // but if one ever slips through, normalize by swapping rather than silently doing nothing.
+            if (EndFrame < StartFrame) (StartFrame, EndFrame) = (EndFrame, StartFrame);
             DialogResult = true;
         }
     }

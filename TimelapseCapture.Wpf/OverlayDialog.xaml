@@ -57,9 +57,11 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
                 <TextBlock Text="Size" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
-                <TextBox Text="{Binding OverlayFontSize}" Style="{StaticResource DarkTextBox}" Width="50" TextAlignment="Center"
+                <TextBox x:Name="sizeBox" Text="{Binding OverlayFontSize}" Style="{StaticResource DarkTextBox}" Width="50" TextAlignment="Center"
                          local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
                          ToolTip="Pixels at the real frame size; 0 = auto-scale to the frame height. No upper limit — rendering caps at the frame height."/>
+                <Button Content="Set" Style="{StaticResource BtnBase}" Click="OnApplySize" Margin="8,0,0,0" Padding="10,4"
+                        ToolTip="Apply the typed size to the example now (Enter in the box works too)."/>
             </StackPanel>
         </StackPanel>
 

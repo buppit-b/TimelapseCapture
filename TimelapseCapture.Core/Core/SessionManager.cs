@@ -27,6 +27,11 @@ namespace TimelapseCapture
         // File organization
         public int FormatVersion { get; set; } = 2;
 
+        // Trim markers — persisted so closing the Trim dialog (accidentally or to do something else)
+        // doesn't lose marker placement. 0 = unset. Cleared by a cull (renumbering shifts positions).
+        public int TrimStartFrame { get; set; }
+        public int TrimEndFrame { get; set; }
+
         // Track actual capture time and interval changes
         public DateTime? LastCaptureTime { get; set; }
         public double TotalCaptureSeconds { get; set; } = 0;

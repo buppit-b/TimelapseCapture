@@ -2,12 +2,42 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
-        Title="Settings" Width="500" SizeToContent="Height" MaxHeight="780"
+        Title="Settings" Width="500" SizeToContent="Height"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
         Style="{StaticResource DialogWindow}">
-    <StackPanel Margin="18">
-        <TextBlock Text="SETTINGS" Style="{StaticResource CardTitle}"/>
+    <!-- Title pinned top, footer pinned bottom, sections scroll in between — the dialog can never
+         clip its own buttons again no matter how many settings sections grow or how short the screen. -->
+    <DockPanel Margin="18">
+        <TextBlock DockPanel.Dock="Top" Text="SETTINGS" Style="{StaticResource CardTitle}"/>
+
+        <StackPanel DockPanel.Dock="Bottom">
+            <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
+            <TextBlock x:Name="creditsText" Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"/>
+            <!-- Two columns + a WrapPanel so the utility buttons can never overlap Close (they wrap instead). -->
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <WrapPanel Grid.Column="0" Margin="0,0,10,0">
+                    <Button Content="Export&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ExportSettingsCommand}"
+                            Margin="0,0,8,4" ToolTip="Save all preferences to a file."/>
+                    <Button Content="Import&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ImportSettingsCommand}"
+                            Margin="0,0,8,4" ToolTip="Load preferences from a file."/>
+                    <Button Content="Open log" Style="{StaticResource BtnBase}" Command="{Binding OpenLogCommand}" Margin="0,0,8,4"
+                            ToolTip="Open the diagnostics log — useful if something went wrong."/>
+                    <Button Content="Setup wizard&#8230;" Style="{StaticResource BtnBase}" Command="{Binding OpenWizardCommand}" Margin="0,0,8,4"
+                            ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
+                </WrapPanel>
+                <Button Grid.Column="1" Content="Close" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"
+                        MinWidth="84" IsCancel="True"/>
+            </Grid>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-10,0" Padding="0,0,10,0">
+            <StackPanel>
 
         <!-- Appearance -->
         <ToggleButton x:Name="secAppearance" Style="{StaticResource SectionHeader}" Content="APPEARANCE" IsChecked="True"/>
@@ -128,26 +158,7 @@
                            Style="{StaticResource Muted}" FontSize="10" Margin="58,4,0,0" TextWrapping="Wrap"/>
             </StackPanel>
         </StackPanel>
-
-        <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
-        <!-- Two columns + a WrapPanel so the utility buttons can never overlap Close (they wrap instead). -->
-        <Grid Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <WrapPanel Grid.Column="0" Margin="0,0,10,0">
-                <Button Content="Export&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ExportSettingsCommand}"
-                        Margin="0,0,8,4" ToolTip="Save all preferences to a file."/>
-                <Button Content="Import&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ImportSettingsCommand}"
-                        Margin="0,0,8,4" ToolTip="Load preferences from a file."/>
-                <Button Content="Open log" Style="{StaticResource BtnBase}" Command="{Binding OpenLogCommand}" Margin="0,0,8,4"
-                        ToolTip="Open the diagnostics log — useful if something went wrong."/>
-                <Button Content="Setup wizard&#8230;" Style="{StaticResource BtnBase}" Command="{Binding OpenWizardCommand}" Margin="0,0,8,4"
-                        ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
-            </WrapPanel>
-            <Button Grid.Column="1" Content="Close" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"
-                    MinWidth="84" IsCancel="True"/>
-        </Grid>
-    </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </Window>

@@ -16,6 +16,7 @@ namespace TimelapseCapture.Wpf
 
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             versionText.Text = v != null ? $"Timelapse Capture v{v.Major}.{v.Minor}.{v.Build}" : "Timelapse Capture";
+            creditsText.Text = "Created and directed by Spike Tickner · engineered with Claude (Anthropic) · video by FFmpeg";
 
             Loaded += (s, e) => RefreshHotkeyText();
             hotkeyBox.GotKeyboardFocus += (s, e) => hotkeyBox.Text = "Press a key combination…";

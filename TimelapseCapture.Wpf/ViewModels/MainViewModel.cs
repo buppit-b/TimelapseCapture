@@ -1607,11 +1607,25 @@ namespace TimelapseCapture.Wpf.ViewModels
             // With frame-skip active, hitting the target VIDEO length needs Nx as many input frames.
             long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
             int target = (targetFrames > 0 && targetFrames < _frameCount) ? (int)targetFrames : 0;
+            var saved = SessionManager.LoadSession(_sessionFolder);
             var dlg = new TrimDialog(_sessionFolder, _frameCount, target,
                 $"{_desiredVideoSeconds}s @ {Math.Max(1, EncodeFps)}fps" +
-                (EncodeEveryNth > 1 ? $" · every {EncodeEveryNth}th" : ""))
+                (EncodeEveryNth > 1 ? $" · 1 in {EncodeEveryNth}" : ""),
+                saved?.TrimStartFrame ?? 0, saved?.TrimEndFrame ?? 0)
             { Owner = Application.Current?.MainWindow };
-            if (dlg.ShowDialog() == true)
+            bool encode = dlg.ShowDialog() == true;
+
+            // Persist marker placement even on close/cancel — coming back to trim shouldn't mean
+            // re-placing markers (reload-set-save, frame-count safe).
+            var s = SessionManager.LoadSession(_sessionFolder);
+            if (s != null && (s.TrimStartFrame != dlg.StartFrame || s.TrimEndFrame != dlg.EndFrame))
+            {
+                s.TrimStartFrame = dlg.StartFrame;
+                s.TrimEndFrame = dlg.EndFrame;
+                SessionManager.SaveSession(_sessionFolder, s);
+            }
+
+            if (encode)
                 await Encode(dlg.StartFrame, dlg.EndFrame);
         }
 
@@ -1625,6 +1639,16 @@ namespace TimelapseCapture.Wpf.ViewModels
             int newCount = SessionManager.CullAndRenumber(_sessionFolder, new HashSet<int>(dlg.MarkedForDeletion));
             FrameCount = newCount;
             UpdatePreview();   // the "latest" frame likely changed
+
+            // Renumbering shifted every frame's position — saved trim markers now point at the wrong
+            // frames, so clear them rather than silently trimming the wrong range later.
+            var s = SessionManager.LoadSession(_sessionFolder);
+            if (s != null && (s.TrimStartFrame != 0 || s.TrimEndFrame != 0))
+            {
+                s.TrimStartFrame = 0;
+                s.TrimEndFrame = 0;
+                SessionManager.SaveSession(_sessionFolder, s);
+            }
             CommandManager.InvalidateRequerySuggested();
         }
 
@@ -1838,7 +1862,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int encodedFrames = (_frameCount + everyNth - 1) / everyNth;
                 double vidLen = EncodeFps > 0 ? encodedFrames / (double)EncodeFps : 0;
                 VideoLengthText = everyNth > 1
-                    ? $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s (every {everyNth}th frame)"
+                    ? $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s (1 in {everyNth} frames)"
                     : $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
 
                 // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.

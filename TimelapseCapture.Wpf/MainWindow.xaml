@@ -360,12 +360,11 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Speed the timelapse up at encode time: 3 keeps every 3rd frame — the video plays 3× faster with ⅓ the frames. Applies to Encode and Trim; the frames on disk are untouched. 1 = use every frame.">
+                                ToolTip="Speed the timelapse up at encode time: 3 keeps one frame out of every 3 — the video plays 3× faster with ⅓ the frames. Applies to Encode and Trim; the frames on disk are untouched. 1 = use every frame.">
                         <TextBlock Text="Speed-up" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBlock Text="use every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="keep 1 frame in every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBox Text="{Binding EncodeEveryNth}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
                                  local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
-                        <TextBlock Text="th frame" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"

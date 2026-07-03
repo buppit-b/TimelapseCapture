@@ -30,6 +30,15 @@ namespace TimelapseCapture.Wpf
             _renderDebounce.Tick += (s, e) => { _renderDebounce.Stop(); RenderPreview(); };
             Loaded += (s, e) => { Subscribe(); RenderPreview(); };
             Closed += (s, e) => { Unsubscribe(); _renderDebounce.Stop(); };
+            sizeBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnApplySize(s, new RoutedEventArgs()); };
+        }
+
+        // The size box commits on focus-loss like every numeric field — this applies it immediately
+        // so "type a size, see the example change" needs no tab-away.
+        private void OnApplySize(object sender, RoutedEventArgs e)
+        {
+            sizeBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+            RenderPreview();
         }
 
         private MainViewModel? Vm => DataContext as MainViewModel;
