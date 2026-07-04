@@ -37,6 +37,7 @@ namespace TimelapseCapture
 
         private readonly object _lock = new object();
         private Timer? _timer;
+        private bool _paused;   // true = keep the timer + hooks alive but skip capturing (a real pause)
         private Rectangle _region;
         private string _sessionFolder = "";
         private string _framesFolder = "";
@@ -103,6 +104,7 @@ namespace TimelapseCapture
             {
                 if (IsRunning) return;
 
+                _paused = false;   // a fresh run is never paused
                 _sessionFolder = sessionFolder;
                 _session = session;
                 _region = region;
@@ -156,6 +158,7 @@ namespace TimelapseCapture
             {
                 if (!IsRunning) return;
                 IsRunning = false;
+                _paused = false;
                 _trackedWindow = IntPtr.Zero;
                 _timer?.Dispose();
                 _timer = null;
@@ -170,6 +173,14 @@ namespace TimelapseCapture
             }
         }
 
+        /// <summary>
+        /// A true lightweight pause: stop capturing frames but keep the timer AND the activity hooks
+        /// alive (no teardown/rebuild). Resume is instant, and the frame counter can't drift because the
+        /// engine is never stopped/restarted. Contrast with Stop(), which disposes everything.
+        /// </summary>
+        public void Pause() { lock (_lock) { if (IsRunning) { _paused = true; Logger.Log("CaptureEngine", "Paused"); } } }
+        public void Resume() { lock (_lock) { if (IsRunning) { _paused = false; Logger.Log("CaptureEngine", "Resumed"); } } }
+
         private void OnTick(object? state)
         {
             int? newCount = null;
@@ -183,6 +194,7 @@ namespace TimelapseCapture
             try
             {
                 if (!IsRunning) return;
+                if (_paused) return;   // paused: timer keeps ticking but we capture nothing
 
                 // Smart interval: the timer always polls at the working rate, so renewed activity is
                 // detected within one working interval (not stuck waiting out a long idle interval).

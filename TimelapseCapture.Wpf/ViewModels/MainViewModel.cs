@@ -1846,18 +1846,20 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!IsCapturing) return;
             if (_isPaused)
             {
-                StartEngine();           // resume → new capture segment
+                _engine.Resume();        // instant — the engine was never torn down
                 PinTrackedWindow();      // re-pin on resume (released while paused)
+                _captureStart = DateTime.Now;   // the run clock resumes now
+                SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
                 IsPaused = false;
             }
             else
             {
-                _engine.Stop();          // pause → stop capturing but keep the run armed
+                _engine.Pause();         // keep the timer + activity hooks alive; just stop capturing
                 UnpinTrackedWindow();    // don't leave the window jammed on top while paused
                 if (_captureStart.HasValue)
                 {
                     _accumulatedSeconds += (DateTime.Now - _captureStart.Value).TotalSeconds;
-                    _captureStart = null;
+                    _captureStart = null;   // freeze the run clock while paused
                 }
                 SmartStatus = "Paused";
                 IsPaused = true;
