@@ -207,7 +207,8 @@ TimelapseCapture.Wpf/
 TimelapseCapture.Core/
 ├── Capture/  CaptureEngine, WindowEnumerator (track-window enum + GetWindowRect/SetTopmost),
 │             ActivityMonitor (smart interval), ScreenHelper, AspectRatio, OverlayConfig
-├── Core/     SessionManager, SettingsManager (CaptureSettings), Logger, Constants, UIState
+├── Core/     SessionManager, SettingsManager (CaptureSettings), PresetManager (named setups —
+│             identity/safety fields stripped), Logger, Constants, UIState
 ├── Video/    VideoEncoder, FfmpegRunner, FfmpegDownloader
 └── Utilities/ SystemMonitor (storage/mem stats), ValidationHelper, PerformanceOptimizations
 ```

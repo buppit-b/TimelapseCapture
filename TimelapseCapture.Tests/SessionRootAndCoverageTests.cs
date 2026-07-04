@@ -80,6 +80,70 @@ namespace TimelapseCapture.Tests
     }
 
     /// <summary>
+    /// PresetManager merge logic — the guarantee that applying a preset swaps the capture/look setup
+    /// but NEVER the user's output folder, safety caps, or UI state.
+    /// </summary>
+    public class PresetMergeTests
+    {
+        [Fact]
+        public void ApplyOnto_TakesCarriedFieldsFromPreset()
+        {
+            var preset = new CaptureSettings { IntervalSecondsExact = 5m, Format = "PNG", JpegQuality = 95, Theme = "Ocean", EncodeEveryNth = 3 };
+            var live = new CaptureSettings { IntervalSecondsExact = 1m, Format = "JPEG", Theme = "Terminal" };
+            var merged = PresetManager.ApplyOnto(preset, live);
+            merged.IntervalSecondsExact.Should().Be(5m);
+            merged.Format.Should().Be("PNG");
+            merged.JpegQuality.Should().Be(95);
+            merged.Theme.Should().Be("Ocean");
+            merged.EncodeEveryNth.Should().Be(3);
+        }
+
+        [Fact]
+        public void ApplyOnto_PreservesExcludedIdentityAndSafetyFromLive()
+        {
+            var preset = new CaptureSettings
+            {
+                SaveFolder = @"C:\SomeoneElse\folder", FfmpegPath = @"C:\wrong\ffmpeg.exe",
+                AutoStopOnLowDisk = false, LowDiskStopMB = 1, MaxDurationEnabled = true,
+                StopAtStorageEnabled = true, SimpleMode = true, FirstRunCompleted = true,
+                HotkeysEnabled = true, HotkeyVk = 0x41, NotifyOnFinish = false, StopAtTarget = true,
+            };
+            var live = new CaptureSettings
+            {
+                SaveFolder = @"D:\MyArt", FfmpegPath = @"D:\ff\ffmpeg.exe",
+                AutoStopOnLowDisk = true, LowDiskStopMB = 500, MaxDurationEnabled = false,
+                StopAtStorageEnabled = false, SimpleMode = false, FirstRunCompleted = false,
+                HotkeysEnabled = false, HotkeyVk = 0x78, NotifyOnFinish = true, StopAtTarget = false,
+            };
+            var merged = PresetManager.ApplyOnto(preset, live);
+            // Everything the user owns about THIS machine/session/safety stays put:
+            merged.SaveFolder.Should().Be(@"D:\MyArt");
+            merged.FfmpegPath.Should().Be(@"D:\ff\ffmpeg.exe");
+            merged.AutoStopOnLowDisk.Should().BeTrue();
+            merged.LowDiskStopMB.Should().Be(500);
+            merged.MaxDurationEnabled.Should().BeFalse();
+            merged.StopAtStorageEnabled.Should().BeFalse();
+            merged.SimpleMode.Should().BeFalse();
+            merged.FirstRunCompleted.Should().BeFalse();
+            merged.HotkeysEnabled.Should().BeFalse();
+            merged.HotkeyVk.Should().Be(0x78);
+            merged.NotifyOnFinish.Should().BeTrue();
+            merged.StopAtTarget.Should().BeFalse();
+        }
+
+        [Fact]
+        public void StripIdentity_ClearsMachinePathsButKeepsLook()
+        {
+            var live = new CaptureSettings { SaveFolder = @"D:\MyArt", FfmpegPath = @"D:\ff.exe", Theme = "Synth", IntervalSecondsExact = 7m };
+            var stripped = PresetManager.StripIdentity(live);
+            stripped.SaveFolder.Should().BeNull();       // never leak a personal path into a shareable preset
+            stripped.FfmpegPath.Should().BeNull();
+            stripped.Theme.Should().Be("Synth");         // look is carried
+            stripped.IntervalSecondsExact.Should().Be(7m);
+        }
+    }
+
+    /// <summary>
     /// AppPaths.ResolveDataDir — the portable-vs-installed data-directory rule. Getting this wrong
     /// either breaks dev setups (settings suddenly elsewhere) or breaks installs (writes into
     /// Program Files) — so the pure rule is pinned by tests.

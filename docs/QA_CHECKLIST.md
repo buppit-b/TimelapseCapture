@@ -55,7 +55,12 @@ reasoned to be risky.
 - [ ] Aero-snap + Win+arrows; narrow window (title hides, controls never overlap ⚠); shrink-to-scroll
 - [ ] Live theme switch including open dialogs; Simple ⇄ Advanced round-trip
 - [ ] Interval `0.01` (and fps `99`) → snaps back with a red flash, in main window AND wizard ⚠
-- [ ] Wizard full walk-through incl. the FFmpeg download step; re-run from Settings
+- [ ] Wizard full walk-through incl. the FFmpeg download step; re-run from Settings; region
+      selection registers on the FIRST attempt from the wizard ⚠
+- [ ] Encode button is normal height (no emoji inflation) ⚠
+- [ ] Overlay: drag on the preview places the text; X/Y% fields update; corner presets still work
+- [ ] Presets: Save as / Apply / Rename / Delete; applying keeps your output folder + safety
+      limits; apply blocked while capturing; built-ins present on first run ⚠
 - [ ] Hotkey works with the window minimized; finish notification flashes the taskbar
 
 ## Long-run soak — the 1.0 gate

@@ -59,6 +59,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenWizardCommand = new RelayCommand(_ => OpenWizard(), _ => !IsCapturing);
             ExportSettingsCommand = new RelayCommand(_ => ExportSettings());
             ImportSettingsCommand = new RelayCommand(_ => ImportSettings());
+            ApplyPresetCommand = new RelayCommand(_ => ApplyPreset(), _ => SelectedPreset != null && !IsCapturing);
+            SavePresetCommand = new RelayCommand(_ => SavePreset());
+            RenamePresetCommand = new RelayCommand(_ => RenamePreset(), _ => SelectedPreset != null);
+            DeletePresetCommand = new RelayCommand(_ => DeletePreset(), _ => SelectedPreset != null);
+            PresetManager.EnsureBuiltIns();
+            RefreshPresets();
             SetTargetCommand = new RelayCommand(_ => SetTarget());
             ValidateTarget();
 
@@ -1094,6 +1100,98 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (dlg.ShowDialog() != true) return;
             try { SettingsManager.ExportTo(_settings, dlg.FileName); }
             catch (Exception ex) { MessageBox.Show($"Couldn't export settings: {ex.Message}", "Export settings", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
+
+        // ---- Presets (named capture/encode/look setups; identity + safety fields never travel) ----
+        public ICommand ApplyPresetCommand { get; }
+        public ICommand SavePresetCommand { get; }
+        public ICommand RenamePresetCommand { get; }
+        public ICommand DeletePresetCommand { get; }
+
+        public System.Collections.ObjectModel.ObservableCollection<string> Presets { get; } = new();
+
+        private string? _selectedPreset;
+        public string? SelectedPreset
+        {
+            get => _selectedPreset;
+            set { if (_selectedPreset != value) { _selectedPreset = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); } }
+        }
+
+        private void RefreshPresets()
+        {
+            string? keep = SelectedPreset;
+            Presets.Clear();
+            foreach (var n in PresetManager.List()) Presets.Add(n);
+            SelectedPreset = keep != null && Presets.Contains(keep) ? keep : null;
+        }
+
+        private void ApplyPreset()
+        {
+            if (SelectedPreset == null || IsCapturing) return;
+            var preset = PresetManager.Load(SelectedPreset);
+            if (preset == null) { MessageBox.Show("That preset couldn't be loaded.", "Presets", MessageBoxButton.OK, MessageBoxImage.Warning); RefreshPresets(); return; }
+
+            var merged = PresetManager.ApplyOnto(preset, _settings);
+            NormalizeSettings(merged);   // re-clamp untrusted file values, same as Import
+
+            // Guard the image2 uniformity invariant: switching format on a session that already has frames
+            // would mix file types and block encoding. Warn before applying (mirrors the UsePng warning).
+            if (_frameCount > 0 && !string.Equals(merged.Format, _settings.Format, StringComparison.OrdinalIgnoreCase))
+            {
+                var r = MessageBox.Show(
+                    $"“{SelectedPreset}” captures as {merged.Format}, but this session already has {_frameCount} {_settings.Format} frame(s). Applying it would mix formats and block encoding until you cull/convert.\n\nApply anyway?",
+                    "Presets", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (r != MessageBoxResult.Yes) return;
+            }
+
+            _settings = merged;
+            SettingsManager.Save(_settings);
+            ThemeManager.Apply(_settings.Theme);   // theme is carried → apply live
+            OnPropertyChanged(string.Empty);       // rebind every setting-backed property
+            WindowAffinityChanged?.Invoke();        // HideFromCapture may have changed
+            NotifyOverlayDerived();
+        }
+
+        private void SavePreset()
+        {
+            var dlg = new TextPromptDialog("Save preset", "Preset name", SelectedPreset ?? "My setup")
+            { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true) return;
+            string name = string.IsNullOrWhiteSpace(dlg.Value) ? "My setup" : dlg.Value!.Trim();
+
+            bool overwrite = false;
+            if (PresetManager.Exists(name))
+            {
+                var r = MessageBox.Show($"A preset named “{name}” already exists. Overwrite it with the current settings?",
+                    "Save preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (r != MessageBoxResult.Yes) return;   // decline → cancel (Save-as-new would need a different name)
+                overwrite = true;
+            }
+            string saved = PresetManager.Save(name, _settings, overwrite);
+            RefreshPresets();
+            SelectedPreset = saved;
+        }
+
+        private void RenamePreset()
+        {
+            if (SelectedPreset == null) return;
+            var dlg = new TextPromptDialog("Rename preset", "New name", SelectedPreset)
+            { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Value)) return;
+            string final = PresetManager.Rename(SelectedPreset, dlg.Value!.Trim());
+            RefreshPresets();
+            SelectedPreset = final;
+        }
+
+        private void DeletePreset()
+        {
+            if (SelectedPreset == null) return;
+            var r = MessageBox.Show($"Delete the preset “{SelectedPreset}”? This can't be undone.",
+                "Delete preset", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (r != MessageBoxResult.Yes) return;
+            PresetManager.Delete(SelectedPreset);
+            SelectedPreset = null;
+            RefreshPresets();
         }
 
         private void ImportSettings()

@@ -7,7 +7,18 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
 
-### RC refinements (2026-07-02 → 03, tagged v0.9.4)
+### RC refinements (2026-07-02 → 04, tagged v0.9.4)
+- **Presets** — save named capture/encode/look setups and apply them from a dropdown in Settings
+  (Save as / Apply / Rename / Delete). A preset deliberately carries your interval, format,
+  quality, smart-interval, tracking prefs, encode preset, overlay, and theme — but NOT your output
+  folder, ffmpeg path, or safety limits, so applying one never repoints capture at a dead folder
+  or silently disables low-disk auto-stop. Stored one JSON per preset under the data dir (same
+  format as an exported settings file); four editable built-ins seed on first run. Apply is
+  blocked while capturing and warns before a format change on a session with frames.
+- **Overlay drag-to-place** — drag the text anywhere on the live preview, with configurable X/Y%
+  fields; the four corner presets still work.
+- Fixed: the Encode button rendered too tall (an emoji forced a tall emoji font); region select
+  "not taking the first time" when launched from the setup wizard (activation/z-order).
 - **The app is named Framewright** (display branding; project rename lands at 1.0), with in-app
   credits, an MIT LICENSE, and a rewritten README.
 - **Reliability:** single-instance guard (a second copy focuses the first — two instances used to
