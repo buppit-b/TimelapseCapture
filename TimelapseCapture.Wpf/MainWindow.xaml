@@ -37,15 +37,32 @@
                 <TextBlock Text="Framewright" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
                            Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                         Converter={StaticResource MinWidthToVis}, ConverterParameter=760}"/>
-                <!-- Classic red recording indicator -->
-                <Border Margin="14,0,0,0" Background="#22E5534B" CornerRadius="10" Padding="9,3"
-                        BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" VerticalAlignment="Center"
+                <!-- Capture-state pill: red REC (actively grabbing), amber IDLE/PAUSED (smart inactivity
+                     or paused). The dot pulses only while actively recording. -->
+                <Border x:Name="statePill" Margin="14,0,0,0" CornerRadius="10" Padding="9,3"
+                        BorderThickness="1" VerticalAlignment="Center"
+                        Background="#22E5534B" BorderBrush="{DynamicResource DangerBrush}"
                         Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <!-- Amber when idle/paused. -->
+                                <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                    <Setter Property="Background" Value="#22E3B341"/>
+                                    <Setter Property="BorderBrush" Value="#E3B341"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="9" Height="9" Fill="{DynamicResource DangerBrush}" VerticalAlignment="Center">
+                        <Ellipse Width="9" Height="9" VerticalAlignment="Center">
                             <Ellipse.Style>
                                 <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{DynamicResource DangerBrush}"/>
                                     <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                            <Setter Property="Fill" Value="#E3B341"/>
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsRecording}" Value="True">
                                             <DataTrigger.EnterActions>
                                                 <BeginStoryboard Name="recPulse">
@@ -64,10 +81,24 @@
                                 </Style>
                             </Ellipse.Style>
                         </Ellipse>
-                        <TextBlock Text="{Binding RecLabel}" Foreground="{DynamicResource DangerBrush}" FontFamily="Consolas"
-                                   FontWeight="Bold" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding RecLabel}" FontFamily="Consolas" FontWeight="Bold" FontSize="12"
+                                   Margin="6,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                            <Setter Property="Foreground" Value="#E3B341"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
+                <!-- Smart-interval activity detail, right beside the pill (e.g. "Idle — skipping frames"). -->
+                <TextBlock Text="{Binding CaptureStatusDetail}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                           FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">

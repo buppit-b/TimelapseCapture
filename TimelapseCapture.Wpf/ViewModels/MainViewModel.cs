@@ -321,8 +321,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged(nameof(RegionNeeded));
                     OnPropertyChanged(nameof(NotCapturing));
                     OnPropertyChanged(nameof(SessionNeeded));
-                    OnPropertyChanged(nameof(IsRecording));
-                    OnPropertyChanged(nameof(RecLabel));
+                    NotifyCaptureState();
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -336,16 +335,32 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 if (SetProperty(ref _isPaused, value))
                 {
-                    OnPropertyChanged(nameof(IsRecording));
-                    OnPropertyChanged(nameof(RecLabel));
                     OnPropertyChanged(nameof(PauseResumeText));
+                    NotifyCaptureState();
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
         }
-        public bool IsRecording => IsCapturing && !_isPaused;     // for the pulsing REC dot
-        public string RecLabel => _isPaused ? "PAUSED" : "REC";
+        public bool IsRecording => IsCapturing && !_isPaused && !IsCaptureIdle;   // pulsing red REC dot: actively grabbing
+        public string RecLabel => _isPaused ? "PAUSED" : IsCaptureIdle ? "IDLE" : "REC";
         public string PauseResumeText => _isPaused ? "▶  Resume" : "⏸  Pause";
+
+        // Unified capture-state indicators (header pill + tray icon). "Idle" = smart-interval inactivity
+        // (slowed or skipping); "IdleOrPaused" is the amber state, distinct from red active recording.
+        public bool IsCaptureIdle => IsCapturing && !_isPaused &&
+            (_smartStatus?.StartsWith("Idle", StringComparison.OrdinalIgnoreCase) ?? false);
+        public bool IsCaptureIdleOrPaused => IsCapturing && (_isPaused || IsCaptureIdle);
+        // The smart-activity detail shown beside the REC pill (empty unless capturing with smart on).
+        public string CaptureStatusDetail => IsCapturing && _settings.SmartIntervalEnabled ? (_smartStatus ?? "") : "";
+
+        private void NotifyCaptureState()
+        {
+            OnPropertyChanged(nameof(IsRecording));
+            OnPropertyChanged(nameof(RecLabel));
+            OnPropertyChanged(nameof(IsCaptureIdle));
+            OnPropertyChanged(nameof(IsCaptureIdleOrPaused));
+            OnPropertyChanged(nameof(CaptureStatusDetail));
+        }
 
         private bool _isEncoding;
         public bool IsEncoding
@@ -499,7 +514,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public int TargetPulse { get => _targetPulse; set => SetProperty(ref _targetPulse, value); }
 
         private string _smartStatus = "";
-        public string SmartStatus { get => _smartStatus; set => SetProperty(ref _smartStatus, value); }
+        public string SmartStatus { get => _smartStatus; set { if (SetProperty(ref _smartStatus, value)) NotifyCaptureState(); } }
 
         private ImageSource? _previewImage;
         public ImageSource? PreviewImage

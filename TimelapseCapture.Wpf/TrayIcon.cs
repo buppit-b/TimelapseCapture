@@ -26,7 +26,7 @@ namespace TimelapseCapture.Wpf
         private readonly WinForms.NotifyIcon _icon;
         private readonly WinForms.ToolStripMenuItem _showItem;
         private readonly WinForms.ToolStripMenuItem _toggleItem;
-        private Icon? _idleIcon, _recIcon;
+        private Icon? _idleIcon, _recIcon, _pausedIcon;
         private bool _disposed;
 
         /// <summary>True once the user picked "Exit" from the tray menu — so close-to-tray is bypassed.</summary>
@@ -37,8 +37,9 @@ namespace TimelapseCapture.Wpf
             _window = window;
             _vm = vm;
 
-            _idleIcon = MakeDotIcon(Color.FromArgb(0x3F, 0xB9, 0x50), recording: false); // green
-            _recIcon = MakeDotIcon(Color.FromArgb(0xE5, 0x53, 0x4B), recording: true);   // red ring
+            _idleIcon = MakeDotIcon(Color.FromArgb(0x3F, 0xB9, 0x50), recording: false); // green: stopped
+            _recIcon = MakeDotIcon(Color.FromArgb(0xE5, 0x53, 0x4B), recording: true);   // red ring: recording
+            _pausedIcon = MakeDotIcon(Color.FromArgb(0xE3, 0xB3, 0x41), recording: true); // amber ring: idle/paused
 
             var menu = new WinForms.ContextMenuStrip();
             _showItem = new WinForms.ToolStripMenuItem("Show Framewright", null, (_, _) => RestoreWindow());
@@ -65,17 +66,23 @@ namespace TimelapseCapture.Wpf
 
         private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName is nameof(MainViewModel.IsCapturing) or nameof(MainViewModel.FrameCount) or null)
+            if (e.PropertyName is nameof(MainViewModel.IsCapturing) or nameof(MainViewModel.FrameCount)
+                or nameof(MainViewModel.IsCaptureIdleOrPaused) or nameof(MainViewModel.CaptureStatusDetail) or null)
                 UpdateStatus();
         }
 
-        // Reflect recording state in the icon, tooltip, and the menu's Start/Stop label.
+        // Reflect capture state in the icon (green stopped / red recording / amber idle-paused), the
+        // tooltip, and the menu's Start/Stop label.
         private void UpdateStatus()
         {
             bool rec = _vm.IsCapturing;
-            _icon.Icon = rec ? _recIcon : _idleIcon;
+            bool amber = _vm.IsCaptureIdleOrPaused;
+            _icon.Icon = !rec ? _idleIcon : amber ? _pausedIcon : _recIcon;
             // NotifyIcon.Text is capped at 63 chars.
-            _icon.Text = rec ? $"Framewright — Recording ({_vm.FrameCount} frames)" : "Framewright — Idle";
+            string state = !rec ? "Idle"
+                : amber ? (string.IsNullOrEmpty(_vm.CaptureStatusDetail) ? "Paused" : _vm.CaptureStatusDetail)
+                : $"Recording ({_vm.FrameCount} frames)";
+            _icon.Text = $"Framewright — {state}";
             _toggleItem.Text = rec ? "Stop capture" : "Start capture";
         }
 
@@ -155,6 +162,7 @@ namespace TimelapseCapture.Wpf
             _icon.Dispose();
             _idleIcon?.Dispose();
             _recIcon?.Dispose();
+            _pausedIcon?.Dispose();
         }
     }
 }
