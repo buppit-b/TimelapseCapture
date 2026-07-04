@@ -10,6 +10,9 @@ reasoned to be risky.
 - [ ] Region select / edit (drag + all 8 handles) / full screen, on each monitor
 - [ ] Start → count climbs → stop → encode → video plays, frame count exact
 - [ ] Sub-second interval (0.5s) sustained 10+ min — no drift, UI responsive
+- [ ] Pause mid-capture, then Resume → frames keep numbering contiguously (no overwrite/gap);
+      encode after is exact ⚠ (0.9.4 pause/resume data-loss fix)
+- [ ] Session name containing "%" (e.g. "50% test") → encodes fine ⚠ (image2 %-path fix)
 - [ ] JPEG and PNG sessions each encode; JPEG quality visibly applies ⚠
 - [ ] Cursor capture on/off; overlay text renders in the chosen corner with tokens resolved
 
