@@ -95,20 +95,19 @@ namespace TimelapseCapture.Wpf
 
         private void OnWindowStateChanged(object? sender, EventArgs e)
         {
+            // Hide() alone removes the taskbar button and the window; the tray icon is the way back.
+            // (Do NOT toggle ShowInTaskbar — changing it after load recreates the HWND, which would drop
+            // the global-hotkey registration and the hide-from-capture affinity hook.)
             if (_window.WindowState == WindowState.Minimized && _vm.MinimizeToTray)
-            {
-                _window.Hide();               // remove from the taskbar; the tray icon is the way back
-                _window.ShowInTaskbar = false;
-            }
+                _window.Hide();
         }
 
         private void RestoreWindow()
         {
             _window.Dispatcher.Invoke(() =>
             {
-                _window.Show();
-                _window.ShowInTaskbar = true;
                 if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
+                _window.Show();
                 _window.Activate();
                 _window.Topmost = _vm.AlwaysOnTop;   // don't leave it forced-topmost from Activate
             });

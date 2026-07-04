@@ -196,8 +196,7 @@ namespace TimelapseCapture.Wpf
             if (_tray is { ForceExit: false } && DataContext is MainViewModel vm2 && vm2.CloseToTray)
             {
                 e.Cancel = true;
-                Hide();
-                ShowInTaskbar = false;
+                Hide();   // Hide() removes the taskbar button too; do NOT touch ShowInTaskbar (HWND-recreation).
                 return;
             }
 
