@@ -34,6 +34,7 @@ namespace TimelapseCapture
         public bool MinimizeToTray { get; set; } = true;    // minimizing hides to the system tray (icon shows recording status)
         public bool CloseToTray { get; set; }               // the window's X hides to tray instead of exiting (off by default)
         public bool SoundOnStartStop { get; set; }          // play an audio cue when capture starts/stops (off by default)
+        public bool PreviewExpanded { get; set; }           // show the live-frame preview card (off by default — saves window height)
         public bool PauseOnTrackedMinimize { get; set; }     // window tracking: minimized → wait (true) vs stop (false)
         public bool KeepTrackedWindowOnTop { get; set; }     // window tracking: force the tracked window topmost while capturing
         public bool StopAtTarget { get; set; }               // auto-stop capture when the frame count reaches the target

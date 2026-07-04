@@ -805,6 +805,14 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.SoundOnStartStop != value) { _settings.SoundOnStartStop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Live-frame preview card — collapsed by default so it doesn't push the window taller for a
+        // feature you don't always need at a glance. Expanding it refreshes the current frame.
+        public bool PreviewExpanded
+        {
+            get => _settings.PreviewExpanded;
+            set { if (_settings.PreviewExpanded != value) { _settings.PreviewExpanded = value; SettingsManager.Save(_settings); OnPropertyChanged(); if (value) UpdatePreview(); } }
+        }
+
         // Audio cue on explicit start/stop (opt-in) — useful feedback when the window is hidden in the
         // tray. Auto-stops use the separate finish notification, so this only fires on user actions.
         private void PlayStartStopCue()
@@ -2267,7 +2275,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     }
                 }
 
-                if (IsCapturing && _frameCount != _lastPreviewedFrame) UpdatePreview();   // only on a new frame
+                if (IsCapturing && PreviewExpanded && _frameCount != _lastPreviewedFrame) UpdatePreview();   // only on a new frame, only when shown
             }
             catch { /* stats are best-effort */ }
         }
