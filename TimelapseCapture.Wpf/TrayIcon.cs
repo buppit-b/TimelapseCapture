@@ -148,8 +148,12 @@ namespace TimelapseCapture.Wpf
                 }
             }
             IntPtr h = bmp.GetHicon();
-            try { return (Icon)Icon.FromHandle(h).Clone(); }
-            finally { DestroyIcon(h); }   // Clone() copies it; free the GDI handle so it doesn't leak
+            try
+            {
+                using var tmp = Icon.FromHandle(h);   // dispose the transient wrapper deterministically
+                return (Icon)tmp.Clone();             // Clone owns an independent copy
+            }
+            finally { DestroyIcon(h); }   // free the GDI handle so it doesn't leak
         }
 
         public void Dispose()

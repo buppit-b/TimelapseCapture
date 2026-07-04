@@ -397,12 +397,16 @@ namespace TimelapseCapture
         private Bitmap ScaleToLocked(Bitmap src)
         {
             var dest = new Bitmap(_lockedSize.Width, _lockedSize.Height);
-            using var g = Graphics.FromImage(dest);
-            g.Clear(Color.Black);
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-            g.DrawImage(src, ComputeScaledDest(src.Size, _lockedSize, _resizeMode));
-            return dest;
+            try
+            {
+                using var g = Graphics.FromImage(dest);
+                g.Clear(Color.Black);
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                g.DrawImage(src, ComputeScaledDest(src.Size, _lockedSize, _resizeMode));
+                return dest;
+            }
+            catch { dest.Dispose(); throw; }   // don't leak the frame bitmap if scaling throws
         }
 
         /// <summary>

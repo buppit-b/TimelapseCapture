@@ -50,7 +50,7 @@ namespace TimelapseCapture
         /// <param name="onStderrLine">Optional live tap of stderr lines (ffmpeg writes its progress there,
         /// e.g. "frame=  123 fps=…"). Invoked on a threadpool thread — callers marshal to UI as needed.</param>
         public static Task<(int exitCode, string output, string error)> RunFfmpegAsync(string ffmpegPath, string arguments, CancellationToken cancellationToken = default,
-            Action<string>? onStderrLine = null)
+            Action<string>? onStderrLine = null, string? workingDirectory = null)
         {
             var tcs = new TaskCompletionSource<(int, string, string)>();
             Process? p = null;
@@ -63,7 +63,9 @@ namespace TimelapseCapture
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WorkingDirectory = AppContext.BaseDirectory
+                    // The encode passes the frames folder so a relative -i "%05d.ext" keeps a '%' in the
+                    // absolute path from corrupting the image2 pattern; other calls use the app dir.
+                    WorkingDirectory = string.IsNullOrEmpty(workingDirectory) ? AppContext.BaseDirectory : workingDirectory
                 };
                 p = new Process();
                 p.StartInfo = psi;

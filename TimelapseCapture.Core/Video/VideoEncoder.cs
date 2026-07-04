@@ -45,7 +45,12 @@ namespace TimelapseCapture
             // timestamps and dropped frames (a long session produced a far-too-short video).
             string framesFolder = SessionManager.GetFramesFolder(sessionFolder);
             string ext = exts.Length == 1 ? exts[0] : "jpg";
-            string pattern = Path.Combine(framesFolder, "%05d." + ext);
+            // RELATIVE pattern + run ffmpeg with the frames folder as its working directory. The image2
+            // demuxer applies printf expansion to the WHOLE -i path, so a stray '%' anywhere in the
+            // absolute path (a session named "50% run", or a user output folder with '%') would corrupt
+            // the pattern and fail the encode. Keeping the volatile path out of the pattern isolates the
+            // printf expansion to just the intended %05d token.
+            string pattern = "%05d." + ext;
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
             Directory.CreateDirectory(outputFolder);
@@ -94,7 +99,7 @@ namespace TimelapseCapture
                 var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
                 if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
             };
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap);
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap, framesFolder);
 
             if (exitCode == 0 && File.Exists(outputPath))
                 return new Result { Success = true, OutputPath = outputPath };

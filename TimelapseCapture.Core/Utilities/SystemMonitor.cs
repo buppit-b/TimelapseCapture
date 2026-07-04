@@ -214,19 +214,20 @@ namespace TimelapseCapture
             string format,
             int jpegQuality,
             int currentFrames,
-            int projectedFrames)
+            int projectedFrames,
+            double actualFrameSizeKBOverride = -1)   // >= 0: caller already sampled it — don't re-read the folder
         {
             var result = new System.Text.StringBuilder();
 
             // Calculate estimated frame size
             double estimatedFrameSizeKB = EstimateFrameSizeKB(width, height, format, jpegQuality);
-            
-            // Get actual average if we have captured frames
+
+            // Get actual average if we have captured frames (reuse the caller's sample when provided)
             double actualFrameSizeKB = 0;
-            if (!string.IsNullOrEmpty(sessionFolder) && currentFrames > 0)
-            {
+            if (actualFrameSizeKBOverride >= 0)
+                actualFrameSizeKB = actualFrameSizeKBOverride;
+            else if (!string.IsNullOrEmpty(sessionFolder) && currentFrames > 0)
                 actualFrameSizeKB = GetActualAverageFrameSizeKB(sessionFolder);
-            }
 
             // Show frame size info
             if (actualFrameSizeKB > 0)

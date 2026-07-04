@@ -1824,6 +1824,14 @@ namespace TimelapseCapture.Wpf.ViewModels
         // Start (or resume) the capture engine with current settings and begin a new timing segment.
         private void StartEngine()
         {
+            // Refresh the session from disk so the engine's frame-number baseline (FramesCaptured) matches
+            // the actual on-disk count. On RESUME the VM's _session is stale — the engine mutates its OWN
+            // copy of the session during a run, so the VM's still reads the pre-run count. Without this the
+            // numbering would restart and OVERWRITE already-captured frames (data loss + a gapped sequence
+            // that breaks the encode). Idempotent on first start (SetSessionActive already reloaded).
+            if (_sessionFolder != null)
+                _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
+
             _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
@@ -2290,8 +2298,12 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                     int w = _region?.Width ?? 0;
                     int h = _region?.Height ?? 0;
+                    // Sample the average frame size ONCE per tick and reuse it for the readout and the
+                    // storage-cap check (it reads frame files off disk — don't do it twice).
+                    double avgFrameKb = (_sessionFolder != null && _frameCount > 0)
+                        ? SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) : 0;
                     StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
-                        _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames);
+                        _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames, avgFrameKb);
                     ResourcesInfo = SystemMonitor.GetResourcesInfoString();
 
                     // Unattended safety: stop before the drive fills (writes would start failing, and a full
@@ -2314,7 +2326,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     // average frame size — no O(n) folder walk on the stats tick.
                     if (IsCapturing && !_isPaused && _settings.StopAtStorageEnabled && _sessionFolder != null && _frameCount > 0)
                     {
-                        double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
+                        double sessionMb = avgFrameKb * _frameCount / 1024.0;   // reuse the once-sampled average
                         if (sessionMb >= _settings.StopAtStorageMB)
                         {
                             Logger.Log("Wpf", $"Auto-stop: reached storage budget (~{sessionMb:F0} MB >= {_settings.StopAtStorageMB} MB).");
