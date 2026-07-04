@@ -695,6 +695,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _region = null;
                 _trackedWindow = IntPtr.Zero;   // a fresh session is a static region — drop any tracking
                 _accumulatedSeconds = 0;
+                _desiredVideoSeconds = 30; TargetText = "30s";   // target isn't per-session — reset, don't carry over
                 PreviewImage = null;
                 ClearCaptureError();   // a fresh session starts with a clean slate
 
@@ -758,6 +759,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
 
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
+            _desiredVideoSeconds = 30; TargetText = "30s";     // target isn't per-session — reset, don't carry over
             SessionName = session.Name ?? "Session";
             if (_region.HasValue)
             {
@@ -852,7 +854,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         public bool KeepTrackedWindowOnTop
         {
             get => _settings.KeepTrackedWindowOnTop;
-            set { if (_settings.KeepTrackedWindowOnTop != value) { _settings.KeepTrackedWindowOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set
+            {
+                if (_settings.KeepTrackedWindowOnTop == value) return;
+                _settings.KeepTrackedWindowOnTop = value;
+                SettingsManager.Save(_settings);
+                // React live while actively capturing, so the toggle isn't a no-op mid-run (and turning
+                // it OFF doesn't strand the window topmost until the next stop). Both calls self-guard.
+                if (IsCapturing && !_isPaused) { if (value) PinTrackedWindow(); else UnpinTrackedWindow(); }
+                OnPropertyChanged();
+            }
         }
 
         // Auto-stop capture once the frame count reaches the Target (projected frames for the target length).
@@ -1210,6 +1221,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OnPropertyChanged(string.Empty);       // rebind every setting-backed property
             WindowAffinityChanged?.Invoke();        // HideFromCapture may have changed
             NotifyOverlayDerived();
+            RefreshStats(); BumpRecalc();           // recompute storage/length/progress from the new fps/skip/format
         }
 
         private void SavePreset()
@@ -1272,11 +1284,13 @@ namespace TimelapseCapture.Wpf.ViewModels
                 FirstRunCompleted = _settings.FirstRunCompleted,   // don't re-trigger onboarding
             };
             SettingsManager.Save(_settings);
+            EncodeFps = 30; EncodeCrf = 23;     // VM-only encode fields aren't in CaptureSettings — reset explicitly
             ThemeManager.Apply(_settings.Theme);
             OnPropertyChanged(string.Empty);   // rebind everything
             WindowAffinityChanged?.Invoke();
             HotkeysChanged?.Invoke();           // hotkey returns to its default (disabled)
             NotifyOverlayDerived();
+            RefreshStats(); BumpRecalc();
         }
 
         private void ImportSettings()
@@ -1296,6 +1310,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OutputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
             RefreshOutputFolderMissing();
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
+            RefreshStats(); BumpRecalc();    // recompute storage/length/progress from the imported fps/skip/format
         }
 
         // Clamp fields that aren't already re-clamped at point of use, so a hand-edited/foreign settings.json
@@ -1528,9 +1543,9 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _trackOverlayTimer.Stop();
                 return;
             }
-            if (!WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive)
-                || !alive || minimized)
-                return;
+            bool ok = WindowEnumerator.TryGetLiveBounds(_trackedWindow, out var b, out bool minimized, out bool alive);
+            if (!alive) { _trackOverlayTimer.Stop(); return; }   // window gone → don't poll a dead HWND forever
+            if (!ok || minimized) return;                        // transient / hidden → skip this tick, keep polling
 
             System.Drawing.Rectangle rect;
             if (_settings.TrackResizeMode == 0)   // lock size: outline is the locked box at the window's top-left
@@ -1728,7 +1743,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         private bool AccumulatedStopAlreadyMet(out string message)
         {
             message = "";
-            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);
+            // Input frames needed for a _desiredVideoSeconds video — with frame-skip you need N× as many.
+            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
             if (_settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
             {
                 message = $"This session already has {_frameCount} frames — at or beyond your target of {targetFrames} " +
@@ -1908,8 +1924,9 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (HasCaptureError) CaptureError = "";   // a frame saved → clear any stale warning
                 FrameCount = count;
 
-                // Optional unattended stop: end the run once we've reached the target number of frames.
-                long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);   // long: never wraps negative
+                // Optional unattended stop: end the run once we've reached the target number of INPUT
+                // frames — frame-skip needs N× as many to yield the target video length (matches Trim).
+                long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
                 if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
                 {
                     Logger.Log("Wpf", $"Auto-stop: reached target ({count} >= {targetFrames} frames).");
@@ -2224,7 +2241,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                 // Opt-in max-duration cap: stop once accumulated capture time reaches the limit (a normal
                 // completion — notify, but no red error banner).
-                if (IsCapturing && _settings.MaxDurationEnabled && totalCaptureSeconds >= _settings.MaxDurationMinutes * 60.0)
+                if (IsCapturing && !_isPaused && _settings.MaxDurationEnabled && totalCaptureSeconds >= _settings.MaxDurationMinutes * 60.0)
                 {
                     Logger.Log("Wpf", $"Auto-stop: reached max duration ({totalCaptureSeconds:F0}s >= {_settings.MaxDurationMinutes * 60}s).");
                     StopCapture();
@@ -2232,7 +2249,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     return;   // nothing else to refresh this tick
                 }
 
-                int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps));
+                int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth));
                 double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
                 CaptureProgress = pct;
                 ProgressText = $"{_frameCount} / {projectedFrames} frames · {pct:F0}% of a {_desiredVideoSeconds}s video @ {Math.Max(1, EncodeFps)}fps";
@@ -2281,7 +2298,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     // Opt-in session-size cap: stop once the captured frames reach the chosen size (a normal
                     // completion, like stop-at-target — notify, no error banner). Sized via the sampled
                     // average frame size — no O(n) folder walk on the stats tick.
-                    if (IsCapturing && _settings.StopAtStorageEnabled && _sessionFolder != null && _frameCount > 0)
+                    if (IsCapturing && !_isPaused && _settings.StopAtStorageEnabled && _sessionFolder != null && _frameCount > 0)
                     {
                         double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
                         if (sessionMb >= _settings.StopAtStorageMB)
