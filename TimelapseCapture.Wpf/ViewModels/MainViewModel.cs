@@ -75,7 +75,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
-            StopCommand = new RelayCommand(_ => StopCapture(), _ => IsCapturing);
+            StopCommand = new RelayCommand(_ => StopByUser(), _ => IsCapturing);
             PauseResumeCommand = new RelayCommand(_ => PauseResume(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
@@ -791,6 +791,26 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             get => _settings.MinimizeToTray;
             set { if (_settings.MinimizeToTray != value) { _settings.MinimizeToTray = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public bool CloseToTray
+        {
+            get => _settings.CloseToTray;
+            set { if (_settings.CloseToTray != value) { _settings.CloseToTray = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public bool SoundOnStartStop
+        {
+            get => _settings.SoundOnStartStop;
+            set { if (_settings.SoundOnStartStop != value) { _settings.SoundOnStartStop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        // Audio cue on explicit start/stop (opt-in) — useful feedback when the window is hidden in the
+        // tray. Auto-stops use the separate finish notification, so this only fires on user actions.
+        private void PlayStartStopCue()
+        {
+            if (_settings.SoundOnStartStop)
+                try { System.Media.SystemSounds.Beep.Play(); } catch { }
         }
 
         // Window tracking: when the tracked window is minimized, wait for it to be restored (true) instead
@@ -1664,6 +1684,16 @@ namespace TimelapseCapture.Wpf.ViewModels
             IsCapturing = true;
             IsPaused = false;
             PinTrackedWindow();   // optionally keep the tracked window above everything while capturing
+            PlayStartStopCue();
+        }
+
+        // User-initiated stop (Stop button / hotkey): plays the start/stop cue. Auto-stops call
+        // StopCapture directly (they have their own finish notification), so no double sound.
+        private void StopByUser()
+        {
+            if (!IsCapturing) return;
+            StopCapture();
+            PlayStartStopCue();
         }
 
         // True (with a user-facing message) when an opt-in accumulated-state stop is ALREADY satisfied,

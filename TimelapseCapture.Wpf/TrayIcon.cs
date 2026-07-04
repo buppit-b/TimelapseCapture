@@ -29,6 +29,9 @@ namespace TimelapseCapture.Wpf
         private Icon? _idleIcon, _recIcon;
         private bool _disposed;
 
+        /// <summary>True once the user picked "Exit" from the tray menu — so close-to-tray is bypassed.</summary>
+        public bool ForceExit { get; private set; }
+
         public TrayIcon(Window window, MainViewModel vm)
         {
             _window = window;
@@ -57,7 +60,6 @@ namespace TimelapseCapture.Wpf
 
             _vm.PropertyChanged += OnVmChanged;
             _window.StateChanged += OnWindowStateChanged;
-            _window.Closing += OnWindowClosing;
             UpdateStatus();
         }
 
@@ -112,12 +114,12 @@ namespace TimelapseCapture.Wpf
             });
         }
 
-        // Closing the WINDOW (the X) exits the app normally; the tray Exit item routes here too.
-        private void ExitApp() => _window.Dispatcher.Invoke(() => _window.Close());
-
-        // If the user hits the window's X while "minimize to tray" is on, that's still an explicit
-        // close → exit (only MINIMIZE goes to tray). Nothing to intercept; dispose the icon.
-        private void OnWindowClosing(object? sender, CancelEventArgs e) => Dispose();
+        // Tray "Exit": force a real close even if close-to-tray is on.
+        private void ExitApp()
+        {
+            ForceExit = true;
+            _window.Dispatcher.Invoke(() => _window.Close());
+        }
 
         // A 16x16 tray icon: a filled status dot, with a thin ring when recording so it reads as "live".
         private Icon MakeDotIcon(Color color, bool recording)
@@ -150,7 +152,6 @@ namespace TimelapseCapture.Wpf
             _disposed = true;
             _vm.PropertyChanged -= OnVmChanged;
             _window.StateChanged -= OnWindowStateChanged;
-            _window.Closing -= OnWindowClosing;
             _icon.Visible = false;
             _icon.Dispose();
             _idleIcon?.Dispose();

@@ -97,7 +97,8 @@ namespace TimelapseCapture.Wpf
                 vm.HotkeysChanged += RefreshHotkey;
                 vm.WindowAffinityChanged += ApplyAffinity;
                 vm.FinishNotified += OnFinishNotified;
-                _tray = new TrayIcon(this, vm);   // system-tray presence + recording status
+                try { _tray = new TrayIcon(this, vm); }   // system-tray presence + recording status
+                catch (Exception ex) { TimelapseCapture.Logger.Log("Wpf", $"Tray icon unavailable: {ex.Message}"); }
             }
             RefreshHotkey();
             ApplyAffinity();
@@ -188,6 +189,18 @@ namespace TimelapseCapture.Wpf
         protected override void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
+
+            // Close-to-tray (opt-in): the X hides to the tray instead of exiting. Bypassed when the user
+            // picked "Exit" from the tray menu (ForceExit). Requires a live tray icon — never trap the
+            // user with no window AND no tray. Capture keeps running while hidden.
+            if (_tray is { ForceExit: false } && DataContext is MainViewModel vm2 && vm2.CloseToTray)
+            {
+                e.Cancel = true;
+                Hide();
+                ShowInTaskbar = false;
+                return;
+            }
+
             var handle = new WindowInteropHelper(this).Handle;
             if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
             if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }

@@ -582,6 +582,27 @@
             </Style>
             <!-- Shared themed chrome for modal dialogs: a caption bar (Title + close) around the content,
                  keeping the dark/terminal aesthetic instead of the native Windows title bar. -->
+            <!-- Themed tooltips: a dark card that WRAPS long text over multiple lines instead of one
+                 extreme-length line, and shows long enough to read. Applies to every ToolTip. -->
+            <Style TargetType="ToolTip">
+                <Setter Property="MaxWidth" Value="360"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}"/>
+                <Setter Property="HasDropShadow" Value="False"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToolTip">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="6" Padding="10,7" MaxWidth="{TemplateBinding MaxWidth}">
+                                <TextBlock Text="{TemplateBinding Content}" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{TemplateBinding Foreground}" LineHeight="17"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="DialogWindow" TargetType="Window">
                 <Setter Property="WindowStyle" Value="None"/>
                 <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
