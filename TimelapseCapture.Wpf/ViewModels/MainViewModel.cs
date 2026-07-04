@@ -662,14 +662,14 @@ namespace TimelapseCapture.Wpf.ViewModels
                 if (r != MessageBoxResult.Yes) return;
             }
 
-            // The current session with no frames yet IS a fresh session — don't spawn another folder;
-            // the name prompt below just renames it if the user picks something different.
+            // If the current session has no frames, recycle its folder instead of spawning another empty
+            // one — but still make it a genuine fresh session (new default name + cleared region/target),
+            // so "New Session" always behaves like a new session, not a rename.
             bool reuseEmpty = _session != null && _sessionFolder != null && _frameCount == 0 && !IsCapturing;
 
-            // Name it up front (prefilled — Enter accepts the default; Cancel aborts).
+            // Name it up front (prefilled with a fresh default — Enter accepts it; Cancel aborts).
             string defaultName = $"Session_{DateTime.Now:yyyyMMdd_HHmmss}";
-            var dlg = new TextPromptDialog("New session", "Session name",
-                reuseEmpty ? (_session!.Name ?? defaultName) : defaultName)
+            var dlg = new TextPromptDialog("New session", "Session name", defaultName)
             { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true) return;
             string name = string.IsNullOrWhiteSpace(dlg.Value) ? defaultName : dlg.Value.Trim();
@@ -677,10 +677,30 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (reuseEmpty)
             {
                 if (!string.Equals(name, _session!.Name, StringComparison.Ordinal))
-                    ApplySessionName(name);
+                    ApplySessionName(name);   // rename the recycled folder
+                ResetToFreshSession();        // clean slate: clear region/tracking/overlay/target
                 return;
             }
             CreateSession(name);
+        }
+
+        // Reset the runtime capture state to a clean, empty-session slate (shared by CreateSession and
+        // the recycle-empty path). Does NOT touch the session folder/name.
+        private void ResetToFreshSession()
+        {
+            _region = null;
+            _trackedWindow = IntPtr.Zero;
+            _accumulatedSeconds = 0;
+            _desiredVideoSeconds = 30; TargetText = "30s";
+            PreviewImage = null;
+            ClearCaptureError();
+            RegionText = "Not selected";
+            FrameCount = (int)(_session?.FramesCaptured ?? 0);
+            UpdateOverlay();
+            OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(RegionNeeded));
+            OnPropertyChanged(nameof(SessionNeeded));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         /// <summary>Create a default-named session if none exists — used by the setup wizard (no prompt mid-flow).</summary>
@@ -698,21 +718,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _sessionFolder = SessionManager.CreateNamedSession(
                     capturesRoot, name, _settings.IntervalSeconds, null, _settings.Format ?? "JPEG", _settings.JpegQuality);
                 _session = SessionManager.LoadSession(_sessionFolder);
-                _region = null;
-                _trackedWindow = IntPtr.Zero;   // a fresh session is a static region — drop any tracking
-                _accumulatedSeconds = 0;
-                _desiredVideoSeconds = 30; TargetText = "30s";   // target isn't per-session — reset, don't carry over
-                PreviewImage = null;
-                ClearCaptureError();   // a fresh session starts with a clean slate
-
                 SessionName = _session?.Name ?? name;
-                RegionText = "Not selected";
-                FrameCount = (int)(_session?.FramesCaptured ?? 0);
-                UpdateOverlay();   // region cleared → close/refresh the on-screen outline (was left showing the old one)
-                OnPropertyChanged(nameof(StatusText));
-                OnPropertyChanged(nameof(RegionNeeded));
-                OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse
-                CommandManager.InvalidateRequerySuggested();
+                ResetToFreshSession();   // clean slate (region/tracking/overlay/target/preview/frame count)
             }
             catch (Exception ex)
             {
