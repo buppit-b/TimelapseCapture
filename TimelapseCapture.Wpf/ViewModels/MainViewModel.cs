@@ -787,6 +787,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.HideWindowDuringRegionSelect != value) { _settings.HideWindowDuringRegionSelect = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        public bool MinimizeToTray
+        {
+            get => _settings.MinimizeToTray;
+            set { if (_settings.MinimizeToTray != value) { _settings.MinimizeToTray = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // Window tracking: when the tracked window is minimized, wait for it to be restored (true) instead
         // of stopping capture (false, default). Only affects tracking mode.
         public bool PauseOnTrackedMinimize

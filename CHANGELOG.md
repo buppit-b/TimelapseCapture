@@ -8,6 +8,17 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
 
 ### RC refinements (2026-07-02 → 04, tagged v0.9.4)
+- **System tray** — a tray icon shows recording status at a glance (green dot idle, red-ring dot +
+  frame count while recording); double-click restores, right-click menu has Show / Start-Stop /
+  Exit; "Minimize to tray" (default on) hides the window from the taskbar; a balloon announces a
+  finished capture while you're minimized. (Uses in-SDK WinForms NotifyIcon — no new dependency.)
+- **Themed popups** — every confirmation/warning now renders in the app's dark chrome instead of
+  the native Windows message box.
+- Fixed: couldn't restart a session that had already hit its stop-at-target/max-duration/storage
+  limit (it started then auto-stopped ~0.5s later with the finish sound) — Start now pre-flights
+  those and explains; every auto-stop logs its reason. Default theme is now Synth; "Restore
+  defaults" button; hide-window-while-selecting-a-region (default on); dropped the preloaded
+  built-in presets (users make their own).
 - **Presets** — save named capture/encode/look setups and apply them from a dropdown in Settings
   (Save as / Apply / Rename / Delete). A preset deliberately carries your interval, format,
   quality, smart-interval, tracking prefs, encode preset, overlay, and theme — but NOT your output

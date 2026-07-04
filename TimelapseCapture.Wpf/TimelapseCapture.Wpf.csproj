@@ -5,6 +5,10 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <!-- Enables System.Windows.Forms.NotifyIcon for the tray icon. Part of the Windows Desktop SDK
+         (same as WPF) — NOT an external NuGet dependency. The tray class aliases the WinForms
+         namespace to avoid Application/MessageBox ambiguity with WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>TimelapseCapture.Wpf</RootNamespace>
     <AssemblyName>TimelapseCapture.Wpf</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>

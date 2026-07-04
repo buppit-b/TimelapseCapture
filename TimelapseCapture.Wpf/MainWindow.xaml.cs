@@ -30,6 +30,7 @@ namespace TimelapseCapture.Wpf
 
         private HwndSource? _source;
         private bool _hotkeyRegistered;
+        private TrayIcon? _tray;
 
         public MainWindow()
         {
@@ -96,6 +97,7 @@ namespace TimelapseCapture.Wpf
                 vm.HotkeysChanged += RefreshHotkey;
                 vm.WindowAffinityChanged += ApplyAffinity;
                 vm.FinishNotified += OnFinishNotified;
+                _tray = new TrayIcon(this, vm);   // system-tray presence + recording status
             }
             RefreshHotkey();
             ApplyAffinity();
@@ -106,6 +108,7 @@ namespace TimelapseCapture.Wpf
         private void OnFinishNotified()
         {
             try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+            if (!IsVisible) _tray?.ShowBalloon("Capture finished.");   // in the tray — surface it there
             var h = new WindowInteropHelper(this).Handle;
             if (h == IntPtr.Zero) return;
             var fi = new FLASHWINFO
@@ -189,6 +192,7 @@ namespace TimelapseCapture.Wpf
             if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
             if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
             _source?.RemoveHook(WndProc);
+            _tray?.Dispose();   // remove the tray icon so it doesn't linger after exit
             (DataContext as MainViewModel)?.OnAppClosing();
         }
     }

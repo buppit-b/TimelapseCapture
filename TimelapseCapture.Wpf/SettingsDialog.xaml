@@ -82,6 +82,9 @@
             <CheckBox Content="Hide this window while selecting a capture region" IsChecked="{Binding HideWindowDuringRegionSelect}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
                       ToolTip="When picking a region, hide the app first so it doesn't cover what you're trying to select. It reappears when you're done. On by default."/>
+            <CheckBox Content="Minimize to the system tray" IsChecked="{Binding MinimizeToTray}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
+                      ToolTip="Minimizing hides the window into the tray (bottom-right of the taskbar) instead of the taskbar. The tray icon shows recording status — double-click it to bring the app back. On by default."/>
         </StackPanel>
 
         <!-- Window tracking -->

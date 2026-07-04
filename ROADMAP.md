@@ -112,10 +112,12 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
   lookup and settings/log paths still line up.
 
 ### 1.1 candidates (top three, in recommended order)
-1. **Tray icon with recording state** — minimize to tray, red-dot "recording" glance state,
-   right-click start/stop/open; plus an optional **chime on hotkey start/stop** (today the
-   global hotkey gives zero feedback when the window is hidden). The missing daily-driver
-   affordance for a background app.
+1. **Tray icon with recording state** — ✅ **pulled into 1.0 (2026-07-04)**: NotifyIcon (in-SDK
+   WinForms, no new dependency) shows a green/red status dot + tooltip frame count, double-click
+   restores, right-click Show/Start-Stop/Exit, "Minimize to tray" setting (default on) hides from
+   the taskbar, balloon on finish while hidden. *Still open:* an optional **chime on hotkey
+   start/stop** (audio feedback when the window's hidden — the finish sound exists, but not a
+   start/stop cue).
 2. **Finish-line encode options** — **hold the final frame** for N seconds (ffmpeg `tpad`; the
    finished artwork is the frame viewers want to see), and **encode to a target duration**
    ("make it exactly 60s" — fps computed from frame count; social platforms have ceilings).

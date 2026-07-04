@@ -31,6 +31,7 @@ namespace TimelapseCapture
         public bool AlwaysOnTop { get; set; }               // keep the main window above others
         public bool HideFromCapture { get; set; }           // exclude this window from screen capture
         public bool HideWindowDuringRegionSelect { get; set; } = true; // hide the app while picking a region so it doesn't block the target
+        public bool MinimizeToTray { get; set; } = true;    // minimizing hides to the system tray (icon shows recording status)
         public bool PauseOnTrackedMinimize { get; set; }     // window tracking: minimized → wait (true) vs stop (false)
         public bool KeepTrackedWindowOnTop { get; set; }     // window tracking: force the tracked window topmost while capturing
         public bool StopAtTarget { get; set; }               // auto-stop capture when the frame count reaches the target
