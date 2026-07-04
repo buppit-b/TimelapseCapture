@@ -41,6 +41,43 @@ namespace TimelapseCapture.Wpf
             RenderPreview();
         }
 
+        // ---- drag-to-place on the preview ----
+        private bool _dragging;
+
+        private void OnPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _dragging = true;
+            previewImage.CaptureMouse();
+            PlaceFromPoint(e.GetPosition(previewImage));
+        }
+
+        private void OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_dragging) PlaceFromPoint(e.GetPosition(previewImage));
+        }
+
+        private void OnPreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _dragging = false;
+            previewImage.ReleaseMouseCapture();
+        }
+
+        // Map a point on the Uniform-stretched preview Image to normalized frame coords (0..1),
+        // accounting for the letterbox bars, and set the overlay's free position there.
+        private void PlaceFromPoint(Point p)
+        {
+            if (Vm is not { } vm || previewImage.Source is not System.Windows.Media.Imaging.BitmapSource src) return;
+            double cw = previewImage.ActualWidth, ch = previewImage.ActualHeight;
+            if (cw < 1 || ch < 1) return;
+            double disp = Math.Min(cw / src.PixelWidth, ch / src.PixelHeight);
+            double dw = src.PixelWidth * disp, dh = src.PixelHeight * disp;
+            double offX = (cw - dw) / 2, offY = (ch - dh) / 2;
+            double nx = (p.X - offX) / dw, ny = (p.Y - offY) / dh;
+            vm.SetOverlayCustomNormalized(nx, ny);
+            _renderDebounce.Stop();
+            RenderPreview();   // immediate feedback while dragging (debounce would lag the drag)
+        }
+
         private MainViewModel? Vm => DataContext as MainViewModel;
 
         private void Subscribe() { if (Vm is { } vm) vm.PropertyChanged += OnVmChanged; }
@@ -61,8 +98,9 @@ namespace TimelapseCapture.Wpf
                 // frame looks exactly this small. Backdrop = the latest captured frame when one exists.
                 var size = vm.CurrentRegionSize is { Width: > 0, Height: > 0 } r
                     ? r : new System.Drawing.Size(1920, 1080);
-                // Cap the preview surface — a huge multi-monitor region doesn't need a huge bitmap.
-                double scale = Math.Min(1.0, 2560.0 / Math.Max(size.Width, size.Height));
+                // Cap the preview surface — smaller keeps drag-to-place responsive (a full bitmap is
+                // rebuilt each mouse-move); ~1000px is crisp for a 270px-tall preview even on hi-DPI.
+                double scale = Math.Min(1.0, 1000.0 / Math.Max(size.Width, size.Height));
                 int w = Math.Max(64, (int)(size.Width * scale)), h = Math.Max(36, (int)(size.Height * scale));
 
                 using var bmp = new System.Drawing.Bitmap(w, h);
@@ -79,6 +117,8 @@ namespace TimelapseCapture.Wpf
                     Position = vm.OverlayPosition,
                     FontSize = vm.OverlayFontSize > 0 ? Math.Max(1, (int)(vm.OverlayFontSize * scale)) : 0,
                     FontFamily = vm.OverlayFontFamily,
+                    CustomX = vm.OverlayCustomX,
+                    CustomY = vm.OverlayCustomY,
                 });
 
                 previewImage.Source = ToSource(bmp);

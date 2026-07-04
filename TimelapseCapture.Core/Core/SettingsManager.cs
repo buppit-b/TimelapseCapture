@@ -51,6 +51,8 @@ namespace TimelapseCapture
         public int OverlayPosition { get; set; } = 3;        // 0=TL 1=TR 2=BL 3=BR
         public int OverlayFontSize { get; set; } = 0;        // pixels; 0 = auto
         public string OverlayFontFamily { get; set; } = "Consolas";
+        public double OverlayCustomX { get; set; } = -1;     // free placement (0..1); <0 = use corner Position
+        public double OverlayCustomY { get; set; } = -1;
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
         public string OutputNameTemplate { get; set; } = "timelapse_{date}_{time}"; // tokens: {session} {date} {time} {datetime}
         public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)

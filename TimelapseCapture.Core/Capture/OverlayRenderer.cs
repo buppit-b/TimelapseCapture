@@ -28,8 +28,20 @@ namespace TimelapseCapture
                 var size = g.MeasureString(text, font);
 
                 const float m = 8;
-                float x = cfg.Position is 1 or 3 ? bmp.Width - size.Width - m : m;   // 1=TR, 3=BR → right
-                float y = cfg.Position is 2 or 3 ? bmp.Height - size.Height - m : m; // 2=BL, 3=BR → bottom
+                float x, y;
+                if (cfg.CustomX >= 0 && cfg.CustomY >= 0)
+                {
+                    // Free placement: normalized top-left, clamped so the text box stays fully on-frame.
+                    x = (float)(cfg.CustomX * bmp.Width);
+                    y = (float)(cfg.CustomY * bmp.Height);
+                    x = Math.Max(m, Math.Min(x, bmp.Width - size.Width - m));
+                    y = Math.Max(m, Math.Min(y, bmp.Height - size.Height - m));
+                }
+                else
+                {
+                    x = cfg.Position is 1 or 3 ? bmp.Width - size.Width - m : m;   // 1=TR, 3=BR → right
+                    y = cfg.Position is 2 or 3 ? bmp.Height - size.Height - m : m; // 2=BL, 3=BR → bottom
+                }
 
                 using var bg = new SolidBrush(Color.FromArgb(150, 0, 0, 0));
                 g.FillRectangle(bg, x - 5, y - 2, size.Width + 10, size.Height + 4);

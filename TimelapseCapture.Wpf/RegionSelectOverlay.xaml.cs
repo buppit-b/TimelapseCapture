@@ -42,6 +42,18 @@ namespace TimelapseCapture.Wpf
             Height = _vs.Height / _scale;
 
             KeyDown += (s, e) => { if (e.Key == Key.Escape) Cancel(); };
+
+            // Force foreground on show. Launched from the modal setup wizard the overlay could come up
+            // WITHOUT activation, so Windows ate the first mouse-down as an activation click and the
+            // drag didn't start — the "region didn't take the first time" report. Activating on load
+            // (and again once rendered) makes the very first click begin the selection.
+            Loaded += (s, e) => { Activate(); Focus(); };
+        }
+
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+            Activate();
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

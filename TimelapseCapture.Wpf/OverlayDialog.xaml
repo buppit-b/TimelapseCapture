@@ -20,9 +20,13 @@
                  frame size (latest frame as the backdrop when one exists) — adjust, see, then record. -->
             <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
                     BorderThickness="1" Height="270" ClipToBounds="True">
-                <Image x:Name="previewImage" Stretch="Uniform"/>
+                <Image x:Name="previewImage" Stretch="Uniform" Cursor="SizeAll"
+                       MouseLeftButtonDown="OnPreviewMouseDown" MouseMove="OnPreviewMouseMove"
+                       MouseLeftButtonUp="OnPreviewMouseUp"/>
             </Border>
             <TextBlock x:Name="previewCaption" Style="{StaticResource Muted}" FontSize="10" Margin="0,4,0,0"/>
+            <TextBlock Text="Drag the text on the preview to place it anywhere; or pick a corner below."
+                       Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0"/>
 
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                 <TextBlock Text="Text" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
@@ -36,13 +40,28 @@
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                 <TextBlock Text="Where" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
                 <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2196;"
-                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=0}" ToolTip="Top-left"/>
+                             IsChecked="{Binding OverlayCornerSelection, Converter={StaticResource StrEq}, ConverterParameter=0}" ToolTip="Top-left"/>
                 <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2197;"
-                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=1}" ToolTip="Top-right"/>
+                             IsChecked="{Binding OverlayCornerSelection, Converter={StaticResource StrEq}, ConverterParameter=1}" ToolTip="Top-right"/>
                 <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2199;"
-                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=2}" ToolTip="Bottom-left"/>
+                             IsChecked="{Binding OverlayCornerSelection, Converter={StaticResource StrEq}, ConverterParameter=2}" ToolTip="Bottom-left"/>
                 <RadioButton Style="{StaticResource Seg}" GroupName="ovpos" Content="&#x2198;"
-                             IsChecked="{Binding OverlayPosition, Converter={StaticResource StrEq}, ConverterParameter=3}" ToolTip="Bottom-right"/>
+                             IsChecked="{Binding OverlayCornerSelection, Converter={StaticResource StrEq}, ConverterParameter=3}" ToolTip="Bottom-right"/>
+                <TextBlock Text="Custom" Style="{StaticResource Muted}" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource AccentBrush}"
+                           Visibility="{Binding OverlayUsesCustom, Converter={StaticResource BoolToVis}}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="44,8,0,0"
+                        Visibility="{Binding OverlayUsesCustom, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="X" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Text="{Binding OverlayPosXPercent}" Style="{StaticResource DarkTextBox}" Width="46" TextAlignment="Center"
+                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" ToolTip="Horizontal position, % of frame width."/>
+                <TextBlock Text="%" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,14,0"/>
+                <TextBlock Text="Y" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Text="{Binding OverlayPosYPercent}" Style="{StaticResource DarkTextBox}" Width="46" TextAlignment="Center"
+                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" ToolTip="Vertical position, % of frame height."/>
+                <TextBlock Text="%" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">

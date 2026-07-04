@@ -363,7 +363,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         private double _encodeProgress;
         public double EncodeProgress { get => _encodeProgress; set => SetProperty(ref _encodeProgress, value); }
 
-        public string EncodeButtonText => IsEncoding ? "⏹  Cancel encode" : "🎬  Encode Video";
+        // Plain text (no emoji): the 🎬 clapper fell back to Segoe UI Emoji, whose tall line metrics
+        // inflated the button height — the "why is the render button REALLY tall" report.
+        public string EncodeButtonText => IsEncoding ? "Cancel encode" : "Encode Video";
 
         private bool _isFfmpegBusy;
         public bool IsFfmpegBusy
@@ -919,7 +921,67 @@ namespace TimelapseCapture.Wpf.ViewModels
         public int OverlayPosition
         {
             get => _settings.OverlayPosition;
-            set { var v = value is < 0 or > 3 ? 3 : value; if (_settings.OverlayPosition != v) { _settings.OverlayPosition = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set
+            {
+                var v = value is < 0 or > 3 ? 3 : value;
+                bool wasCustom = OverlayUsesCustom;
+                // Choosing a corner exits free-placement mode.
+                _settings.OverlayCustomX = -1; _settings.OverlayCustomY = -1;
+                if (_settings.OverlayPosition != v || wasCustom)
+                {
+                    _settings.OverlayPosition = v;
+                    SettingsManager.Save(_settings);
+                    OnPropertyChanged();
+                    NotifyOverlayDerived();
+                }
+            }
+        }
+
+        // Free placement (drag-to-place). CustomX/Y are the normalized (0..1) top-left of the text;
+        // < 0 means "use the corner Position instead". The overlay dialog reads these for the preview.
+        public double OverlayCustomX => _settings.OverlayCustomX;
+        public double OverlayCustomY => _settings.OverlayCustomY;
+        public bool OverlayUsesCustom => _settings.OverlayCustomX >= 0 && _settings.OverlayCustomY >= 0;
+
+        /// <summary>Place the overlay freely (from a drag on the preview, or the X/Y fields).</summary>
+        public void SetOverlayCustomNormalized(double x, double y)
+        {
+            _settings.OverlayCustomX = Math.Clamp(x, 0, 1);
+            _settings.OverlayCustomY = Math.Clamp(y, 0, 1);
+            SettingsManager.Save(_settings);
+            OnPropertyChanged(nameof(OverlayCustomX));
+            OnPropertyChanged(nameof(OverlayCustomY));
+            NotifyOverlayDerived();
+        }
+
+        // Bound by the corner segmented control: returns "-1" (no corner highlighted) while in free
+        // placement, so the segs visibly deselect; setting it picks a corner and exits free placement.
+        public string OverlayCornerSelection
+        {
+            get => OverlayUsesCustom ? "-1" : _settings.OverlayPosition.ToString();
+            set { if (int.TryParse(value, out int p) && p is >= 0 and <= 3) OverlayPosition = p; }
+        }
+
+        // The free-placement X/Y as whole percents, for the numeric fields (only meaningful in custom mode).
+        public int OverlayPosXPercent
+        {
+            get => OverlayUsesCustom ? (int)Math.Round(_settings.OverlayCustomX * 100) : 0;
+            set => SetOverlayCustomNormalized(Math.Clamp(value, 0, 100) / 100.0,
+                       _settings.OverlayCustomY >= 0 ? _settings.OverlayCustomY : 0);
+        }
+        public int OverlayPosYPercent
+        {
+            get => OverlayUsesCustom ? (int)Math.Round(_settings.OverlayCustomY * 100) : 0;
+            set => SetOverlayCustomNormalized(_settings.OverlayCustomX >= 0 ? _settings.OverlayCustomX : 0,
+                       Math.Clamp(value, 0, 100) / 100.0);
+        }
+
+        private void NotifyOverlayDerived()
+        {
+            OnPropertyChanged(nameof(OverlayUsesCustom));
+            OnPropertyChanged(nameof(OverlayCornerSelection));
+            OnPropertyChanged(nameof(OverlayPosXPercent));
+            OnPropertyChanged(nameof(OverlayPosYPercent));
         }
 
         public int OverlayFontSize
@@ -941,6 +1003,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             Position = _settings.OverlayPosition,
             FontSize = _settings.OverlayFontSize,
             FontFamily = _settings.OverlayFontFamily,
+            CustomX = _settings.OverlayCustomX,
+            CustomY = _settings.OverlayCustomY,
         };
 
         public bool OpenFolderAfterEncode
@@ -1063,6 +1127,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
+            s.OverlayCustomX = s.OverlayCustomX < 0 ? -1 : Math.Min(1, s.OverlayCustomX);
+            s.OverlayCustomY = s.OverlayCustomY < 0 ? -1 : Math.Min(1, s.OverlayCustomY);
             if (s.IntervalSecondsExact > 0)
                 s.IntervalSecondsExact = Math.Clamp(s.IntervalSecondsExact, 0.1m, 3600m);
             if (s.Format != "JPEG" && s.Format != "PNG") s.Format = "JPEG";
@@ -1347,7 +1413,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!ConfirmRegionChange()) return;
             var all = AspectRatio.CommonRatios;
             var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var overlay = new RegionSelectOverlay(ar.Width, ar.Height);
+            var overlay = new RegionSelectOverlay(ar.Width, ar.Height) { Owner = ActiveWindow() };
             if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
                 ApplyRegion(overlay.SelectedRegion.Value);
         }
@@ -1358,9 +1424,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!ConfirmRegionChange()) return;
             var all = AspectRatio.CommonRatios;
             var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height);
+            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height) { Owner = ActiveWindow() };
             if (dlg.ShowDialog() == true && dlg.SelectedRegion.HasValue)
                 ApplyRegion(dlg.SelectedRegion.Value);
+        }
+
+        // The window that should own a transient dialog: the active one (e.g. the modal setup wizard
+        // when a region pick is launched from it), falling back to the main window. Correct ownership
+        // fixes z-order and foreground activation for nested modals.
+        private static Window? ActiveWindow()
+        {
+            var app = Application.Current;
+            if (app == null) return null;
+            return app.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? app.MainWindow;
         }
 
         private void ApplyRegion(System.Drawing.Rectangle r, string? label = null, IntPtr trackedWindow = default)
