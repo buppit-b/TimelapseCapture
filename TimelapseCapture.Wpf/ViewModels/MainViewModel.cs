@@ -1629,6 +1629,17 @@ namespace TimelapseCapture.Wpf.ViewModels
                 }
             }
 
+            // Pre-flight the ACCUMULATED-state auto-stops. Without this, restarting a session that has
+            // already hit its target / max-duration / storage budget would start, then the next stats
+            // tick (~0.5s) would auto-stop it again with just the finish sound — looking like a bug
+            // ("start, then stop with an error noise"). Tell the user what to change instead.
+            if (AccumulatedStopAlreadyMet(out string blockMsg))
+            {
+                MessageBox.Show(blockMsg, "Can't start — a stop limit is already reached",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             ClearCaptureError();
             _consecutiveCaptureFailures = 0;
             _lastPreviewedFrame = -1;   // force the first captured frame to refresh the preview
@@ -1647,6 +1658,40 @@ namespace TimelapseCapture.Wpf.ViewModels
             IsCapturing = true;
             IsPaused = false;
             PinTrackedWindow();   // optionally keep the tracked window above everything while capturing
+        }
+
+        // True (with a user-facing message) when an opt-in accumulated-state stop is ALREADY satisfied,
+        // so starting would immediately auto-stop again. Checked at Start (mirrors the low-disk pre-flight).
+        private bool AccumulatedStopAlreadyMet(out string message)
+        {
+            message = "";
+            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);
+            if (_settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
+            {
+                message = $"This session already has {_frameCount} frames — at or beyond your target of {targetFrames} " +
+                          $"({_desiredVideoSeconds}s @ {EncodeFps}fps), and “Stop at target” is on.\n\n" +
+                          "Raise the target or turn off “Stop at target” to keep capturing, or start a new session.";
+                return true;
+            }
+            if (_settings.MaxDurationEnabled && _accumulatedSeconds >= _settings.MaxDurationMinutes * 60.0)
+            {
+                message = $"This session has already recorded {FormatTime(_accumulatedSeconds)} — at or beyond your " +
+                          $"{_settings.MaxDurationMinutes}-minute maximum.\n\n" +
+                          "Raise the limit or turn off “Stop after a maximum duration”, or start a new session.";
+                return true;
+            }
+            if (_settings.StopAtStorageEnabled && _sessionFolder != null && _frameCount > 0)
+            {
+                double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
+                if (sessionMb >= _settings.StopAtStorageMB)
+                {
+                    message = $"This session's frames already use about {sessionMb:F0} MB — at or beyond your " +
+                              $"{_settings.StopAtStorageMB} MB budget.\n\n" +
+                              "Raise the budget or turn off “Stop at a storage budget”, or start a new session.";
+                    return true;
+                }
+            }
+            return false;
         }
 
         // Force the tracked window topmost (if opted in) / release it. Used by start/stop AND pause/resume
@@ -1804,6 +1849,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps);   // long: never wraps negative
                 if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
                 {
+                    Logger.Log("Wpf", $"Auto-stop: reached target ({count} >= {targetFrames} frames).");
                     StopCapture();
                     NotifyFinished();
                 }
@@ -2117,6 +2163,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // completion — notify, but no red error banner).
                 if (IsCapturing && _settings.MaxDurationEnabled && totalCaptureSeconds >= _settings.MaxDurationMinutes * 60.0)
                 {
+                    Logger.Log("Wpf", $"Auto-stop: reached max duration ({totalCaptureSeconds:F0}s >= {_settings.MaxDurationMinutes * 60}s).");
                     StopCapture();
                     NotifyFinished();
                     return;   // nothing else to refresh this tick
@@ -2161,6 +2208,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
                         if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
                         {
+                            Logger.Log("Wpf", $"Auto-stop: low disk ({freeMb} MB free < {_settings.LowDiskStopMB} MB limit).");
                             StopCapture();
                             CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space, then start again.";
                             NotifyFinished();
@@ -2175,6 +2223,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
                         if (sessionMb >= _settings.StopAtStorageMB)
                         {
+                            Logger.Log("Wpf", $"Auto-stop: reached storage budget (~{sessionMb:F0} MB >= {_settings.StopAtStorageMB} MB).");
                             StopCapture();
                             NotifyFinished();
                             return;
