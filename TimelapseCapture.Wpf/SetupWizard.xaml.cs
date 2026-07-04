@@ -59,13 +59,13 @@ namespace TimelapseCapture.Wpf
             // Validate on Next (friendlier than a mysteriously disabled button).
             if (_step == 1 && !vm.NewSessionCommand.CanExecute(null))
             {
-                MessageBox.Show("Choose an output folder first — everything the app records lives there.",
+                MessageDialog.Show("Choose an output folder first — everything the app records lives there.",
                     "Setup", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             if (_step == 2 && !vm.StartCommand.CanExecute(null))
             {
-                MessageBox.Show("Pick what to capture first — Full Screen is a fine default.",
+                MessageDialog.Show("Pick what to capture first — Full Screen is a fine default.",
                     "Setup", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }

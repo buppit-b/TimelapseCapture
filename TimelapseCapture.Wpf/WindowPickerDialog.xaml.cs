@@ -41,7 +41,7 @@ namespace TimelapseCapture.Wpf
             // Re-check it's still around (it may have closed since the list was built).
             if (!WindowEnumerator.TryGetLiveBounds(w.Handle, out _, out bool minimized, out bool alive) || !alive)
             {
-                MessageBox.Show("That window is no longer available. Refresh and pick another.",
+                MessageDialog.Show("That window is no longer available. Refresh and pick another.",
                     "Window unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
                 Refresh();
                 return;
@@ -49,7 +49,7 @@ namespace TimelapseCapture.Wpf
 
             if (minimized)
             {
-                var r = MessageBox.Show(
+                var r = MessageDialog.Show(
                     $"“{w.Title}” is minimized and can't be captured until you restore it.\n\nPick it anyway?",
                     "Window minimized", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (r != MessageBoxResult.Yes) return;

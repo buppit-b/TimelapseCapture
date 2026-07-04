@@ -280,7 +280,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                 if (_session != null && _frameCount > 0)
                 {
-                    var r = MessageBox.Show(
+                    var r = MessageDialog.Show(
                         $"This session has {_frameCount} {(_settings.Format ?? "JPEG")} frame(s). Switching the frame format mid-session mixes file types and breaks encoding.\n\nSwitch anyway?",
                         "Change format?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (r != MessageBoxResult.Yes) { OnPropertyChanged(); return; } // revert the checkbox
@@ -568,7 +568,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     !Path.GetFullPath(dir).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
                 if (outsideRoot)
                 {
-                    var r = MessageBox.Show(
+                    var r = MessageDialog.Show(
                         $"Load this session from outside your captures folder?\n\n{dir}\n\nNew frames would be captured into that folder.",
                         "Open session", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (r != MessageBoxResult.Yes) return true;   // handled — don't show "not a session"
@@ -635,7 +635,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             // has frames, confirm before switching away (the old one stays safe on disk).
             if (_session != null && _frameCount > 0 && !IsCapturing)
             {
-                var r = MessageBox.Show(
+                var r = MessageDialog.Show(
                     $"The current session “{SessionName}” has {_frameCount} frame(s).\n\nIt will be kept on disk, but a new session will replace it here. Start a new session?",
                     "New session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (r != MessageBoxResult.Yes) return;
@@ -692,7 +692,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to create session:\n{ex.Message}", "Error",
+                MessageDialog.Show($"Failed to create session:\n{ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -711,7 +711,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (session == null)
             {
                 if (fromPicker)
-                    MessageBox.Show("That folder doesn't contain a valid session (no session.json).",
+                    MessageDialog.Show("That folder doesn't contain a valid session (no session.json).",
                         "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -1096,7 +1096,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Couldn't open the log: {ex.Message}", "Open log", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialog.Show($"Couldn't open the log: {ex.Message}", "Open log", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -1105,7 +1105,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             var dlg = new SaveFileDialog { Title = "Export settings", Filter = "Settings (*.json)|*.json", FileName = "timelapse-settings.json" };
             if (dlg.ShowDialog() != true) return;
             try { SettingsManager.ExportTo(_settings, dlg.FileName); }
-            catch (Exception ex) { MessageBox.Show($"Couldn't export settings: {ex.Message}", "Export settings", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            catch (Exception ex) { MessageDialog.Show($"Couldn't export settings: {ex.Message}", "Export settings", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
 
         // ---- Presets (named capture/encode/look setups; identity + safety fields never travel) ----
@@ -1136,7 +1136,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (SelectedPreset == null || IsCapturing) return;
             var preset = PresetManager.Load(SelectedPreset);
-            if (preset == null) { MessageBox.Show("That preset couldn't be loaded.", "Presets", MessageBoxButton.OK, MessageBoxImage.Warning); RefreshPresets(); return; }
+            if (preset == null) { MessageDialog.Show("That preset couldn't be loaded.", "Presets", MessageBoxButton.OK, MessageBoxImage.Warning); RefreshPresets(); return; }
 
             var merged = PresetManager.ApplyOnto(preset, _settings);
             NormalizeSettings(merged);   // re-clamp untrusted file values, same as Import
@@ -1145,7 +1145,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             // would mix file types and block encoding. Warn before applying (mirrors the UsePng warning).
             if (_frameCount > 0 && !string.Equals(merged.Format, _settings.Format, StringComparison.OrdinalIgnoreCase))
             {
-                var r = MessageBox.Show(
+                var r = MessageDialog.Show(
                     $"“{SelectedPreset}” captures as {merged.Format}, but this session already has {_frameCount} {_settings.Format} frame(s). Applying it would mix formats and block encoding until you cull/convert.\n\nApply anyway?",
                     "Presets", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (r != MessageBoxResult.Yes) return;
@@ -1169,7 +1169,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             bool overwrite = false;
             if (PresetManager.Exists(name))
             {
-                var r = MessageBox.Show($"A preset named “{name}” already exists. Overwrite it with the current settings?",
+                var r = MessageDialog.Show($"A preset named “{name}” already exists. Overwrite it with the current settings?",
                     "Save preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (r != MessageBoxResult.Yes) return;   // decline → cancel (Save-as-new would need a different name)
                 overwrite = true;
@@ -1193,7 +1193,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void DeletePreset()
         {
             if (SelectedPreset == null) return;
-            var r = MessageBox.Show($"Delete the preset “{SelectedPreset}”? This can't be undone.",
+            var r = MessageDialog.Show($"Delete the preset “{SelectedPreset}”? This can't be undone.",
                 "Delete preset", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r != MessageBoxResult.Yes) return;
             PresetManager.Delete(SelectedPreset);
@@ -1207,7 +1207,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void RestoreDefaults()
         {
             if (IsCapturing) return;
-            var r = MessageBox.Show(
+            var r = MessageDialog.Show(
                 "Reset all settings to their defaults?\n\nYour output folder and FFmpeg location are kept. Everything else — interval, format, encoding, overlay, theme, safety limits, hotkey, output-name template — returns to a safe default. Saved presets are not affected.",
                 "Restore defaults", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r != MessageBoxResult.Yes) return;
@@ -1233,7 +1233,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             var imported = SettingsManager.LoadFrom(dlg.FileName);
             if (imported == null)
             {
-                MessageBox.Show("That file isn't a valid settings file.", "Import settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageDialog.Show("That file isn't a valid settings file.", "Import settings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             NormalizeSettings(imported);   // an imported file bypasses the property-setter clamps — re-bound here
@@ -1290,7 +1290,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 }
                 if (best == null || bestInfo == null) return;
 
-                var r = MessageBox.Show(
+                var r = MessageDialog.Show(
                     $"The session “{bestInfo.Name ?? Path.GetFileName(best)}” was still recording when the app " +
                     $"last closed ({bestInfo.FramesCaptured} frame{(bestInfo.FramesCaptured == 1 ? "" : "s")}).\n\nResume it?",
                     "Resume interrupted session?", MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -1394,7 +1394,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Couldn't rename the session: {ex.Message}", "Rename",
+                MessageDialog.Show($"Couldn't rename the session: {ex.Message}", "Rename",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -1409,7 +1409,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session != null && _frameCount > 0)
             {
-                var r = MessageBox.Show(
+                var r = MessageDialog.Show(
                     $"This session already has {_frameCount} frame(s) at the current size.\n\nChanging the region will mix frame sizes and can break the final encode. Change it anyway?",
                     "Change region?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 return r == MessageBoxResult.Yes;
@@ -1622,7 +1622,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
                 if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
                 {
-                    var r = MessageBox.Show(
+                    var r = MessageDialog.Show(
                         $"Only {freeMb} MB free on the capture drive — below your {_settings.LowDiskStopMB} MB low-disk limit, so the run would stop almost immediately.\n\nStart anyway?",
                         "Low disk space", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (r != MessageBoxResult.Yes) return;
@@ -1635,7 +1635,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             // ("start, then stop with an error noise"). Tell the user what to change instead.
             if (AccumulatedStopAlreadyMet(out string blockMsg))
             {
-                MessageBox.Show(blockMsg, "Can't start — a stop limit is already reached",
+                MessageDialog.Show(blockMsg, "Can't start — a stop limit is already reached",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -1965,7 +1965,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             var ffmpeg = FfmpegRunner.FindFfmpeg(_settings.FfmpegPath);
             if (string.IsNullOrEmpty(ffmpeg))
             {
-                MessageBox.Show("FFmpeg was not found. Configure or download it first.",
+                MessageDialog.Show("FFmpeg was not found. Configure or download it first.",
                     "FFmpeg not found", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -1983,13 +1983,13 @@ namespace TimelapseCapture.Wpf.ViewModels
                     // be majority-bmp — converting into that would mislabel the bytes.
                     if (majority != "jpg" && majority != "png")
                     {
-                        MessageBox.Show(
+                        MessageDialog.Show(
                             $"This session mixes frame formats ({string.Join(" + ", formats.Select(kv => $"{kv.Value} {kv.Key.ToUpperInvariant()}"))}) — mixed sessions can't encode, and the dominant format isn't one this app can convert to.",
                             "Mixed frame formats", MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
                     int odd = formats.Where(kv => kv.Key != majority).Sum(kv => kv.Value);
-                    var r = MessageBox.Show(
+                    var r = MessageDialog.Show(
                         $"This session mixes frame formats ({string.Join(" + ", formats.Select(kv => $"{kv.Value} {kv.Key.ToUpperInvariant()}"))}) — mixed sessions can't encode.\n\n" +
                         $"Convert the {odd} odd frame(s) to {majority.ToUpperInvariant()} now? Frames are rewritten in place" +
                         (majority == "jpg" ? $" (PNG → JPEG at quality {_settings.JpegQuality})." : "."),
@@ -2004,7 +2004,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             catch (Exception ex)
             {
                 EncodeStatus = "Convert failed";
-                MessageBox.Show($"Couldn't unify the frame formats:\n{ex.Message}", "Unify frame formats",
+                MessageDialog.Show($"Couldn't unify the frame formats:\n{ex.Message}", "Unify frame formats",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
@@ -2036,7 +2036,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             catch (Exception ex)
             {
                 EncodeStatus = "Encode failed";
-                MessageBox.Show($"Encode failed:\n{ex.Message}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialog.Show($"Encode failed:\n{ex.Message}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -2061,7 +2061,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 EncodeStatus = $"Encoded ✓ ({FormatBytes(bytes)})";
                 NotifyFinished();   // sound + taskbar flash — encodes can take a while
                 bool open = _settings.OpenFolderAfterEncode ||
-                    MessageBox.Show($"Video encoded ({FormatBytes(bytes)}):\n{result.OutputPath}\n\nOpen the output folder?",
+                    MessageDialog.Show($"Video encoded ({FormatBytes(bytes)}):\n{result.OutputPath}\n\nOpen the output folder?",
                         "Encode complete", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes;
                 if (open)
                 {
@@ -2080,7 +2080,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 TryDeletePartial(result.OutputPath);
                 EncodeStatus = "Encode failed";
-                MessageBox.Show($"Encode failed:\n{result.Error}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageDialog.Show($"Encode failed:\n{result.Error}", "Encode", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -2136,7 +2136,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             {
                 if (!FfmpegDownloader.IsValidFfmpegExecutable(dlg.FileName))
                 {
-                    MessageBox.Show("That file doesn't look like a working ffmpeg (it didn't respond to “-version”).",
+                    MessageDialog.Show("That file doesn't look like a working ffmpeg (it didn't respond to “-version”).",
                         "Select ffmpeg", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }

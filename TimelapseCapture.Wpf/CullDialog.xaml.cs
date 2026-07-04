@@ -138,11 +138,11 @@ namespace TimelapseCapture.Wpf
             if (_marked.Count == 0) return;
             if (_marked.Count >= _count)
             {
-                MessageBox.Show("That would delete every frame — leave at least one.",
+                MessageDialog.Show("That would delete every frame — leave at least one.",
                     "Cull frames", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            var r = MessageBox.Show($"Delete {_marked.Count} frame(s) and renumber the rest? This can't be undone.",
+            var r = MessageDialog.Show($"Delete {_marked.Count} frame(s) and renumber the rest? This can't be undone.",
                 "Cull frames", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r == MessageBoxResult.Yes) DialogResult = true;
         }

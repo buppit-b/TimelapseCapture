@@ -50,7 +50,7 @@ namespace TimelapseCapture.Wpf
             {
                 App.PendingSessionPath = null;
                 if (!vm.TryLoadSessionPath(pending))
-                    MessageBox.Show($"No session found at:\n{pending}\n\n(A session folder contains a session.json.)",
+                    MessageDialog.Show($"No session found at:\n{pending}\n\n(A session folder contains a session.json.)",
                         "Open session", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             if (!vm.FirstRunCompleted)
@@ -66,14 +66,14 @@ namespace TimelapseCapture.Wpf
             if (DataContext is not MainViewModel vm) return;
             if (vm.IsCapturing || vm.IsEncoding)
             {
-                MessageBox.Show("Finish (or cancel) the current capture/encode before loading another session.",
+                MessageDialog.Show("Finish (or cancel) the current capture/encode before loading another session.",
                     "Open session", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 &&
                 !vm.TryLoadSessionPath(paths[0]))
             {
-                MessageBox.Show("That doesn't look like a session — drop a session folder (it contains a session.json), or any file inside one.",
+                MessageDialog.Show("That doesn't look like a session — drop a session folder (it contains a session.json), or any file inside one.",
                     "Open session", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
