@@ -693,6 +693,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     capturesRoot, name, _settings.IntervalSeconds, null, _settings.Format ?? "JPEG", _settings.JpegQuality);
                 _session = SessionManager.LoadSession(_sessionFolder);
                 _region = null;
+                _trackedWindow = IntPtr.Zero;   // a fresh session is a static region — drop any tracking
                 _accumulatedSeconds = 0;
                 PreviewImage = null;
                 ClearCaptureError();   // a fresh session starts with a clean slate
@@ -700,6 +701,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 SessionName = _session?.Name ?? name;
                 RegionText = "Not selected";
                 FrameCount = (int)(_session?.FramesCaptured ?? 0);
+                UpdateOverlay();   // region cleared → close/refresh the on-screen outline (was left showing the old one)
                 OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(RegionNeeded));
                 OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse
@@ -733,6 +735,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             _session = session;
             _sessionFolder = folder;
+            _trackedWindow = IntPtr.Zero;   // a loaded session is a static region (tracking isn't persisted)
             ClearCaptureError();   // loading a session clears any leftover warning
 
             // Restore the saved region. Keep its exact size; if its saved spot is no longer on any
@@ -770,6 +773,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     : "Not selected";
             }
             FrameCount = (int)session.FramesCaptured;
+            UpdateOverlay();   // refresh the on-screen outline to the loaded region (or close it if none)
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse once a session is loaded
