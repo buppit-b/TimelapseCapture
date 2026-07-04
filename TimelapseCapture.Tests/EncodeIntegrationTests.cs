@@ -1,0 +1,131 @@
+using Xunit;
+using FluentAssertions;
+using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace TimelapseCapture.Tests
+{
+    /// <summary>
+    /// End-to-end encode smoke tests: write synthetic frames, run the REAL VideoEncoder + the bundled
+    /// ffmpeg, and verify the output video's frame count with ffprobe. This is the coverage pure-logic
+    /// tests can't give — it exercises the actual ffmpeg argument construction (image2 pattern, the
+    /// frame-skip filter, trim ranges, and a '%' in the path). Skips (passes) if ffmpeg isn't found,
+    /// so CI without ffmpeg stays green; a dev build has it bundled, so it runs in the normal loop.
+    /// </summary>
+    public class EncodeIntegrationTests
+    {
+        private static readonly string? Ffmpeg = FindFfmpeg();
+
+        private static string? FindFfmpeg()
+        {
+            var found = FfmpegRunner.FindFfmpeg(null);
+            if (!string.IsNullOrEmpty(found) && File.Exists(found)) return found;
+            // Fall back to the copy bundled in the WPF build output (walk up to the repo root).
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "TimelapseCapture.sln")))
+                dir = dir.Parent;
+            var wpfBin = dir == null ? null : Path.Combine(dir.FullName, "TimelapseCapture.Wpf", "bin");
+            return wpfBin != null && Directory.Exists(wpfBin)
+                ? Directory.EnumerateFiles(wpfBin, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault()
+                : null;
+        }
+
+        private static string MakeSession(out string root, string prefix)
+        {
+            root = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            return SessionManager.CreateNamedSession(Path.Combine(root, "captures"), "EncodeTest", 1, null, "JPEG", 90);
+        }
+
+        private static void WriteFrames(string sessionFolder, int n, string ext)
+        {
+            string frames = SessionManager.GetFramesFolder(sessionFolder);
+            Directory.CreateDirectory(frames);
+            var fmt = ext == "png" ? ImageFormat.Png : ImageFormat.Jpeg;
+            for (int i = 1; i <= n; i++)
+            {
+                using var bmp = new Bitmap(64, 48);   // even dims for yuv420p
+                using (var g = Graphics.FromImage(bmp)) g.Clear(Color.FromArgb(255, i * 7 % 256, 60, 120));
+                bmp.Save(Path.Combine(frames, $"{i:D5}.{ext}"), fmt);
+            }
+        }
+
+        private static int CountFrames(string mp4)
+        {
+            string ffprobe = Path.Combine(Path.GetDirectoryName(Ffmpeg!)!, "ffprobe.exe");
+            if (!File.Exists(ffprobe)) return -1;
+            var psi = new ProcessStartInfo(ffprobe,
+                $"-v error -count_frames -select_streams v -show_entries stream=nb_read_frames -of csv=p=0 \"{mp4}\"")
+            { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+            using var p = Process.Start(psi)!;
+            string outp = p.StandardOutput.ReadToEnd().Trim();
+            p.WaitForExit(15000);
+            return int.TryParse(outp, out int c) ? c : -1;
+        }
+
+        [Fact]
+        public async Task Encodes_AllFrames_Exactly()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(30);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task FrameSkip_KeepsOneInN()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, everyNth: 3);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(10);   // 30 → keep 1 in 3
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task Trim_EncodesOnlyTheRange()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, startFrame: 6, maxFrames: 15);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(15);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task PercentInPath_StillEncodes()
+        {
+            if (Ffmpeg == null) return;
+            // Regression for the image2 %-path fix: a '%' in the frames path must not corrupt the -i pattern.
+            string session = MakeSession(out string root, "tlc_enc_50%_");
+            try
+            {
+                WriteFrames(session, 12, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(12);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+    }
+}
