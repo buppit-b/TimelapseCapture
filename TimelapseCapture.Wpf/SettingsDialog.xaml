@@ -31,6 +31,8 @@
                             ToolTip="Open the diagnostics log — useful if something went wrong."/>
                     <Button Content="Setup wizard&#8230;" Style="{StaticResource BtnBase}" Command="{Binding OpenWizardCommand}" Margin="0,0,8,4"
                             ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
+                    <Button Content="Restore defaults" Style="{StaticResource BtnBase}" Command="{Binding RestoreDefaultsCommand}" Margin="0,0,8,4"
+                            ToolTip="Reset everything to a safe default state (keeps your output folder and FFmpeg location). Use this if something gets misconfigured."/>
                 </WrapPanel>
                 <Button Grid.Column="1" Content="Close" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"
                         MinWidth="84" IsCancel="True"/>
@@ -77,6 +79,9 @@
                 <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Light"
                              IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Light}"/>
             </StackPanel>
+            <CheckBox Content="Hide this window while selecting a capture region" IsChecked="{Binding HideWindowDuringRegionSelect}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="When picking a region, hide the app first so it doesn't cover what you're trying to select. It reappears when you're done. On by default."/>
         </StackPanel>
 
         <!-- Window tracking -->

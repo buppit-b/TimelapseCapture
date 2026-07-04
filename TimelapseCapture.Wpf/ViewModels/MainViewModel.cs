@@ -63,8 +63,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             SavePresetCommand = new RelayCommand(_ => SavePreset());
             RenamePresetCommand = new RelayCommand(_ => RenamePreset(), _ => SelectedPreset != null);
             DeletePresetCommand = new RelayCommand(_ => DeletePreset(), _ => SelectedPreset != null);
-            PresetManager.EnsureBuiltIns();
-            RefreshPresets();
+            RestoreDefaultsCommand = new RelayCommand(_ => RestoreDefaults(), _ => !IsCapturing);
+            RefreshPresets();   // no built-in presets — users create their own
             SetTargetCommand = new RelayCommand(_ => SetTarget());
             ValidateTarget();
 
@@ -781,6 +781,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.HideFromCapture != value) { _settings.HideFromCapture = value; SettingsManager.Save(_settings); OnPropertyChanged(); WindowAffinityChanged?.Invoke(); } }
         }
 
+        public bool HideWindowDuringRegionSelect
+        {
+            get => _settings.HideWindowDuringRegionSelect;
+            set { if (_settings.HideWindowDuringRegionSelect != value) { _settings.HideWindowDuringRegionSelect = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // Window tracking: when the tracked window is minimized, wait for it to be restored (true) instead
         // of stopping capture (false, default). Only affects tracking mode.
         public bool PauseOnTrackedMinimize
@@ -1107,6 +1113,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand SavePresetCommand { get; }
         public ICommand RenamePresetCommand { get; }
         public ICommand DeletePresetCommand { get; }
+        public ICommand RestoreDefaultsCommand { get; }
 
         public System.Collections.ObjectModel.ObservableCollection<string> Presets { get; } = new();
 
@@ -1192,6 +1199,31 @@ namespace TimelapseCapture.Wpf.ViewModels
             PresetManager.Delete(SelectedPreset);
             SelectedPreset = null;
             RefreshPresets();
+        }
+
+        // A safe way back if the user messes something up (a broken output-name template, odd encode
+        // values, a theme they can't undo). Resets everything to defaults EXCEPT the machine paths
+        // (output folder + ffmpeg) and the first-run flag — so it doesn't strand them or re-nag the wizard.
+        private void RestoreDefaults()
+        {
+            if (IsCapturing) return;
+            var r = MessageBox.Show(
+                "Reset all settings to their defaults?\n\nYour output folder and FFmpeg location are kept. Everything else — interval, format, encoding, overlay, theme, safety limits, hotkey, output-name template — returns to a safe default. Saved presets are not affected.",
+                "Restore defaults", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (r != MessageBoxResult.Yes) return;
+
+            _settings = new CaptureSettings
+            {
+                SaveFolder = _settings.SaveFolder,
+                FfmpegPath = _settings.FfmpegPath,
+                FirstRunCompleted = _settings.FirstRunCompleted,   // don't re-trigger onboarding
+            };
+            SettingsManager.Save(_settings);
+            ThemeManager.Apply(_settings.Theme);
+            OnPropertyChanged(string.Empty);   // rebind everything
+            WindowAffinityChanged?.Invoke();
+            HotkeysChanged?.Invoke();           // hotkey returns to its default (disabled)
+            NotifyOverlayDerived();
         }
 
         private void ImportSettings()
@@ -1511,8 +1543,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!ConfirmRegionChange()) return;
             var all = AspectRatio.CommonRatios;
             var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var overlay = new RegionSelectOverlay(ar.Width, ar.Height) { Owner = ActiveWindow() };
-            if (overlay.ShowDialog() == true && overlay.SelectedRegion.HasValue)
+            var overlay = new RegionSelectOverlay(ar.Width, ar.Height);
+            if (ShowRegionOverlay(overlay) == true && overlay.SelectedRegion.HasValue)
                 ApplyRegion(overlay.SelectedRegion.Value);
         }
 
@@ -1522,9 +1554,24 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!ConfirmRegionChange()) return;
             var all = AspectRatio.CommonRatios;
             var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height) { Owner = ActiveWindow() };
-            if (dlg.ShowDialog() == true && dlg.SelectedRegion.HasValue)
+            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height);
+            if (ShowRegionOverlay(dlg) == true && dlg.SelectedRegion.HasValue)
                 ApplyRegion(dlg.SelectedRegion.Value);
+        }
+
+        // Show a full-screen region overlay, optionally hiding the main window first so it doesn't
+        // block the very thing the user is trying to select (default on). Keeps the wizard as owner
+        // when a pick is launched from it; never owns the overlay by a window we've hidden.
+        private bool? ShowRegionOverlay(Window overlay)
+        {
+            var main = Application.Current?.MainWindow;
+            var active = ActiveWindow();
+            if (active != null && active != main && active.IsVisible) overlay.Owner = active;
+
+            bool hide = _settings.HideWindowDuringRegionSelect && main != null && main.IsVisible;
+            if (hide) main!.Hide();
+            try { return overlay.ShowDialog(); }
+            finally { if (hide) { main!.Show(); main.Activate(); } }
         }
 
         // The window that should own a transient dialog: the active one (e.g. the modal setup wizard

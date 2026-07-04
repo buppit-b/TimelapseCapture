@@ -142,25 +142,6 @@ namespace TimelapseCapture
             catch (Exception ex) { Logger.Log("PresetManager", $"Rename '{oldName}' failed: {ex.Message}"); return oldName; }
         }
 
-        /// <summary>Seed built-in starter presets on first run only — never re-seed (deleted stays deleted).</summary>
-        public static void EnsureBuiltIns()
-        {
-            try
-            {
-                if (Directory.Exists(PresetsDir)) return;   // presence of the folder = "already seeded"
-                Directory.CreateDirectory(PresetsDir);
-                Save("Digital painting", new CaptureSettings
-                { IntervalSecondsExact = 5m, Format = "JPEG", JpegQuality = 90, SmartIntervalEnabled = true }, overwrite: true);
-                Save("Pixel art (small canvas)", new CaptureSettings
-                { IntervalSecondsExact = 1m, Format = "JPEG", JpegQuality = 95 }, overwrite: true);
-                Save("Long session", new CaptureSettings
-                { IntervalSecondsExact = 15m, Format = "JPEG", JpegQuality = 90, SmartIntervalEnabled = true }, overwrite: true);
-                Save("PNG archival", new CaptureSettings
-                { IntervalSecondsExact = 2m, Format = "PNG" }, overwrite: true);
-            }
-            catch (Exception ex) { Logger.Log("PresetManager", $"EnsureBuiltIns failed: {ex.Message}"); }
-        }
-
         private static string PathFor(string name) =>
             Path.Combine(PresetsDir, SessionManager.SanitizeFolderName(name) + ".json");
 
