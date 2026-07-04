@@ -46,6 +46,8 @@ namespace TimelapseCapture
         public bool StopAtStorageEnabled { get; set; }       // opt-in: stop once the session's frames reach a size
         public int StopAtStorageMB { get; set; } = 2000;     // the cap (MB of captured frames in this session)
         public int EncodeEveryNth { get; set; } = 1;         // encode speed-up: use every Nth frame (1 = all)
+        public int EncodeFps { get; set; } = 30;             // output video frame rate
+        public int EncodeCrf { get; set; } = 23;             // x264 quality: 0 = lossless/huge .. 51 = worst/tiny
         public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
         public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls
         public bool FirstRunCompleted { get; set; }          // the setup wizard has been shown once

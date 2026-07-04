@@ -241,11 +241,17 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.SkipIdleFrames != value) { _settings.SkipIdleFrames = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
-        private int _encodeFps = 30;
-        public int EncodeFps { get => _encodeFps; set { if (SetProperty(ref _encodeFps, Math.Clamp(value, 1, 240))) { RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); } } }
-
-        private int _encodeCrf = 23;
-        public int EncodeCrf { get => _encodeCrf; set => SetProperty(ref _encodeCrf, value < 0 ? 0 : (value > 51 ? 51 : value)); }
+        // Settings-backed so they persist across restart and travel in presets (they carry no identity).
+        public int EncodeFps
+        {
+            get => _settings.EncodeFps;
+            set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); } }
+        }
+        public int EncodeCrf
+        {
+            get => _settings.EncodeCrf;
+            set { var v = Math.Clamp(value, 0, 51); if (_settings.EncodeCrf != v) { _settings.EncodeCrf = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
 
         public int JpegQuality
         {
@@ -1284,7 +1290,6 @@ namespace TimelapseCapture.Wpf.ViewModels
                 FirstRunCompleted = _settings.FirstRunCompleted,   // don't re-trigger onboarding
             };
             SettingsManager.Save(_settings);
-            EncodeFps = 30; EncodeCrf = 23;     // VM-only encode fields aren't in CaptureSettings — reset explicitly
             ThemeManager.Apply(_settings.Theme);
             OnPropertyChanged(string.Empty);   // rebind everything
             WindowAffinityChanged?.Invoke();
@@ -1325,6 +1330,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
+            s.EncodeFps = Math.Clamp(s.EncodeFps, 1, 240);
+            s.EncodeCrf = Math.Clamp(s.EncodeCrf, 0, 51);
             s.OverlayCustomX = s.OverlayCustomX < 0 ? -1 : Math.Min(1, s.OverlayCustomX);
             s.OverlayCustomY = s.OverlayCustomY < 0 ? -1 : Math.Min(1, s.OverlayCustomY);
             if (s.IntervalSecondsExact > 0)
