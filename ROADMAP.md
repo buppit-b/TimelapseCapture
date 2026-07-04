@@ -134,6 +134,14 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
    the Trim/Cull editing keys (step ±1/±10, mark/unmark, set start/end).
 
 ### 1.x smaller ideas (parked, roughly by value)
+**Layout reshape** *(Spike + external tester, 2026-07-04 — "greatly interested", but "can wait")*:
+rework the main two-column layout; the tester felt techy/setup bits eat workspace real estate —
+consider moving more into Settings/tabs and slimming the main surface. Bigger UI task, own branch. ·
+**Region-select global hotkey** *(Spike, 2026-07-04)*: trigger region select while the app is
+alt-tabbed/minimized (pairs with the new hide-window-on-select) — needs a second registered hotkey
+alongside start/stop; do it with the configurable-keybindings work. ·
+**Scoped Encode presets** (deferred from the presets design — "same capture, two export looks") ·
+**Simple-mode apply-only preset dropdown** (deferred from presets) ·
 **Advanced-stats visual mode** *(Spike, 2026-07-03 — direction TBD with him)*: at-a-glance visual
 elements beyond the target bar + encode bar (both shipped) — e.g. a session-storage gauge vs free
 disk, a sparkline of capture cadence (gaps = idle skips), frame-size trend. Possibly a toggleable
