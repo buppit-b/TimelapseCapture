@@ -8,10 +8,23 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
 
 ### RC refinements (2026-07-02 → 04, tagged v0.9.4)
-- **System tray** — a tray icon shows recording status at a glance (green dot idle, red-ring dot +
-  frame count while recording); double-click restores, right-click menu has Show / Start-Stop /
-  Exit; "Minimize to tray" (default on) hides the window from the taskbar; a balloon announces a
-  finished capture while you're minimized. (Uses in-SDK WinForms NotifyIcon — no new dependency.)
+- **System tray** — a tray icon shows capture status at a glance (green stopped, red-ring dot +
+  frame count while recording, **amber** while idle/paused); double-click restores, right-click
+  menu has Show / Start-Stop / Exit; "Minimize to tray" (default on) hides the window from the
+  taskbar; optional close-to-tray; a balloon announces a finished capture while you're minimized.
+  (Uses in-SDK WinForms NotifyIcon — no new dependency.)
+- **Header capture-state pill** — red REC (pulsing) while actively grabbing, amber IDLE/PAUSED for
+  smart inactivity or pause, with the smart-interval detail beside it.
+- **Cross-feature oversight sweep** (multi-agent) fixed a batch of small state bugs: New/Load
+  Session left the region overlay showing and inherited a stale tracked window; keep-tracked-window-
+  on-top was a no-op mid-capture (and could strand a window topmost); stop-at-target ignored the
+  frame-skip factor (stopped N× early); auto-stops could fire while paused; the target and encode
+  fps/CRF weren't reset on Restore-defaults / carried across sessions; preset/import/restore didn't
+  refresh the stats readouts. **EncodeFps/EncodeCrf now persist** (were VM-only, lost on restart)
+  and travel in presets. New Session now always yields a clean, freshly-named session (it used to
+  look like a rename when the current one was empty).
+- **Themed tooltips** — long tooltips wrap into a dark multi-line card instead of one huge line;
+  optional start/stop audio cue.
 - **Themed popups** — every confirmation/warning now renders in the app's dark chrome instead of
   the native Windows message box.
 - Fixed: couldn't restart a session that had already hit its stop-at-target/max-duration/storage
