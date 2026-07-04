@@ -189,6 +189,14 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void FrameToken_SubstitutesTheFrameNumber()
+        {
+            OverlayRenderer.ResolveTokens("frame {frame}", T, 42).Should().Be("frame 42");
+            OverlayRenderer.ResolveTokens("{frame} @ {date}", T, 7).Should().Be("7 @ 2026-07-03");
+            OverlayRenderer.ResolveTokens("no token", T, 99).Should().Be("no token");
+        }
+
+        [Fact]
         public void InvalidCustomFormat_IsLeftVerbatim_NotAThrow()
         {
             // A format that makes DateTime.ToString THROW ("%" alone is invalid) must come back

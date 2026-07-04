@@ -289,7 +289,7 @@ namespace TimelapseCapture
                             {
                                 if (frame.Width == 0 || frame.Height == 0)
                                     throw new InvalidOperationException("Captured bitmap is invalid");
-                                if (_overlay?.Enabled == true) DrawOverlay(frame, _overlay);  // overlay sits on the final frame
+                                if (_overlay?.Enabled == true) DrawOverlay(frame, _overlay, next);  // overlay sits on the final frame
                                 SaveBitmap(frame, file);
                             }
 
@@ -343,7 +343,7 @@ namespace TimelapseCapture
         // Burn a configurable text overlay (timestamp / custom label) onto a captured frame.
         // Overlay drawing lives in OverlayRenderer — shared with the Overlay dialog's live preview so
         // the preview is pixel-identical to what gets burned into frames.
-        private static void DrawOverlay(Bitmap bmp, OverlayConfig cfg) => OverlayRenderer.Draw(bmp, cfg);
+        private static void DrawOverlay(Bitmap bmp, OverlayConfig cfg, long frameNumber) => OverlayRenderer.Draw(bmp, cfg, frameNumber);
 
         // Draw the live mouse cursor onto a captured frame at its position within the region.
         private static void DrawCursor(Bitmap bmp, Rectangle region)

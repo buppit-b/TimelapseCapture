@@ -11,11 +11,11 @@ namespace TimelapseCapture
     public static class OverlayRenderer
     {
         /// <summary>Best-effort: an overlay problem must never break the capture loop.</summary>
-        public static void Draw(Bitmap bmp, OverlayConfig cfg)
+        public static void Draw(Bitmap bmp, OverlayConfig cfg, long frameNumber = 0)
         {
             try
             {
-                string text = ResolveTokens(cfg.Text);
+                string text = ResolveTokens(cfg.Text, DateTime.Now, frameNumber);
                 if (string.IsNullOrEmpty(text)) return;
 
                 string family = string.IsNullOrWhiteSpace(cfg.FontFamily) ? "Consolas" : cfg.FontFamily;
@@ -51,18 +51,19 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Replace {date}/{time}/{datetime}/{time12} and a custom {t:FORMAT} token with the current time.
-        /// Pure (given a fixed clock) — kept public for the dialog preview and unit tests.
+        /// Replace {date}/{time}/{datetime}/{time12}, {frame}, and a custom {t:FORMAT} token.
+        /// Pure (given a fixed clock + frame number) — kept public for the dialog preview and unit tests.
         /// </summary>
-        public static string ResolveTokens(string template) => ResolveTokens(template, DateTime.Now);
+        public static string ResolveTokens(string template) => ResolveTokens(template, DateTime.Now, 0);
 
-        internal static string ResolveTokens(string template, DateTime now)
+        internal static string ResolveTokens(string template, DateTime now, long frameNumber = 0)
         {
             string t = (template ?? "")
                 .Replace("{datetime}", now.ToString("yyyy-MM-dd HH:mm:ss"))
                 .Replace("{date}", now.ToString("yyyy-MM-dd"))
                 .Replace("{time}", now.ToString("HH:mm:ss"))
-                .Replace("{time12}", now.ToString("h:mm:ss tt"));
+                .Replace("{time12}", now.ToString("h:mm:ss tt"))
+                .Replace("{frame}", frameNumber.ToString());
             return System.Text.RegularExpressions.Regex.Replace(t, @"\{t:([^}]+)\}", mm =>
             {
                 try { return now.ToString(mm.Groups[1].Value); } catch { return mm.Value; }

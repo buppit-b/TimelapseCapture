@@ -119,7 +119,7 @@ namespace TimelapseCapture.Wpf
                     FontFamily = vm.OverlayFontFamily,
                     CustomX = vm.OverlayCustomX,
                     CustomY = vm.OverlayCustomY,
-                });
+                }, Math.Max(1, vm.FrameCount));   // sample frame number so {frame} previews realistically
 
                 previewImage.Source = ToSource(bmp);
                 previewCaption.Text = $"Example at your frame size ({size.Width}×{size.Height}) — exactly what gets burned in.";

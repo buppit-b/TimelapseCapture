@@ -35,7 +35,7 @@
                          ToolTip="Tokens plus any literal text you like."/>
             </StackPanel>
             <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="48,4,0,0" TextWrapping="Wrap"
-                       Text="Tokens: {datetime} {date} {time} {time12} · {t:FORMAT} for a custom date format"/>
+                       Text="Tokens: {datetime} {date} {time} {time12} {frame} · {t:FORMAT} for a custom date format"/>
 
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                 <TextBlock Text="Where" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
