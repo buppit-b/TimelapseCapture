@@ -165,6 +165,22 @@ drops it; drag-and-drop onto the window covers the case meanwhile).
 Webcam/facecam, audio, a general video editor, cloud sync, sub-0.1s capture — those pull
 toward OBS/editor territory; this app stays the reliable art-timelapse tool.
 
+### Design debt — the one rework worth a focused, tested session
+- **Frame-count / session-state ownership** *(flagged 2026-07-05; the pause data-loss bug came from
+  it).* Today the live frame count lives in THREE places kept in sync by hand: the engine's
+  in-memory `_session`, the VM's `_session`, and `session.json` on disk. Per frame the engine does a
+  full `session.json` read-modify-write (`IncrementFrameCount`) — the read exists to avoid clobbering
+  fields the VM writes (region/total-time/name), not just for the count. This is both an efficiency
+  cost (a full JSON read+write per frame — 10×/s at the 0.1s floor) and the source of the drift class.
+  **Proposed rework (needs Spike's hands-on validation of capture + crash recovery, so NOT done blind):**
+  the frames on disk are the single source of truth for the count → the engine owns a live in-memory
+  counter seeded at Start by reconciling against the actual highest frame number on disk; `session.json`
+  count is persisted throttled (every ~N frames / on pause / on stop), never per frame; crash recovery
+  reconciles from disk. Removes per-frame JSON IO entirely and eliminates the drift. Extract the
+  disk-count/reconcile logic as `internal static` + unit-test it; keep the folder-deleted detection
+  (the per-frame frame-save failure already surfaces it). *Acute bug already fixed* (real engine Pause +
+  disk-reload on Start), so this is now a correctness+efficiency cleanup, not an outstanding bug.
+
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
   multi-monitor setups (`ScreenHelper.SystemDpiScale` is system-DPI only today).

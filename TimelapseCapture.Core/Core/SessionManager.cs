@@ -271,7 +271,9 @@ namespace TimelapseCapture
         /// Sanitize session name for use as folder name.
         /// Removes invalid characters and limits length.
         /// </summary>
-        internal static string SanitizeFolderName(string name)
+        /// <summary>Turn a display name into a safe, consistent folder name. Public so session CREATE
+        /// (CreateNamedSession) and RENAME use the identical rule — they used to diverge.</summary>
+        public static string SanitizeFolderName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
                 return $"session_{DateTime.Now:yyyyMMdd_HHmmss}";

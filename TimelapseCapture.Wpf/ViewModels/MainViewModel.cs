@@ -1457,7 +1457,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             try
             {
                 string? parent = Path.GetDirectoryName(_sessionFolder);
-                string safe = SanitizeFolderName(newName);
+                string safe = SessionManager.SanitizeFolderName(newName);
                 if (parent != null && safe.Length > 0 &&
                     !string.Equals(Path.GetFileName(_sessionFolder), safe, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1479,12 +1479,6 @@ namespace TimelapseCapture.Wpf.ViewModels
                 MessageDialog.Show($"Couldn't rename the session: {ex.Message}", "Rename",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
-        }
-
-        private static string SanitizeFolderName(string name)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-            return name.Trim().TrimEnd('.', ' '); // Windows folder names can't end with a dot or space
         }
 
         private bool ConfirmRegionChange()
