@@ -118,18 +118,47 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
    the taskbar, balloon on finish while hidden. *Still open:* an optional **chime on hotkey
    start/stop** (audio feedback when the window's hidden — the finish sound exists, but not a
    start/stop cue).
-2. **Finish-line encode options** — **hold the final frame** for N seconds (ffmpeg `tpad`; the
-   finished artwork is the frame viewers want to see), and **encode to a target duration**
-   ("make it exactly 60s" — fps computed from frame count; social platforms have ceilings).
-   Plus: **frame-skip encode** — ✅ **shipped early (0.9.4)** at Spike's repeat request: "use every
-   [N]th frame" in the encode card (`select` + `setpts`, non-destructive, works with Trim ranges,
-   stats hint shows the effect). The remaining two levers (end-hold, encode-to-duration) stay 1.1.
-   Also *(Spike, 2026-07-03)*: **crop at encode** — encode only a sub-region of the frames
-   (ffmpeg `crop`, even-dims for yuv420p; UI could reuse the region-edit overlay on a frame
-   preview). Recommended non-destructive first; a destructive crop-frames-to-reclaim-space tool
-   (like Cull) is possible later but touches user data — lower priority.
+2. **Finish-line encode options** — **hold the final frame** ✅ **shipped (0.9.4)** (ffmpeg `tpad`,
+   an encode-card field, smoke-tested). **Frame-skip encode** ✅ **shipped (0.9.4)**. Remaining:
+   **encode to a target duration** ("make it exactly 60s" — fps computed from frame count; social
+   platforms have ceilings; ~small, reuses the frame-count math).
+   **Crop at encode** *(Spike, 2026-07-03 + 07-05)* — encode only a sub-region of the frames (ffmpeg
+   `crop`, even dims for yuv420p; UI: drag a crop rect on a frame preview, reusing the region-edit
+   overlay). Recommend **non-destructive at encode by default**, with an **opt-in destructive
+   "crop the frames on disk to reclaim space"** for power users (a Cull-style consented, irreversible
+   op — re-saves every frame cropped). Medium; the smoke test can verify output dimensions.
 3. **Multi-session combine** — select several sessions and encode one continuous video (the
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
+
+### Overlay follow-ups (Spike, 2026-07-05)
+- **Overlay: burn-in during vs after encode** — today the text is burned per-frame at capture time.
+  Add a choice: *during capture* (a live per-frame timestamp is only truthful this way) OR *at
+  encode* (ffmpeg `drawtext`) — the latter covers "forgot to enable it" and lets a token like
+  `{frame}`/date be stamped after the fact. Recommend a segmented "Burn: during / at encode" in the
+  Overlay dialog; capture-time-only tokens (a true per-frame wall-clock) get a note that they can't
+  be reconstructed at encode.
+- **Logo / image overlay (transparent PNG)** — overlay a PNG (logo/watermark) with position +
+  opacity, at capture (GDI `DrawImage`) or encode (ffmpeg `overlay`). Reuses the drag-to-place UI.
+  Pairs with the provenance idea (item 10). Off by default.
+
+### Cull follow-up: remove static/idle stretches (Spike asked; my recommendation)
+- Spike wants to bulk-cull "idle frames." **Recommendation: detect near-DUPLICATE frames rather than
+  track input-idle metadata.** Marking input-idle frames needs per-frame activity state recorded at
+  capture (new metadata, only catches input-idle). Comparing each frame to the previous and marking
+  ones below a difference threshold is *more general* (catches ANY static stretch — a paused canvas,
+  a render, a coffee break), needs no capture-time metadata, and works on already-captured sessions.
+  Implement as a Cull button "Mark static frames…" with a sensitivity slider + preview count; uses a
+  cheap downscaled-frame diff. (Smart-interval already SKIPS most idle frames live, so this is the
+  cleanup for what slipped through.)
+
+### Stats panel rework (Spike, 2026-07-05 — "needs attention")
+- The stats panel grew organically and uses emoji (📦💾📊📁🖥️🎬💻). Rework: replace emoji with
+  **dedicated glyph icons** (Segoe MDL2 Assets — already used for the window buttons, renders as
+  proper monochrome icons, no image assets), restructure `SystemMonitor.GetStorageInfoString`'s
+  one big string into **individual bound rows** (icon · label · value) so each can be styled/colored
+  (the storage-rate warning already is), and make the key numbers (video length, storage rate,
+  time-to-target — all now added) the visual anchors. A focused UI pass; pairs with the broader
+  GUI reshape.
 4. **Configurable keybindings** *(Spike, 2026-07-03 — power-user philosophy: every hotkey
    rebindable)* — grow the existing hotkey-capture control into a small keymap table in Settings
    (action · binding · reset-to-default), persisted additively. Covers the global start/stop plus
