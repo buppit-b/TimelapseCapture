@@ -461,6 +461,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (!TryParseTarget(_targetText, out var secs, out _)) { ValidateTarget(); return; }
             _desiredVideoSeconds = secs;
             ValidateTarget();   // hint now reads "= … ✓"
+            UpdateCaptureToTarget();
             RefreshStats();     // projection / progress reflect the new target
             BumpRecalc();       // flash the affected stats
             TargetPulse++;      // pulse the field outline + "Target" label to confirm the commit
@@ -508,6 +509,71 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         private string _progressText = "";
         public string ProgressText { get => _progressText; set => SetProperty(ref _progressText, value); }
+
+        // How long you need to capture (at the current interval) to reach the target video length —
+        // live: total when idle, remaining while capturing. The clarity the target field was missing.
+        private string _captureToTargetText = "";
+        public string CaptureToTargetText { get => _captureToTargetText; set => SetProperty(ref _captureToTargetText, value); }
+
+        private void UpdateCaptureToTarget()
+        {
+            double interval = (double)IntervalSeconds;
+            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
+            if (targetFrames <= 0 || interval <= 0) { CaptureToTargetText = ""; return; }
+
+            if (IsCapturing)
+            {
+                long remaining = Math.Max(0, targetFrames - _frameCount);
+                CaptureToTargetText = remaining == 0
+                    ? "✓ target reached — you can stop"
+                    : $"≈ {HumanDuration(remaining * interval)} more to reach your {HumanDuration(_desiredVideoSeconds)} target";
+            }
+            else
+            {
+                CaptureToTargetText = $"≈ {HumanDuration(targetFrames * interval)} of capturing → a {HumanDuration(_desiredVideoSeconds)} video";
+            }
+        }
+
+        // Live storage-consumption rate + a warning when the current settings would eat the drive fast.
+        private string _storageRateText = "";
+        public string StorageRateText { get => _storageRateText; set => SetProperty(ref _storageRateText, value); }
+        private bool _storageRateWarn;
+        public bool StorageRateWarn { get => _storageRateWarn; set => SetProperty(ref _storageRateWarn, value); }
+
+        // (mbPerHour, hoursToFillTheDrive) for the current region/format/interval. avgFrameKb from a
+        // sampled frame when available, else estimated. Powers the stats readout and the start warning.
+        private (double mbPerHour, double fillHours) EstimateStorageRate(double avgFrameKb)
+        {
+            int w = _region?.Width ?? 0, h = _region?.Height ?? 0;
+            double frameKb = avgFrameKb > 0 ? avgFrameKb
+                : (w > 0 && h > 0 ? SystemMonitor.EstimateFrameSizeKB(w, h, _settings.Format ?? "JPEG", _settings.JpegQuality) : 0);
+            double interval = (double)IntervalSeconds;
+            if (frameKb <= 0 || interval <= 0) return (0, double.PositiveInfinity);
+            double mbPerHour = frameKb * (3600.0 / interval) / 1024.0;
+            long freeMb = _sessionFolder != null ? SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder) : 0;
+            double fillHours = (freeMb > 0 && mbPerHour > 0) ? freeMb / mbPerHour : double.PositiveInfinity;
+            return (mbPerHour, fillHours);
+        }
+
+        private void UpdateStorageRate(double avgFrameKb)
+        {
+            var (mbPerHour, fillHours) = EstimateStorageRate(avgFrameKb);
+            if (mbPerHour <= 0) { StorageRateText = ""; StorageRateWarn = false; return; }
+            string rate = mbPerHour >= 1024 ? $"{mbPerHour / 1024.0:F1} GB/hour" : $"{mbPerHour:F0} MB/hour";
+            StorageRateWarn = fillHours < 2;   // under 2 hours to fill the drive = worth flagging
+            StorageRateText = StorageRateWarn && !double.IsInfinity(fillHours)
+                ? $"≈ {rate} — fills this drive in ~{HumanDuration(fillHours * 3600)}"
+                : $"≈ {rate}";
+        }
+
+        // Compact human duration for planning ("2h 30m", "45m", "30s") — clearer than hh:mm:ss here.
+        private static string HumanDuration(double seconds)
+        {
+            var t = TimeSpan.FromSeconds(Math.Round(seconds));
+            if (t.TotalHours >= 1) return t.Minutes == 0 ? $"{(int)t.TotalHours}h" : $"{(int)t.TotalHours}h {t.Minutes}m";
+            if (t.TotalMinutes >= 1) return t.Seconds == 0 ? $"{t.Minutes}m" : $"{t.Minutes}m {t.Seconds}s";
+            return $"{t.Seconds}s";
+        }
 
         // Bumped when the user changes an input (target / fps) that recalculates the stats — the
         // affected on-screen values flash briefly so you can see what got recomputed.
@@ -1705,6 +1771,18 @@ namespace TimelapseCapture.Wpf.ViewModels
                 }
             }
 
+            // Pre-flight the storage RATE: a fast interval over a large region can fill the drive in
+            // minutes. Warn (once, at Start) if the current settings would fill it in under an hour.
+            var (mbPerHour, fillHours) = EstimateStorageRate(0);
+            if (mbPerHour > 0 && fillHours < 1)
+            {
+                string rate = mbPerHour >= 1024 ? $"{mbPerHour / 1024.0:F1} GB/hour" : $"{mbPerHour:F0} MB/hour";
+                var r = MessageDialog.Show(
+                    $"At this interval and capture size you'll write about {rate} — this drive would fill in roughly {HumanDuration(fillHours * 3600)}.\n\nConsider a longer interval or a smaller region. Start anyway?",
+                    "That's a lot of storage", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (r != MessageBoxResult.Yes) return;
+            }
+
             // Pre-flight the ACCUMULATED-state auto-stops. Without this, restarting a session that has
             // already hit its target / max-duration / storage budget would start, then the next stats
             // tick (~0.5s) would auto-stop it again with just the finish sound — looking like a bug
@@ -2256,6 +2334,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 ElapsedText = FormatTime(current);
                 double totalCaptureSeconds = _accumulatedSeconds + current;
                 TotalElapsedText = FormatTime(totalCaptureSeconds);
+                UpdateCaptureToTarget();   // live time-to-target readout
 
                 // Opt-in max-duration cap: stop once accumulated capture time reaches the limit (a normal
                 // completion — notify, but no red error banner).
@@ -2301,6 +2380,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
                         _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames, avgFrameKb);
                     ResourcesInfo = SystemMonitor.GetResourcesInfoString();
+                    UpdateStorageRate(avgFrameKb);   // live "≈ X GB/hour" + fast-fill warning
 
                     // Unattended safety: stop before the drive fills (writes would start failing, and a full
                     // disk can disrupt other apps). freeMb == 0 is treated as a probe error and ignored — the

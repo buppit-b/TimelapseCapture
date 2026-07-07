@@ -375,8 +375,9 @@
 
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"
                             Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}"
+                    <StackPanel Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
                                  local:NumericInput.AllowDecimal="False"
@@ -388,6 +389,10 @@
                         <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
                                  local:NumericInput.AllowDecimal="False"
                                  ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                    </StackPanel>
+                    <!-- The resulting video length, right where you set the fps — no hunting in Stats. -->
+                    <TextBlock Text="{Binding VideoLengthText}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                               FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}"/>
                     </StackPanel>
                     <StackPanel Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
@@ -483,6 +488,10 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <!-- How long you actually need to capture to reach that target video length. -->
+                        <TextBlock Text="{Binding CaptureToTargetText}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                                   FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Foreground="{DynamicResource AccentBrush}"/>
                         <CheckBox Content="Stop at target" IsChecked="{Binding StopAtTarget}"
                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
                                   ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps)."/>
@@ -508,6 +517,18 @@
                                 <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
                             </EventTrigger>
                         </TextBlock.Triggers>
+                    </TextBlock>
+                    <!-- Live storage rate; turns red when the settings would fill the drive fast. -->
+                    <TextBlock Text="{Binding StorageRateText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,2">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StorageRateWarn}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
                     </TextBlock>
                     <TextBlock Text="(disk use is for the raw frames, not the final video — CRF sets the video size)"
                                Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,8" TextWrapping="Wrap"/>
