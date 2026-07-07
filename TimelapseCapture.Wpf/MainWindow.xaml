@@ -406,6 +406,13 @@
                                      local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
                                      ToolTip="2 = twice as fast with half the frames; 3 = three times as fast with a third. Minimum 2 (1 would mean no speed-up — untick instead)."/>
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    ToolTip="Hold the LAST frame this long at the end so the finished result lingers before the video loops/ends. 0 = off.">
+                            <TextBlock Text="Hold last frame" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding EncodeHoldLastSeconds}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"/>
+                            <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
                                 Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"

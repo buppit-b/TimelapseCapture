@@ -252,6 +252,12 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.EncodeCrf;
             set { var v = Math.Clamp(value, 0, 51); if (_settings.EncodeCrf != v) { _settings.EncodeCrf = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
+        // Hold the final frame for N seconds at the end (0 = off) — the finished artwork lingers.
+        public double EncodeHoldLastSeconds
+        {
+            get => _settings.EncodeHoldLastSeconds;
+            set { var v = Math.Clamp(value, 0, 60); if (_settings.EncodeHoldLastSeconds != v) { _settings.EncodeHoldLastSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
 
         public int JpegQuality
         {
@@ -1405,6 +1411,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
             s.EncodeFps = Math.Clamp(s.EncodeFps, 1, 240);
             s.EncodeCrf = Math.Clamp(s.EncodeCrf, 0, 51);
+            s.EncodeHoldLastSeconds = Math.Clamp(s.EncodeHoldLastSeconds, 0, 60);
             s.OverlayCustomX = s.OverlayCustomX < 0 ? -1 : Math.Min(1, s.OverlayCustomX);
             s.OverlayCustomY = s.OverlayCustomY < 0 ? -1 : Math.Min(1, s.OverlayCustomY);
             if (s.IntervalSecondsExact > 0)
@@ -2207,7 +2214,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         EncodeProgress = pct;
                         if (IsEncoding && !(_encodeCts?.IsCancellationRequested ?? true))
                             EncodeStatus = $"Encoding… {pct:0}%";
-                    })), everyNth: nth);
+                    })), everyNth: nth, holdLastSeconds: EncodeHoldLastSeconds);
             }
             catch (Exception ex)
             {

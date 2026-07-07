@@ -48,6 +48,7 @@ namespace TimelapseCapture
         public int EncodeEveryNth { get; set; } = 1;         // encode speed-up: use every Nth frame (1 = all)
         public int EncodeFps { get; set; } = 30;             // output video frame rate
         public int EncodeCrf { get; set; } = 23;             // x264 quality: 0 = lossless/huge .. 51 = worst/tiny
+        public double EncodeHoldLastSeconds { get; set; }    // hold the final frame this long at the end (0 = off)
         public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
         public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls
         public bool FirstRunCompleted { get; set; }          // the setup wizard has been shown once

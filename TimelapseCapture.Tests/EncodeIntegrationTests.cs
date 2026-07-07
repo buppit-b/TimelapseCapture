@@ -98,6 +98,22 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public async Task HoldLastFrame_AppendsClonedFrames()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                // 30 frames @ 30fps = 1s; hold the last frame 2s → +60 frames → 90 total.
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, holdLastSeconds: 2);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(90);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task Trim_EncodesOnlyTheRange()
         {
             if (Ffmpeg == null) return;
