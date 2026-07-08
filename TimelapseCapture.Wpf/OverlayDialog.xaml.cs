@@ -121,8 +121,34 @@ namespace TimelapseCapture.Wpf
                     CustomY = vm.OverlayCustomY,
                 }, Math.Max(1, vm.FrameCount));   // sample frame number so {frame} previews realistically
 
+                // If the session has an encode-crop, show it: dim everything outside + an accent outline,
+                // so the overlay can be positioned INSIDE the area that will survive the crop.
+                bool cropShown = false;
+                if (vm.CurrentSessionFolder is { } sf &&
+                    SessionManager.LoadSession(sf)?.EncodeCrop is { } crop)
+                {
+                    var cr = new System.Drawing.Rectangle(
+                        (int)(crop.X * scale), (int)(crop.Y * scale),
+                        (int)(crop.Width * scale), (int)(crop.Height * scale));
+                    cr = System.Drawing.Rectangle.Intersect(cr, new System.Drawing.Rectangle(0, 0, w, h));
+                    if (cr.Width > 1 && cr.Height > 1)
+                    {
+                        using var g2 = System.Drawing.Graphics.FromImage(bmp);
+                        using var dim = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(140, 0, 0, 0));
+                        g2.FillRectangle(dim, 0, 0, w, cr.Top);                                  // above
+                        g2.FillRectangle(dim, 0, cr.Bottom, w, h - cr.Bottom);                    // below
+                        g2.FillRectangle(dim, 0, cr.Top, cr.Left, cr.Height);                     // left
+                        g2.FillRectangle(dim, cr.Right, cr.Top, w - cr.Right, cr.Height);         // right
+                        using var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(220, 0xC0, 0x61, 0xF0), 2)
+                        { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                        g2.DrawRectangle(pen, cr);
+                        cropShown = true;
+                    }
+                }
+
                 previewImage.Source = ToSource(bmp);
-                previewCaption.Text = $"Example at your frame size ({size.Width}×{size.Height}) — exactly what gets burned in.";
+                previewCaption.Text = $"Example at your frame size ({size.Width}×{size.Height}) — exactly what gets burned in." +
+                                      (cropShown ? " Dimmed area = outside the encode crop." : "");
             }
             catch { previewImage.Source = null; }
         }

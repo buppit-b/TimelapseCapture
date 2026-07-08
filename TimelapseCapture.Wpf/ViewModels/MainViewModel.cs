@@ -2151,7 +2151,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
             var saved = SessionManager.LoadSession(_sessionFolder);
-            var dlg = new CropDialog(_sessionFolder, saved?.EncodeCrop)
+            var dlg = new CropDialog(_sessionFolder, saved?.EncodeCrop, _settings.OverlayTimestamp)
             { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true) return;
 

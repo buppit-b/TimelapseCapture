@@ -212,6 +212,12 @@ toward OBS/editor territory; this app stays the reliable art-timelapse tool.
 ### Cross-cutting / tech
 - Per-monitor DPI correctness for region selection and cursor overlay on mixed-DPI
   multi-monitor setups (`ScreenHelper.SystemDpiScale` is system-DPI only today).
+  **Sighted live (Spike, 2026-07-05):** tracking a Photoshop window on a second monitor drew the
+  region outline offset (a green line cutting through the window edge) — cosmetic only, capture
+  uses physical px and was correct. Fix design: position `RegionOverlay` (and the select/edit
+  overlays) via Win32 `SetWindowPos` in RAW physical pixels (WindowInteropHelper handle) instead
+  of WPF `Left/Top` DIPs — under PerMonitorV2 the DIP conversion with one system scale misplaces
+  windows on differently-scaled monitors. Needs Spike's multi-monitor setup to verify live.
 - Cross-platform: `TimelapseCapture.Core` is UI-agnostic but uses `System.Drawing`;
   a portable imaging lib (SkiaSharp/ImageSharp) would unlock non-Windows later.
 

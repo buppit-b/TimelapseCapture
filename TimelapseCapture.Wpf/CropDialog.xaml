@@ -8,7 +8,7 @@
     <StackPanel Margin="18">
         <TextBlock Text="CROP — FRAME AREA USED IN THE VIDEO" Style="{StaticResource CardTitle}"/>
         <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
-                   Text="Drag on the frame to choose the area the encode keeps. Non-destructive: your frames on disk stay full size — the crop is applied when the video is made (Encode and Trim)."/>
+                   Text="Drag on the frame to choose the area the encode keeps — drag inside to move it, edges and corners to fine-tune (corners keep the ratio; Shift frees). Non-destructive: frames on disk stay full size — the crop is applied when the video is made (Encode and Trim)."/>
 
         <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
                 BorderThickness="1" Height="320" ClipToBounds="True">
@@ -20,6 +20,15 @@
         </Border>
 
         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <TextBlock Text="Ratio" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="Free" IsChecked="True" Tag="0:0" Click="OnRatio"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="16:9" Tag="16:9" Click="OnRatio"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="4:3" Tag="4:3" Click="OnRatio"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="1:1" Tag="1:1" Click="OnRatio"/>
+            <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="9:16" Tag="9:16" Click="OnRatio"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
             <TextBlock Text="X" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
             <TextBox x:Name="xBox" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                      local:NumericInput.AllowDecimal="False" LostFocus="OnFieldChanged"/>
@@ -35,6 +44,9 @@
             <TextBlock x:Name="cropInfo" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11"
                        VerticalAlignment="Center" Margin="14,0,0,0"/>
         </StackPanel>
+
+        <TextBlock x:Name="overlayHint" Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"
+                   Text="Overlay note: your text overlay is burned into frames at capture time — make sure it sits INSIDE this crop (the Overlay dialog's preview shows the crop area), or it will be cut off in the video."/>
 
         <Grid Margin="0,18,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">

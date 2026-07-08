@@ -6,18 +6,20 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace TimelapseCapture.Wpf
 {
     /// <summary>
-    /// Pick the frame area encodes keep: drag a rectangle on the latest frame (numeric X/Y/W/H for
-    /// precision). Non-destructive by default — the rect is stored per session (SessionInfo.EncodeCrop)
-    /// and applied by ffmpeg at encode time. A consented power-user button can instead crop the frames
-    /// ON DISK (DestructiveRequested; the VM performs it). All coordinates are FRAME pixels.
+    /// Pick the frame area encodes keep. Full edit interaction, matching the region-edit overlay's
+    /// conventions: drag empty space to draw, drag inside to MOVE, drag the 8 edge/corner handles to
+    /// fine-tune; the ratio lock applies to corners and new drags (edges stay free, Shift frees).
+    /// Non-destructive by default (SessionInfo.EncodeCrop, applied by ffmpeg at encode); a consented
+    /// power-user button crops the frames ON DISK instead. All stored coordinates are FRAME pixels.
     /// </summary>
     public partial class CropDialog : Window
     {
+        private enum Mode { None, New, Move, NW, N, NE, E, SE, S, SW, W }
+
         private readonly int _frameW, _frameH;
 
         /// <summary>The chosen crop in frame pixels, or null for "no crop". Valid when DialogResult is true.</summary>
@@ -26,20 +28,25 @@ namespace TimelapseCapture.Wpf
         /// <summary>True when the user chose (and confirmed) the destructive crop-frames-on-disk action.</summary>
         public bool DestructiveRequested { get; private set; }
 
-        private bool _dragging;
-        private Point _dragStart;                 // canvas coords
-        private System.Drawing.Rectangle? _rect;  // current crop, frame px
-        private readonly Rectangle _rubber = new()
+        private Mode _mode = Mode.None;
+        private System.Drawing.Point _dragStart;          // frame px where the drag began
+        private System.Drawing.Rectangle _startRect;      // rect at drag start (Move/resize anchor)
+        private System.Drawing.Rectangle? _rect;          // current crop, frame px
+        private int _ratioW, _ratioH;                     // 0 = free
+
+        private readonly System.Windows.Shapes.Rectangle _rubber = new()
         {
-            StrokeThickness = 2, Fill = new SolidColorBrush(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)),
+            StrokeThickness = 2,
+            Fill = new SolidColorBrush(Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF)),
         };
 
-        public CropDialog(string sessionFolder, System.Drawing.Rectangle? existingCrop)
+        public CropDialog(string sessionFolder, System.Drawing.Rectangle? existingCrop, bool overlayEnabled = false)
         {
             InitializeComponent();
             _rubber.Stroke = TryFindResource("AccentBrush") as Brush ?? Brushes.LimeGreen;
             rectCanvas.Children.Add(_rubber);
             _rubber.Visibility = Visibility.Collapsed;
+            _rubber.IsHitTestVisible = false;   // all hit-testing happens on the canvas
 
             // Load the latest frame at FULL resolution (mapping needs true pixel dims), without locking it.
             var file = SessionManager.GetFrameFiles(sessionFolder).LastOrDefault();
@@ -57,9 +64,29 @@ namespace TimelapseCapture.Wpf
                 _frameH = bi.PixelHeight;
             }
 
+            overlayHint.Visibility = overlayEnabled ? Visibility.Visible : Visibility.Collapsed;
+
             _rect = existingCrop;
             Loaded += (s, e) => SyncUi();
             rectCanvas.SizeChanged += (s, e) => SyncUi();
+        }
+
+        // ---- ratio lock (Seg row) ----
+        private void OnRatio(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el && el.Tag is string t)
+            {
+                var parts = t.Split(':');
+                _ratioW = parts.Length == 2 && int.TryParse(parts[0], out int w) ? w : 0;
+                _ratioH = parts.Length == 2 && int.TryParse(parts[1], out int h) ? h : 0;
+                // Re-shape the current crop to the new ratio immediately (keep width, anchor top-left).
+                if (_rect is { } r && _ratioW > 0 && _ratioH > 0)
+                {
+                    int nh = Math.Max(2, r.Width * _ratioH / _ratioW);
+                    _rect = Clamp(new System.Drawing.Rectangle(r.X, r.Y, r.Width, nh));
+                    SyncUi();
+                }
+            }
         }
 
         // ---- display ↔ frame mapping (the image is Uniform-stretched and letterboxed in the canvas) ----
@@ -79,37 +106,141 @@ namespace TimelapseCapture.Wpf
             return new System.Drawing.Point(Math.Clamp(fx, 0, _frameW), Math.Clamp(fy, 0, _frameH));
         }
 
-        // ---- drag to draw ----
+        // Which part of the crop is under the pointer (frame px, tolerance scaled from ~8 display px).
+        private Mode HitTest(System.Drawing.Point p)
+        {
+            if (_rect is not { } r || Mapping() is not { } m) return Mode.New;
+            int tol = Math.Max(2, (int)Math.Round(8 / m.disp));
+            bool nearL = Math.Abs(p.X - r.Left) <= tol, nearR = Math.Abs(p.X - r.Right) <= tol;
+            bool nearT = Math.Abs(p.Y - r.Top) <= tol, nearB = Math.Abs(p.Y - r.Bottom) <= tol;
+            bool inX = p.X >= r.Left - tol && p.X <= r.Right + tol;
+            bool inY = p.Y >= r.Top - tol && p.Y <= r.Bottom + tol;
+
+            if (nearT && nearL) return Mode.NW;
+            if (nearT && nearR) return Mode.NE;
+            if (nearB && nearL) return Mode.SW;
+            if (nearB && nearR) return Mode.SE;
+            if (nearT && inX) return Mode.N;
+            if (nearB && inX) return Mode.S;
+            if (nearL && inY) return Mode.W;
+            if (nearR && inY) return Mode.E;
+            if (r.Contains(p)) return Mode.Move;
+            return Mode.New;
+        }
+
+        private static Cursor CursorFor(Mode m) => m switch
+        {
+            Mode.NW or Mode.SE => Cursors.SizeNWSE,
+            Mode.NE or Mode.SW => Cursors.SizeNESW,
+            Mode.N or Mode.S => Cursors.SizeNS,
+            Mode.E or Mode.W => Cursors.SizeWE,
+            Mode.Move => Cursors.SizeAll,
+            _ => Cursors.Cross,
+        };
+
+        // ---- drag interaction ----
         private void OnCanvasDown(object sender, MouseButtonEventArgs e)
         {
             if (_frameW < 1) return;
-            _dragging = true;
-            _dragStart = e.GetPosition(rectCanvas);
+            _dragStart = ToFrame(e.GetPosition(rectCanvas));
+            _mode = HitTest(_dragStart);
+            _startRect = _rect ?? System.Drawing.Rectangle.Empty;
             rectCanvas.CaptureMouse();
         }
 
         private void OnCanvasMove(object sender, MouseEventArgs e)
         {
-            if (!_dragging) return;
-            var a = ToFrame(_dragStart);
-            var b = ToFrame(e.GetPosition(rectCanvas));
-            _rect = System.Drawing.Rectangle.FromLTRB(
-                Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y));
+            var fp = ToFrame(e.GetPosition(rectCanvas));
+
+            if (_mode == Mode.None)   // hover: just show what a drag would do
+            {
+                rectCanvas.Cursor = CursorFor(HitTest(fp));
+                return;
+            }
+
+            int dx = fp.X - _dragStart.X, dy = fp.Y - _dragStart.Y;
+            switch (_mode)
+            {
+                case Mode.New:
+                    _rect = System.Drawing.Rectangle.FromLTRB(
+                        Math.Min(_dragStart.X, fp.X), Math.Min(_dragStart.Y, fp.Y),
+                        Math.Max(_dragStart.X, fp.X), Math.Max(_dragStart.Y, fp.Y));
+                    _rect = ConstrainNew(_rect.Value);
+                    break;
+
+                case Mode.Move:
+                    var moved = _startRect;
+                    moved.X = Math.Clamp(_startRect.X + dx, 0, Math.Max(0, _frameW - _startRect.Width));
+                    moved.Y = Math.Clamp(_startRect.Y + dy, 0, Math.Max(0, _frameH - _startRect.Height));
+                    _rect = moved;
+                    break;
+
+                default:
+                    _rect = Resize(_startRect, _mode, dx, dy);
+                    break;
+            }
             SyncUi();
         }
 
         private void OnCanvasUp(object sender, MouseButtonEventArgs e)
         {
-            if (!_dragging) return;
-            _dragging = false;
+            if (_mode == Mode.None) return;
+            bool wasNew = _mode == Mode.New;
+            _mode = Mode.None;
             rectCanvas.ReleaseMouseCapture();
             if (_rect is { } r)
             {
                 var clamped = VideoEncoder.ClampCrop(r, new System.Drawing.Size(_frameW, _frameH));
-                _rect = clamped.Width >= 2 && clamped.Height >= 2 ? clamped : null;   // a stray click clears nothing
+                // A stray CLICK (no real drag) shouldn't wipe an existing crop; a degenerate new-drag clears to none.
+                _rect = clamped.Width >= 2 && clamped.Height >= 2 ? clamped : (wasNew ? _startRect == System.Drawing.Rectangle.Empty ? null : _startRect : _startRect);
+                if (_rect is { Width: < 2 } or { Height: < 2 }) _rect = null;
             }
             SyncUi();
         }
+
+        // Shrink a fresh drag to the locked ratio (same rule as the region-select overlay). Shift frees.
+        private System.Drawing.Rectangle ConstrainNew(System.Drawing.Rectangle r)
+        {
+            bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (_ratioW <= 0 || _ratioH <= 0 || shift || r.Width <= 0 || r.Height <= 0) return r;
+            double target = (double)_ratioW / _ratioH;
+            if ((double)r.Width / r.Height > target) r.Width = (int)Math.Round(r.Height * target);
+            else r.Height = (int)Math.Round(r.Width / target);
+            return r;
+        }
+
+        // Handle-resize with the region-edit conventions: corners keep the locked ratio (height follows
+        // width, anchored at the opposite corner; Shift frees), edges always resize one axis freely.
+        private System.Drawing.Rectangle Resize(System.Drawing.Rectangle s, Mode m, int dx, int dy)
+        {
+            int L = s.Left, T = s.Top, R = s.Right, B = s.Bottom;
+            switch (m)
+            {
+                case Mode.NW: L += dx; T += dy; break;
+                case Mode.NE: R += dx; T += dy; break;
+                case Mode.SW: L += dx; B += dy; break;
+                case Mode.SE: R += dx; B += dy; break;
+                case Mode.N: T += dy; break;
+                case Mode.S: B += dy; break;
+                case Mode.W: L += dx; break;
+                case Mode.E: R += dx; break;
+            }
+            // Keep at least a sliver and normalized edges.
+            if (R - L < 2) { if (m is Mode.W or Mode.NW or Mode.SW) L = R - 2; else R = L + 2; }
+            if (B - T < 2) { if (m is Mode.N or Mode.NW or Mode.NE) T = B - 2; else B = T + 2; }
+
+            bool corner = m is Mode.NW or Mode.NE or Mode.SW or Mode.SE;
+            bool shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (corner && _ratioW > 0 && _ratioH > 0 && !shift)
+            {
+                int h = Math.Max(2, (R - L) * _ratioH / _ratioW);
+                if (m is Mode.NW or Mode.NE) T = B - h; else B = T + h;   // anchor the opposite edge
+            }
+            return Clamp(System.Drawing.Rectangle.FromLTRB(L, T, R, B));
+        }
+
+        private System.Drawing.Rectangle Clamp(System.Drawing.Rectangle r) =>
+            System.Drawing.Rectangle.Intersect(r, new System.Drawing.Rectangle(0, 0, _frameW, _frameH));
 
         // Numeric fields commit on focus-loss; a bad/degenerate combination just re-syncs to the last rect.
         private void OnFieldChanged(object sender, RoutedEventArgs e)
