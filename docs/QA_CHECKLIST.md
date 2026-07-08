@@ -44,6 +44,8 @@ reasoned to be risky.
 - [ ] Rename via the header name; weird characters sanitised in the folder, verbatim in display
 - [ ] Load via picker · drag a session folder onto the window · pass a path as an exe argument
 - [ ] Cull marks + deletes + renumbers; encode after cull is exact
+- [ ] Crop: drag on the preview → Apply → encode video is the cropped size; Clear restores full
+      frame; crop survives close-and-reopen; destructive crop rewrites frames (consented) ⚠
 - [ ] Trim range and "Clip to target"; trim/cull markers survive close-and-reopen ⚠; a cull
       clears both marker sets
 - [ ] Speed-up (keep 1 in N): video is N× faster; works combined with a Trim range ⚠

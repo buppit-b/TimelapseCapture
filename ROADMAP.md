@@ -122,11 +122,10 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
    an encode-card field, smoke-tested). **Frame-skip encode** ✅ **shipped (0.9.4)**. Remaining:
    **encode to a target duration** ("make it exactly 60s" — fps computed from frame count; social
    platforms have ceilings; ~small, reuses the frame-count math).
-   **Crop at encode** *(Spike, 2026-07-03 + 07-05)* — encode only a sub-region of the frames (ffmpeg
-   `crop`, even dims for yuv420p; UI: drag a crop rect on a frame preview, reusing the region-edit
-   overlay). Recommend **non-destructive at encode by default**, with an **opt-in destructive
-   "crop the frames on disk to reclaim space"** for power users (a Cull-style consented, irreversible
-   op — re-saves every frame cropped). Medium; the smoke test can verify output dimensions.
+   **Crop at encode** ✅ **shipped (0.9.4)** — Crop… beside Trim/Cull: drag a rect on the latest
+   frame (numeric X/Y/W/H too); non-destructive by default (per-session `EncodeCrop`, ffmpeg `crop`
+   filter, clamped + even-dims at encode) with the consented destructive "crop frames on disk"
+   power option (temp+replace per frame). Smoke-tested for output dimensions + clamping.
 3. **Multi-session combine** — select several sessions and encode one continuous video (the
    "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
 
