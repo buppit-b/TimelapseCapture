@@ -26,7 +26,8 @@ namespace TimelapseCapture
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
             int fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
-            Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0)
+            Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0,
+            System.Drawing.Rectangle? crop = null)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -87,6 +88,18 @@ namespace TimelapseCapture
                 filters.Add($"select='{sel}'");
                 filters.Add("setpts=N/FRAME_RATE/TB");
             }
+            // Crop-at-encode (non-destructive): validate against the REAL frame size (read once from the
+            // first frame) so a stale/foreign crop can't fail the run — clamp on-frame, force even dims
+            // (yuv420p), and ignore a degenerate result. Placed before tpad so the held frame is cropped too.
+            if (crop is { } c0)
+            {
+                var frameSize = GetImageSize(frames[0]);
+                var cr = ClampCrop(c0, frameSize);
+                if (cr.Width >= 2 && cr.Height >= 2)
+                    filters.Add($"crop={cr.Width}:{cr.Height}:{cr.X}:{cr.Y}");
+                else
+                    Logger.Log("VideoEncoder", $"Ignoring degenerate crop {c0} for frame size {frameSize}.");
+            }
             if (holdFrames > 0)
                 filters.Add($"tpad=stop_mode=clone:stop_duration={holdSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
             string vf = filters.Count > 0 ? $"-vf \"{string.Join(",", filters)}\" " : "";
@@ -130,6 +143,25 @@ namespace TimelapseCapture
             foreach (char c in name)
                 sb.Append(Array.IndexOf(Path.GetInvalidFileNameChars(), c) >= 0 ? '_' : c);
             return sb.ToString().Trim().TrimEnd('.', ' ');
+        }
+
+        /// <summary>
+        /// Clamp a crop rectangle onto a frame: intersect with the frame bounds and force EVEN width/
+        /// height (required by yuv420p). Pure — unit-tested. A degenerate result (w/h &lt; 2) means
+        /// "don't crop".
+        /// </summary>
+        public static System.Drawing.Rectangle ClampCrop(System.Drawing.Rectangle crop, System.Drawing.Size frame)
+        {
+            var r = System.Drawing.Rectangle.Intersect(crop, new System.Drawing.Rectangle(0, 0, frame.Width, frame.Height));
+            r.Width -= r.Width % 2;
+            r.Height -= r.Height % 2;
+            return r;
+        }
+
+        private static System.Drawing.Size GetImageSize(string path)
+        {
+            try { using var img = System.Drawing.Image.FromFile(path); return img.Size; }
+            catch { return System.Drawing.Size.Empty; }
         }
     }
 }

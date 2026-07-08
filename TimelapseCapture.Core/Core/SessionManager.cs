@@ -36,6 +36,10 @@ namespace TimelapseCapture
         // cull applies (the marks are consumed and the survivors renumber).
         public List<int>? CullMarkedFrames { get; set; }
 
+        // Crop-at-encode (frame-pixel rect, non-destructive — frames on disk stay full size).
+        // Null = no crop. Persisted per session like the trim markers.
+        public Rectangle? EncodeCrop { get; set; }
+
         // Track actual capture time and interval changes
         public DateTime? LastCaptureTime { get; set; }
         public double TotalCaptureSeconds { get; set; } = 0;
@@ -587,6 +591,37 @@ namespace TimelapseCapture
                 converted++;
             }
             return converted;
+        }
+
+        /// <summary>
+        /// DESTRUCTIVELY crop every frame on disk to <paramref name="crop"/> (frame-pixel rect) — a
+        /// power-user space saver; the caller must obtain explicit consent first. Each frame is
+        /// re-encoded cropped and written via temp+replace, so a crash mid-run leaves the frame being
+        /// processed with its original content. The crop is clamped per-frame and forced to even dims.
+        /// Returns the number of frames cropped. Never call while capturing into the session.
+        /// </summary>
+        public static int CropFrames(string sessionFolder, Rectangle crop, int jpegQuality = 90)
+        {
+            int done = 0;
+            foreach (var src in GetFrameFiles(sessionFolder))
+            {
+                string ext = Path.GetExtension(src).TrimStart('.').ToLowerInvariant();
+                string tmp = src + ".croptmp";
+                using (var img = Image.FromFile(src))
+                {
+                    var r = VideoEncoder.ClampCrop(crop, img.Size);
+                    if (r.Width < 2 || r.Height < 2) continue;                    // degenerate — skip
+                    if (r.Width == img.Width && r.Height == img.Height) continue; // full-frame = no-op
+                    using var dst = new Bitmap(r.Width, r.Height);
+                    using (var g = Graphics.FromImage(dst))
+                        g.DrawImage(img, new Rectangle(0, 0, r.Width, r.Height), r, GraphicsUnit.Pixel);
+                    if (ext == "png") dst.Save(tmp, System.Drawing.Imaging.ImageFormat.Png);
+                    else SaveJpeg(dst, tmp, jpegQuality);
+                }
+                File.Replace(tmp, src, null);   // original intact until the cropped copy is fully written
+                done++;
+            }
+            return done;
         }
 
         // JPEG must go through a quality-parameterised encoder — plain Image.Save(file, Jpeg) silently

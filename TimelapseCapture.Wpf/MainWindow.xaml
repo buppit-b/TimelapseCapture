@@ -434,6 +434,8 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
                                 Command="{Binding TrimCommand}" HorizontalAlignment="Stretch"
@@ -441,7 +443,22 @@
                         <Button Grid.Column="2" Content="Cull&#8230;" Style="{StaticResource BtnBase}"
                                 Command="{Binding CullCommand}" HorizontalAlignment="Stretch"
                                 ToolTip="Delete fumble frames and renumber the rest before encoding."/>
+                        <Button Grid.Column="4" Content="Crop&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding CropCommand}" HorizontalAlignment="Stretch"
+                                ToolTip="Encode only an area of the frames — drag it on a preview. Non-destructive (frames on disk stay full size), with a power-user option to crop the files themselves."/>
                     </Grid>
+                    <TextBlock Text="{Binding CropInfoText}" FontFamily="Consolas"
+                               FontSize="10" Margin="0,6,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CropInfoText}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <ProgressBar Value="{Binding EncodeProgress}" Minimum="0" Maximum="100" Height="5"
                                  Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
                                  BorderThickness="0" Margin="0,10,0,0"

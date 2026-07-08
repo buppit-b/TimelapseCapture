@@ -213,6 +213,39 @@ namespace TimelapseCapture.Tests
     }
 
     /// <summary>
+    /// VideoEncoder.ClampCrop — the crop-at-encode safety math (on-frame + even dims).
+    /// </summary>
+    public class ClampCropTests
+    {
+        private static readonly Size Frame = new(1920, 1080);
+
+        [Fact]
+        public void InBoundsEvenCrop_Unchanged() =>
+            VideoEncoder.ClampCrop(new Rectangle(100, 50, 800, 600), Frame)
+                .Should().Be(new Rectangle(100, 50, 800, 600));
+
+        [Fact]
+        public void OddDimensions_ForcedEven() =>
+            VideoEncoder.ClampCrop(new Rectangle(0, 0, 801, 601), Frame)
+                .Should().Be(new Rectangle(0, 0, 800, 600));
+
+        [Fact]
+        public void OverhangingCrop_ClampsToFrame() =>
+            VideoEncoder.ClampCrop(new Rectangle(1800, 1000, 500, 500), Frame)
+                .Should().Be(new Rectangle(1800, 1000, 120, 80));
+
+        [Fact]
+        public void FullyOutside_IsDegenerate() =>
+            VideoEncoder.ClampCrop(new Rectangle(5000, 5000, 100, 100), Frame)
+                .Width.Should().BeLessThan(2);
+
+        [Fact]
+        public void NegativeOrigin_ClampsToZero() =>
+            VideoEncoder.ClampCrop(new Rectangle(-50, -50, 200, 200), Frame)
+                .Should().Be(new Rectangle(0, 0, 150, 150));
+    }
+
+    /// <summary>
     /// WindowEnumerator.CoversArea — the pure math behind the fullscreen keep-on-top skip
     /// (the 0.9.4 alt-tab lockup fix). A fullscreen-sized window must be detected as covering
     /// its monitor; a normal window must not.

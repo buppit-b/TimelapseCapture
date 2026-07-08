@@ -81,6 +81,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             TrimCommand = new RelayCommand(async _ => await Trim(), _ => CanEncode);
             CullCommand = new RelayCommand(_ => Cull(), _ => CanEncode);
+            CropCommand = new RelayCommand(async _ => await Crop(), _ => CanEncode);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
             CancelDownloadCommand = new RelayCommand(_ => _ffmpegCts?.Cancel(), _ => IsFfmpegBusy);
@@ -696,6 +697,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand EncodeCommand { get; }
         public ICommand TrimCommand { get; }
         public ICommand CullCommand { get; }
+        public ICommand CropCommand { get; }
         public ICommand DownloadFfmpegCommand { get; }
         public ICommand BrowseFfmpegCommand { get; }
         public ICommand CancelDownloadCommand { get; }
@@ -769,6 +771,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             RegionText = "Not selected";
             FrameCount = (int)(_session?.FramesCaptured ?? 0);
             UpdateOverlay();
+            RefreshCropInfo();
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             OnPropertyChanged(nameof(SessionNeeded));
@@ -861,6 +864,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
             FrameCount = (int)session.FramesCaptured;
             UpdateOverlay();   // refresh the on-screen outline to the loaded region (or close it if none)
+            RefreshCropInfo(); // the loaded session may carry a saved encode-crop
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             OnPropertyChanged(nameof(SessionNeeded));   // stop the New-Session pulse once a session is loaded
@@ -2141,6 +2145,62 @@ namespace TimelapseCapture.Wpf.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+        // Crop the video to a frame area — non-destructive (stored per session, applied by ffmpeg at
+        // encode) with a consented power-user option to crop the frames on disk instead.
+        private async Task Crop()
+        {
+            if (_session == null || _sessionFolder == null || _frameCount < 1) return;
+            var saved = SessionManager.LoadSession(_sessionFolder);
+            var dlg = new CropDialog(_sessionFolder, saved?.EncodeCrop)
+            { Owner = Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true) return;
+
+            if (dlg.DestructiveRequested && dlg.CropRect is { } rect)
+            {
+                // Re-writes every frame — run off the UI thread behind the busy flag so encode/trim/cull
+                // and session switching are gated meanwhile.
+                IsEncoding = true;
+                EncodeStatus = "Cropping frames…";
+                try
+                {
+                    int done = await Task.Run(() => SessionManager.CropFrames(_sessionFolder, rect, _settings.JpegQuality));
+                    EncodeStatus = $"Cropped {done} frame(s) ✓";
+                    Logger.Log("Wpf", $"Destructive crop applied: {rect} → {done} frame(s).");
+                }
+                catch (Exception ex)
+                {
+                    EncodeStatus = "Crop failed";
+                    MessageDialog.Show($"Couldn't crop the frames:\n{ex.Message}", "Crop", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { IsEncoding = false; }
+                SetSessionCrop(null);   // the crop is baked into the frames now — encodes use the full (new) frame
+                UpdatePreview();
+            }
+            else
+            {
+                SetSessionCrop(dlg.CropRect);   // Apply (a rect) or Clear (null)
+            }
+            RefreshCropInfo();
+        }
+
+        private void SetSessionCrop(System.Drawing.Rectangle? crop)
+        {
+            if (_sessionFolder == null) return;
+            var s = SessionManager.LoadSession(_sessionFolder);
+            if (s == null) return;
+            s.EncodeCrop = crop;
+            SessionManager.SaveSession(_sessionFolder, s);   // reload-set-save, frame-count safe
+        }
+
+        // "Crop: 800×600 at (100,50)" under the encode actions; empty when no crop is set.
+        private string _cropInfoText = "";
+        public string CropInfoText { get => _cropInfoText; private set => SetProperty(ref _cropInfoText, value); }
+        public void RefreshCropInfo()
+        {
+            var c = _sessionFolder == null ? null : SessionManager.LoadSession(_sessionFolder)?.EncodeCrop;
+            CropInfoText = c is { } r ? $"Crop: {r.Width}×{r.Height} at ({r.X},{r.Y})" : "";
+        }
+
         private async Task Encode(int startFrame = 1, int endFrame = 0)
         {
             if (_session == null || _sessionFolder == null) return;
@@ -2205,6 +2265,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int nth = EncodeEveryNth;
                 int inputFrames = maxFrames > 0 ? maxFrames : Math.Max(1, _frameCount - startFrame + 1);
                 int totalFrames = Math.Max(1, (inputFrames + nth - 1) / nth);   // output frames after skip
+                var crop = SessionManager.LoadSession(_sessionFolder)?.EncodeCrop;   // per-session crop (read fresh)
                 result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
                     _encodeCts.Token, startFrame, maxFrames, ResolveOutputName(),
                     onFrameProgress: n => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
@@ -2214,7 +2275,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         EncodeProgress = pct;
                         if (IsEncoding && !(_encodeCts?.IsCancellationRequested ?? true))
                             EncodeStatus = $"Encoding… {pct:0}%";
-                    })), everyNth: nth, holdLastSeconds: EncodeHoldLastSeconds);
+                    })), everyNth: nth, holdLastSeconds: EncodeHoldLastSeconds, crop: crop);
             }
             catch (Exception ex)
             {

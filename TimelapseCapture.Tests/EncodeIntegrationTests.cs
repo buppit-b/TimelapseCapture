@@ -54,17 +54,27 @@ namespace TimelapseCapture.Tests
             }
         }
 
-        private static int CountFrames(string mp4)
+        private static string Probe(string mp4, string entries)
         {
             string ffprobe = Path.Combine(Path.GetDirectoryName(Ffmpeg!)!, "ffprobe.exe");
-            if (!File.Exists(ffprobe)) return -1;
+            if (!File.Exists(ffprobe)) return "";
             var psi = new ProcessStartInfo(ffprobe,
-                $"-v error -count_frames -select_streams v -show_entries stream=nb_read_frames -of csv=p=0 \"{mp4}\"")
+                $"-v error -count_frames -select_streams v -show_entries {entries} -of csv=p=0 \"{mp4}\"")
             { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
             using var p = Process.Start(psi)!;
             string outp = p.StandardOutput.ReadToEnd().Trim();
             p.WaitForExit(15000);
-            return int.TryParse(outp, out int c) ? c : -1;
+            return outp;
+        }
+
+        private static int CountFrames(string mp4)
+            => int.TryParse(Probe(mp4, "stream=nb_read_frames"), out int c) ? c : -1;
+
+        private static (int w, int h) VideoSize(string mp4)
+        {
+            var parts = Probe(mp4, "stream=width,height").Split(',');
+            return parts.Length >= 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h)
+                ? (w, h) : (-1, -1);
         }
 
         [Fact]
@@ -124,6 +134,58 @@ namespace TimelapseCapture.Tests
                 var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, startFrame: 6, maxFrames: 15);
                 r.Success.Should().BeTrue(r.Error);
                 CountFrames(r.OutputPath!).Should().Be(15);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task CropAtEncode_ProducesCroppedDimensions()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 10, "jpg");   // frames are 64×48
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23,
+                    crop: new Rectangle(10, 8, 32, 24));
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(10);
+                VideoSize(r.OutputPath!).Should().Be((32, 24));
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task CropAtEncode_OversizedCropIsClampedNotFatal()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_enc_");
+            try
+            {
+                WriteFrames(session, 5, "jpg");   // 64×48
+                // A stale/foreign crop bigger than the frame must clamp, not fail the encode.
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23,
+                    crop: new Rectangle(40, 30, 500, 500));
+                r.Success.Should().BeTrue(r.Error);
+                VideoSize(r.OutputPath!).Should().Be((24, 18));   // 64-40=24, 48-30=18 (both already even)
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public void DestructiveCropFrames_RewritesEveryFrameSmaller()
+        {
+            string session = MakeSession(out string root, "tlc_crop_");
+            try
+            {
+                WriteFrames(session, 8, "jpg");   // 64×48
+                int done = SessionManager.CropFrames(session, new Rectangle(10, 8, 32, 24), 90);
+                done.Should().Be(8);
+                foreach (var f in SessionManager.GetFrameFiles(session))
+                {
+                    using var img = Image.FromFile(f);
+                    img.Size.Should().Be(new Size(32, 24));
+                }
             }
             finally { try { Directory.Delete(root, true); } catch { } }
         }
