@@ -20,7 +20,8 @@ namespace TimelapseCapture.Wpf
     {
         private enum Mode { None, New, Move, NW, N, NE, E, SE, S, SW, W }
 
-        private readonly int _frameW, _frameH;
+        private readonly string[] _files;
+        private int _frameW, _frameH;
 
         /// <summary>The chosen crop in frame pixels, or null for "no crop". Valid when DialogResult is true.</summary>
         public System.Drawing.Rectangle? CropRect { get; private set; }
@@ -48,12 +49,26 @@ namespace TimelapseCapture.Wpf
             _rubber.Visibility = Visibility.Collapsed;
             _rubber.IsHitTestVisible = false;   // all hit-testing happens on the canvas
 
-            // Load the latest frame at FULL resolution (mapping needs true pixel dims), without locking it.
-            var file = SessionManager.GetFrameFiles(sessionFolder).LastOrDefault();
-            if (file != null)
+            _files = SessionManager.GetFrameFiles(sessionFolder);
+            overlayHint.Visibility = overlayEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+            _rect = existingCrop;
+            scrub.Maximum = Math.Max(1, _files.Length);
+            scrub.ValueChanged += (s, e) => LoadFrame((int)e.NewValue);
+            Loaded += (s, e) => { scrub.Value = Math.Max(1, _files.Length); LoadFrame((int)scrub.Value); };
+            rectCanvas.SizeChanged += (s, e) => SyncUi();
+        }
+
+        // Show frame n at FULL resolution (the crop mapping needs true pixel dims), without locking the
+        // file. Frames are uniform by invariant, so the crop rect stays valid across the scrub.
+        private void LoadFrame(int n)
+        {
+            if (_files.Length == 0) return;
+            n = Math.Clamp(n, 1, _files.Length);
+            try
             {
                 var bi = new BitmapImage();
-                using var ms = new MemoryStream(File.ReadAllBytes(file));
+                using var ms = new MemoryStream(File.ReadAllBytes(_files[n - 1]));
                 bi.BeginInit();
                 bi.CacheOption = BitmapCacheOption.OnLoad;
                 bi.StreamSource = ms;
@@ -63,29 +78,45 @@ namespace TimelapseCapture.Wpf
                 _frameW = bi.PixelWidth;
                 _frameH = bi.PixelHeight;
             }
-
-            overlayHint.Visibility = overlayEnabled ? Visibility.Visible : Visibility.Collapsed;
-
-            _rect = existingCrop;
-            Loaded += (s, e) => SyncUi();
-            rectCanvas.SizeChanged += (s, e) => SyncUi();
+            catch { /* unreadable frame — keep the previous preview */ }
+            posText.Text = $"Frame {n} of {_files.Length}";
+            SyncUi();
         }
 
-        // ---- ratio lock (Seg row) ----
+        // ±1 / ±10 frame steppers (hold to repeat) — the step size rides in the button's Tag.
+        private void OnStep(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el && el.Tag is string t && int.TryParse(t, out int delta))
+                scrub.Value = Math.Clamp((int)scrub.Value + delta, 1, Math.Max(1, _files.Length));
+        }
+
+        // ---- ratio lock (Seg row + orientation flip) ----
+        private int _baseRatioW, _baseRatioH;   // the chosen preset; _ratioW/H are the EFFECTIVE (flipped) values
+
         private void OnRatio(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement el && el.Tag is string t)
             {
                 var parts = t.Split(':');
-                _ratioW = parts.Length == 2 && int.TryParse(parts[0], out int w) ? w : 0;
-                _ratioH = parts.Length == 2 && int.TryParse(parts[1], out int h) ? h : 0;
-                // Re-shape the current crop to the new ratio immediately (keep width, anchor top-left).
-                if (_rect is { } r && _ratioW > 0 && _ratioH > 0)
-                {
-                    int nh = Math.Max(2, r.Width * _ratioH / _ratioW);
-                    _rect = Clamp(new System.Drawing.Rectangle(r.X, r.Y, r.Width, nh));
-                    SyncUi();
-                }
+                _baseRatioW = parts.Length == 2 && int.TryParse(parts[0], out int w) ? w : 0;
+                _baseRatioH = parts.Length == 2 && int.TryParse(parts[1], out int h) ? h : 0;
+                ApplyRatio();
+            }
+        }
+
+        private void OnFlip(object sender, RoutedEventArgs e) => ApplyRatio();
+
+        private void ApplyRatio()
+        {
+            bool flip = flipToggle.IsChecked == true;
+            _ratioW = flip ? _baseRatioH : _baseRatioW;
+            _ratioH = flip ? _baseRatioW : _baseRatioH;
+            // Re-shape the current crop to the new ratio immediately (keep width, anchor top-left).
+            if (_rect is { } r && _ratioW > 0 && _ratioH > 0)
+            {
+                int nh = Math.Max(2, r.Width * _ratioH / _ratioW);
+                _rect = Clamp(new System.Drawing.Rectangle(r.X, r.Y, r.Width, nh));
+                SyncUi();
             }
         }
 
@@ -295,7 +326,7 @@ namespace TimelapseCapture.Wpf
             if (_rect is not { } r) return;
             var res = MessageDialog.Show(
                 $"Permanently crop EVERY frame on disk to {r.Width}×{r.Height} at ({r.X},{r.Y})?\n\n" +
-                "This re-writes the frames and can't be undone. Capturing more frames into this session afterwards would mix sizes and block encoding — best used when the session is finished.",
+                "This re-writes the frames and can't be undone. If you capture more frames into this session afterwards, they'll be scaled (letterboxed) down to the cropped size to stay consistent.",
                 "Crop frames on disk", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (res != MessageBoxResult.Yes) return;
             CropRect = r;

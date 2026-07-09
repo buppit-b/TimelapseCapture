@@ -272,6 +272,19 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (!string.Equals(_settings.EncodePreset, value, StringComparison.OrdinalIgnoreCase)) { _settings.EncodePreset = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Deliberately TRANSIENT —
+        // not persisted — so it's always off by default per Spike's call.
+        private bool _ratioFlipped;
+        public bool RatioFlipped { get => _ratioFlipped; set => SetProperty(ref _ratioFlipped, value); }
+
+        // The effective ratio for region select/edit: the chosen preset, flipped when armed.
+        private (int w, int h) EffectiveRatio()
+        {
+            var all = AspectRatio.CommonRatios;
+            var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
+            return _ratioFlipped ? (ar.Height, ar.Width) : (ar.Width, ar.Height);
+        }
+
         public int AspectRatioIndex
         {
             get => _settings.AspectRatioIndex;
@@ -859,7 +872,9 @@ namespace TimelapseCapture.Wpf.ViewModels
             else
             {
                 RegionText = regionCantFit
-                    ? "Saved region doesn't fit this display — select again"
+                    ? (session.FramesCaptured > 0
+                        ? "Saved region doesn't fit this display — select any area; it'll be scaled to match this session's frames"
+                        : "Saved region doesn't fit this display — select again")
                     : "Not selected";
             }
             FrameCount = (int)session.FramesCaptured;
@@ -1562,9 +1577,15 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (_session != null && _frameCount > 0)
             {
+                var canonical = _sessionFolder != null ? SessionManager.GetFrameSize(_sessionFolder) : System.Drawing.Size.Empty;
+                // Only promise scaling when we could actually read the canonical size — if the first
+                // frame is unreadable, StartEngine can't arm scaling and sizes could genuinely mix.
+                string sizeNote = canonical.Width >= 2
+                    ? $"This session's frames are {canonical.Width}×{canonical.Height}. A different-sized selection or tracked window will be SCALED to match (letterboxed if the shape differs) so the video stays consistent — scaling costs a little sharpness."
+                    : "The existing frames' size couldn't be read, so a different-sized selection may MIX frame sizes and break the final encode.";
                 var r = MessageDialog.Show(
-                    $"This session already has {_frameCount} frame(s) at the current size.\n\nChanging the region will mix frame sizes and can break the final encode. Change it anyway?",
-                    "Change region?", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    $"This session already has {_frameCount} frame(s).\n\n{sizeNote}\n\nChange the region?",
+                    "Change region?", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 return r == MessageBoxResult.Yes;
             }
             return true;
@@ -1689,14 +1710,17 @@ namespace TimelapseCapture.Wpf.ViewModels
 
             var r = new Rectangle(b.X, b.Y, w, h);
             ApplyRegion(r, $"{w}×{h} · tracking “{dlg.SelectedTitle}” (follows)", dlg.SelectedHwnd);
+            // The ratio lock doesn't drive a tracked window (its size comes from the window) — reset the
+            // segs to Free so the UI doesn't imply a constraint that isn't being applied.
+            AspectRatioIndex = 0;
+            RatioFlipped = false;
         }
 
         private void SelectRegion()
         {
             if (!ConfirmRegionChange()) return;
-            var all = AspectRatio.CommonRatios;
-            var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var overlay = new RegionSelectOverlay(ar.Width, ar.Height);
+            var (rw, rh) = EffectiveRatio();
+            var overlay = new RegionSelectOverlay(rw, rh);
             if (ShowRegionOverlay(overlay) == true && overlay.SelectedRegion.HasValue)
                 ApplyRegion(overlay.SelectedRegion.Value);
         }
@@ -1705,9 +1729,8 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             if (!_region.HasValue) return;
             if (!ConfirmRegionChange()) return;
-            var all = AspectRatio.CommonRatios;
-            var ar = all[AspectRatioIndex >= 0 && AspectRatioIndex < all.Length ? AspectRatioIndex : 0];
-            var dlg = new RegionEditOverlay(_region.Value, ar.Width, ar.Height);
+            var (rw, rh) = EffectiveRatio();
+            var dlg = new RegionEditOverlay(_region.Value, rw, rh);
             if (ShowRegionOverlay(dlg) == true && dlg.SelectedRegion.HasValue)
                 ApplyRegion(dlg.SelectedRegion.Value);
         }
@@ -1742,11 +1765,29 @@ namespace TimelapseCapture.Wpf.ViewModels
             _trackedWindow = trackedWindow;   // every region source funnels here, so static sources reset to 0
             _region = r;
             RegionText = label ?? $"{r.Width}×{r.Height} at ({r.X},{r.Y})";
+            RefreshRegionScaleSuffix();   // every source (incl. full screen / tracking) shows the scale note
             PersistRegion(r);
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(RegionNeeded));
             CommandManager.InvalidateRequerySuggested();
             UpdateOverlay();
+        }
+
+        // Re-evaluate the "→ scaled to W×H" tail of RegionText against the CURRENT canonical frame
+        // size (it changes after e.g. a destructive crop): strip any prior suffix, re-append on mismatch.
+        private void RefreshRegionScaleSuffix()
+        {
+            if (!_region.HasValue) return;
+            int i = RegionText.IndexOf(" → scaled to", StringComparison.Ordinal);
+            string baseText = i >= 0 ? RegionText[..i] : RegionText;
+            string suffix = "";
+            if (_frameCount > 0 && _sessionFolder != null)
+            {
+                var canonical = SessionManager.GetFrameSize(_sessionFolder);
+                if (canonical.Width >= 2 && canonical != _region.Value.Size)
+                    suffix = $" → scaled to {canonical.Width}×{canonical.Height}";
+            }
+            RegionText = baseText + suffix;
         }
 
         // The region is part of a session's identity (all its frames are that size and place), so save
@@ -1915,11 +1956,23 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_sessionFolder != null)
                 _session = SessionManager.LoadSession(_sessionFolder) ?? _session;
 
+            // Frames already on disk define the session's canonical size. If the current region — or a
+            // tracked window's locked size — differs (the original monitor is gone, or a differently-
+            // sized window is tracked), output is locked to the canonical size so every frame stays
+            // uniform and the encode stays valid.
+            System.Drawing.Size scaleTo = default;
+            if (_frameCount > 0 && _sessionFolder != null && _region.HasValue)
+            {
+                var canonical = SessionManager.GetFrameSize(_sessionFolder);
+                if (canonical.Width >= 2 && canonical.Height >= 2 && canonical != _region.Value.Size)
+                    scaleTo = canonical;
+            }
+
             _engine.Start(_sessionFolder!, _session!, _region!.Value, (double)IntervalSeconds, _settings.Format ?? "JPEG",
                 _settings.SmartIntervalEnabled, (double)_settings.IdleIntervalSeconds,
                 _settings.IdleThresholdSeconds, _settings.SkipIdleFrames, _settings.JpegQuality,
                 _settings.CaptureCursor, BuildOverlay(), _trackedWindow, _settings.PauseOnTrackedMinimize,
-                _settings.TrackResizeMode);
+                _settings.TrackResizeMode, scaleOutputTo: scaleTo);
             _captureStart = DateTime.Now;
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }
@@ -2175,6 +2228,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 finally { IsEncoding = false; }
                 SetSessionCrop(null);   // the crop is baked into the frames now — encodes use the full (new) frame
                 UpdatePreview();
+                RefreshRegionScaleSuffix();   // canonical size changed — the region's scale note must follow
             }
             else
             {

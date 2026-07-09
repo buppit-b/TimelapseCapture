@@ -37,7 +37,8 @@ namespace TimelapseCapture
 
         private readonly object _lock = new object();
         private Timer? _timer;
-        private bool _paused;   // true = keep the timer + hooks alive but skip capturing (a real pause)
+        private bool _paused;        // true = keep the timer + hooks alive but skip capturing (a real pause)
+        private bool _scaleStatic;   // static region resampled to _lockedSize (session canonical frame size)
         private Rectangle _region;
         private string _sessionFolder = "";
         private string _framesFolder = "";
@@ -98,7 +99,8 @@ namespace TimelapseCapture
                           bool smartEnabled = false, double idleIntervalSeconds = 30.0,
                           int idleThresholdSeconds = 30, bool skipIdleFrames = false, int jpegQuality = 90,
                           bool captureCursor = false, OverlayConfig? overlay = null, IntPtr trackedWindow = default,
-                          bool pauseOnTrackedMinimize = false, int resizeMode = ResizeLock)
+                          bool pauseOnTrackedMinimize = false, int resizeMode = ResizeLock,
+                          Size scaleOutputTo = default)
         {
             lock (_lock)
             {
@@ -110,10 +112,26 @@ namespace TimelapseCapture
                 _region = region;
                 _trackedWindow = trackedWindow;                         // zero = static region (default)
                 _lockedSize = new Size(region.Width, region.Height);    // frozen, even (the VM trimmed it)
+                // Canonical-size lock: when a session already has frames, the VM passes their size here
+                // and every new frame is produced at exactly that size — so the sequence stays uniform
+                // and the encode stays valid even when the original monitor is gone or a differently-
+                // sized window is tracked. Static regions resample (letterbox); tracked windows keep
+                // their resize mode against the canonical size (Lock = canonical-sized box at the
+                // window, Fit/Stretch = scale the window into it).
+                _scaleStatic = false;
+                scaleOutputTo = new Size(scaleOutputTo.Width - scaleOutputTo.Width % 2,
+                                         scaleOutputTo.Height - scaleOutputTo.Height % 2);   // _lockedSize must stay EVEN (yuv420p)
+                if (scaleOutputTo.Width >= 2 && scaleOutputTo.Height >= 2 && scaleOutputTo != _lockedSize)
+                {
+                    _lockedSize = scaleOutputTo;
+                    _scaleStatic = trackedWindow == IntPtr.Zero;
+                    Logger.Log("CaptureEngine", $"Output locked to session canonical {scaleOutputTo.Width}x{scaleOutputTo.Height} " +
+                        $"(capture {region.Width}x{region.Height}{(trackedWindow == IntPtr.Zero ? "" : ", tracked")}).");
+                }
                 _trackingInitialized = false;                           // first tracked tick always captures
                 _consecutiveTrackSkips = 0;
                 _pauseOnTrackedMinimize = pauseOnTrackedMinimize;
-                _resizeMode = resizeMode;
+                _resizeMode = _scaleStatic ? ResizeFit : resizeMode;    // static scaling letterboxes (Fit)
                 _framesFolder = SessionManager.GetFramesFolder(sessionFolder);
                 Directory.CreateDirectory(_framesFolder);
 
@@ -393,7 +411,11 @@ namespace TimelapseCapture
         // scales with the content). Output is always uniform (_region size, or _lockedSize for scale modes).
         private Bitmap CaptureFrameBitmap()
         {
-            if (_trackedWindow == IntPtr.Zero || _resizeMode == ResizeLock)
+            // Direct (no resample): a static region at its native size, or a tracked window in Lock mode.
+            // Scaled: tracked Fit/Stretch modes, or a static region being scaled to the session's
+            // canonical frame size (the display that hosted the original region is gone).
+            bool direct = _trackedWindow == IntPtr.Zero ? !_scaleStatic : _resizeMode == ResizeLock;
+            if (direct)
             {
                 var bmp = CaptureRegion(_region);
                 if (_captureCursor) DrawCursor(bmp, _region);

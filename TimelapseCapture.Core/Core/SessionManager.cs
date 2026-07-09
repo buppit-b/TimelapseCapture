@@ -594,6 +594,24 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// The session's canonical frame size — the dimensions of the first frame on disk (what the
+        /// image2 encode requires every frame to match). Empty when there are no frames / unreadable.
+        /// </summary>
+        public static Size GetFrameSize(string sessionFolder)
+        {
+            try
+            {
+                // The NEWEST frame: for a healthy session every frame matches; for a legacy mixed-size
+                // one, matching the newest block preserves the tail a user would trim/continue from.
+                var last = GetFrameFiles(sessionFolder).LastOrDefault();
+                if (last == null) return Size.Empty;
+                using var img = Image.FromFile(last);
+                return img.Size;
+            }
+            catch { return Size.Empty; }
+        }
+
+        /// <summary>
         /// DESTRUCTIVELY crop every frame on disk to <paramref name="crop"/> (frame-pixel rect) — a
         /// power-user space saver; the caller must obtain explicit consent first. Each frame is
         /// re-encoded cropped and written via temp+replace, so a crash mid-run leaves the frame being

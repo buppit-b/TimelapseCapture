@@ -178,12 +178,19 @@
                                        VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
                         </Grid>
                         <StackPanel Margin="0,14,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Region" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
+                            <!-- Grid (not a horizontal StackPanel): a StackPanel measures the text with
+                                 infinite width, so long region descriptions pushed the whole layout wide.
+                                 The star column constrains it and the text WRAPS instead. -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Region" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
                                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                           Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
+                                           Margin="12,0,0,0" TextWrapping="Wrap"/>
+                            </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="Select Region" Style="{StaticResource BtnRegion}"
                                         Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
@@ -213,6 +220,9 @@
                                          IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=3}"/>
                             <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="9:16"
                                          IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=5}"/>
+                            <ToggleButton Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
+                                          IsChecked="{Binding RatioFlipped}" VerticalAlignment="Center"
+                                          ToolTip="Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Off by default; not remembered between runs."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

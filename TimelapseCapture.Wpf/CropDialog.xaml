@@ -19,6 +19,29 @@
             </Grid>
         </Border>
 
+        <!-- Scrub to any frame — later frames may show the content that informs the crop. -->
+        <Slider x:Name="scrub" Minimum="1" Margin="0,10,0,0"
+                IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="10"/>
+        <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <RepeatButton Grid.Column="0" Content="&#9664;&#9664; 10" Tag="-10" Style="{StaticResource BtnStep}" Click="OnStep"
+                          ToolTip="Back 10 frames (hold to repeat)."/>
+            <RepeatButton Grid.Column="1" Content="&#9664; 1" Tag="-1" Style="{StaticResource BtnStep}" Click="OnStep" Margin="6,0,0,0"
+                          ToolTip="Back one frame (hold to repeat)."/>
+            <TextBlock Grid.Column="2" x:Name="posText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0"/>
+            <RepeatButton Grid.Column="3" Content="1 &#9654;" Tag="1" Style="{StaticResource BtnStep}" Click="OnStep" Margin="0,0,6,0"
+                          ToolTip="Forward one frame (hold to repeat)."/>
+            <RepeatButton Grid.Column="4" Content="10 &#9654;&#9654;" Tag="10" Style="{StaticResource BtnStep}" Click="OnStep"
+                          ToolTip="Forward 10 frames (hold to repeat)."/>
+        </Grid>
+
         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
             <TextBlock Text="Ratio" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="Free" IsChecked="True" Tag="0:0" Click="OnRatio"/>
@@ -26,6 +49,9 @@
             <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="4:3" Tag="4:3" Click="OnRatio"/>
             <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="1:1" Tag="1:1" Click="OnRatio"/>
             <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="9:16" Tag="9:16" Click="OnRatio"/>
+            <ToggleButton x:Name="flipToggle" Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
+                          Click="OnFlip" VerticalAlignment="Center"
+                          ToolTip="Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Off by default."/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
@@ -53,7 +79,7 @@
                 <Button Content="Clear crop" Style="{StaticResource BtnBase}" Click="OnClear" Margin="0,0,8,0"
                         ToolTip="Remove the crop — encodes use the full frame again."/>
                 <Button x:Name="destructiveBtn" Content="Crop frames on disk&#8230;" Style="{StaticResource BtnBase}" Click="OnDestructive"
-                        ToolTip="Power user: permanently re-write every frame cropped to this area, reclaiming disk space. Can't be undone, and capturing MORE frames into this session afterwards would mix sizes and block encoding."/>
+                        ToolTip="Power user: permanently re-write every frame cropped to this area, reclaiming disk space. Can't be undone. Frames captured afterwards are scaled to the cropped size to stay consistent."/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" Style="{StaticResource BtnBase}" Margin="0,0,8,0" MinWidth="84" IsCancel="True"/>

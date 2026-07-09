@@ -37,6 +37,11 @@ candidates** section below for what happens next.
    Show outline; options for on-minimize (stop/wait), keep-on-top, and on-resize
    (Lock / Fit letterbox-scale / Stretch). Core: `WindowEnumerator`; engine `ResolveTrackedRegion`-
    style logic + `CaptureFrameBitmap`/`ScaleToLocked`.
+   - *Known OS limit (sighted by Spike 2026-07-09, aggressive stretch-resize testing while the app
+     overlapped the capture):* `SetWindowDisplayAffinity` (hide-from-capture) can render the excluded
+     window as a BLACK BOX in BitBlt frames instead of revealing what's behind — a Windows
+     compositor behavior, not fixable with GDI capture; WGC (below) is the real fix. Workaround:
+     keep the app off the captured area (it minimizes to tray anyway).
    - *Deferred (slice 2+):* **Windows.Graphics.Capture (WGC)** for occluded/off-screen windows
      (hardware-accelerated, the modern approach; `PrintWindow` is a middle option); persisting
      tracking across restarts (HWNDs aren't stable — re-match by title/process); client-area-only

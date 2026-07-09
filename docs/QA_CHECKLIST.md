@@ -30,6 +30,10 @@ reasoned to be risky.
 - [ ] Tracked app closes to TRAY (e.g. Discord/Telegram ✕) → treated as hidden: stop or hold ⚠
 - [ ] Move the tracked window to another VIRTUAL DESKTOP → treated as hidden, not wrong pixels ⚠
 - [ ] Picker lists neither cloaked windows (other desktops) nor this app's own windows ⚠
+- [ ] KNOWN (OS behavior): with "Hide this window from captures" on, the app can appear as a
+      BLACK BOX in frames if it overlaps the capture area — SetWindowDisplayAffinity renders the
+      excluded window as black to GDI screen reads on some paths, rather than showing what's
+      behind it. Workaround: keep the app outside the region / minimized to tray (fix = WGC)
 - [ ] Exclusive-fullscreen DirectX game: KNOWN LIMIT — BitBlt may record black; use borderless
       (fix = WGC, tracking slice 2)
 
