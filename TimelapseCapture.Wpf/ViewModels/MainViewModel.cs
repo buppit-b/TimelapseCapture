@@ -233,43 +233,67 @@ namespace TimelapseCapture.Wpf.ViewModels
         public bool SmartEnabled
         {
             get => _settings.SmartIntervalEnabled;
-            set { if (_settings.SmartIntervalEnabled != value) { _settings.SmartIntervalEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { if (_settings.SmartIntervalEnabled != value) { _settings.SmartIntervalEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(SmartSummaryText)); } }
         }
+
+        // ---- Progressive disclosure: the tuning sections fold away; a summary keeps values glanceable ----
+        public bool SmartPanelExpanded
+        {
+            get => _settings.SmartPanelExpanded;
+            set { if (_settings.SmartPanelExpanded != value) { _settings.SmartPanelExpanded = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public bool EncodePanelExpanded
+        {
+            get => _settings.EncodePanelExpanded;
+            set { if (_settings.EncodePanelExpanded != value) { _settings.EncodePanelExpanded = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        public string SmartSummaryText =>
+            !SmartEnabled ? "off — captures at the main interval throughout"
+            : SkipIdleFrames ? $"on — skips frames after {IdleThresholdSeconds}s idle"
+            : $"on — slows to every {IdleIntervalSeconds}s after {IdleThresholdSeconds}s idle";
+
+        public string EncodeSummaryText =>
+            $"{Math.Max(1, EncodeFps)} fps · CRF {EncodeCrf} · " +
+            (EncodePreset == "ultrafast" ? "Fast" : EncodePreset == "veryslow" ? "Slow" : "Medium") +
+            (SpeedUpEnabled && EncodeEveryNth > 1 ? $" · 1 in {EncodeEveryNth}" : "") +
+            (EncodeHoldLastSeconds > 0 ? $" · hold {EncodeHoldLastSeconds}s" : "");
 
         public decimal IdleIntervalSeconds
         {
             get => _settings.IdleIntervalSeconds;
-            set { var v = value < 0.1m ? 0.1m : value; if (_settings.IdleIntervalSeconds != v) { _settings.IdleIntervalSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = value < 0.1m ? 0.1m : value; if (_settings.IdleIntervalSeconds != v) { _settings.IdleIntervalSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(SmartSummaryText)); } }
         }
 
         public int IdleThresholdSeconds
         {
             get => _settings.IdleThresholdSeconds;
-            set { var v = value < 1 ? 1 : value; if (_settings.IdleThresholdSeconds != v) { _settings.IdleThresholdSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = value < 1 ? 1 : value; if (_settings.IdleThresholdSeconds != v) { _settings.IdleThresholdSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(SmartSummaryText)); } }
         }
 
         public bool SkipIdleFrames
         {
             get => _settings.SkipIdleFrames;
-            set { if (_settings.SkipIdleFrames != value) { _settings.SkipIdleFrames = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { if (_settings.SkipIdleFrames != value) { _settings.SkipIdleFrames = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(SmartSummaryText)); } }
         }
 
         // Settings-backed so they persist across restart and travel in presets (they carry no identity).
         public int EncodeFps
         {
             get => _settings.EncodeFps;
-            set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed)); } }
+            set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed)); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
         public int EncodeCrf
         {
             get => _settings.EncodeCrf;
-            set { var v = Math.Clamp(value, 0, 51); if (_settings.EncodeCrf != v) { _settings.EncodeCrf = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Clamp(value, 0, 51); if (_settings.EncodeCrf != v) { _settings.EncodeCrf = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
         // Hold the final frame for N seconds at the end (0 = off) — the finished artwork lingers.
         public double EncodeHoldLastSeconds
         {
             get => _settings.EncodeHoldLastSeconds;
-            set { var v = Math.Clamp(value, 0, 60); if (_settings.EncodeHoldLastSeconds != v) { _settings.EncodeHoldLastSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Clamp(value, 0, 60); if (_settings.EncodeHoldLastSeconds != v) { _settings.EncodeHoldLastSeconds = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
 
         public int JpegQuality
@@ -281,7 +305,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public string EncodePreset
         {
             get => string.IsNullOrWhiteSpace(_settings.EncodePreset) ? "medium" : _settings.EncodePreset;
-            set { if (!string.Equals(_settings.EncodePreset, value, StringComparison.OrdinalIgnoreCase)) { _settings.EncodePreset = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { if (!string.Equals(_settings.EncodePreset, value, StringComparison.OrdinalIgnoreCase)) { _settings.EncodePreset = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
 
         // Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Deliberately TRANSIENT —
@@ -1131,6 +1155,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(SpeedUpEnabled));
                     OnPropertyChanged(nameof(SpeedUpN));
+                    OnPropertyChanged(nameof(EncodeSummaryText));
                 }
             }
         }

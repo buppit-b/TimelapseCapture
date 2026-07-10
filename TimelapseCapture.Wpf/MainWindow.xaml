@@ -341,8 +341,24 @@
                 <Border Style="{StaticResource Card}"
                         Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
-                        <TextBlock Text="SMART INTERVAL (BETA)" Style="{StaticResource CardTitle}"/>
-                        <StackPanel IsEnabled="{Binding NotCapturing}">
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="SMART INTERVAL (BETA)"
+                                      IsChecked="{Binding SmartPanelExpanded}"
+                                      ToolTip="Adapt the capture rate to your activity — slow down or skip while you're away. Click to tune."/>
+                        <!-- Collapsed: the configuration in one glanceable line. -->
+                        <TextBlock Text="{Binding SmartSummaryText}" FontFamily="Consolas"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SmartPanelExpanded}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Visibility="{Binding SmartPanelExpanded, Converter={StaticResource BoolToVis}}">
+                        <StackPanel IsEnabled="{Binding NotCapturing}" Margin="0,8,0,0">
                         <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                   ToolTip="Capture at your main Interval while you're active; when there's no input, slow to the idle rate (or skip frames)."/>
@@ -369,8 +385,20 @@
                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
                                   ToolTip="When idle, skip capturing entirely instead of capturing at the slower main interval — saves space during long idle stretches."/>
                         </StackPanel>
+                        </StackPanel>
+                        <!-- Live Active/Idle status stays visible even when the tuning is folded away. -->
                         <TextBlock Text="{Binding SmartStatus}" FontFamily="Consolas" FontSize="12"
-                                   Foreground="{DynamicResource AccentBrush}" Margin="0,12,0,0"/>
+                                   Foreground="{DynamicResource AccentBrush}" Margin="0,10,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SmartStatus}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -407,8 +435,25 @@
 
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"
                             Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
-                    <StackPanel Margin="0,12,0,0" IsEnabled="{Binding NotCapturing}"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                    <!-- Encode tuning folds away (persisted); the summary line keeps the values glanceable. -->
+                    <StackPanel Margin="0,10,0,0" Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="ENCODE SETTINGS"
+                                      IsChecked="{Binding EncodePanelExpanded}"
+                                      ToolTip="Frame rate, quality (CRF), encoder preset, speed-up and end-hold. Click to tune."/>
+                        <TextBlock Text="{Binding EncodeSummaryText}" FontFamily="Consolas"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding EncodePanelExpanded}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    <StackPanel Visibility="{Binding EncodePanelExpanded, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,10,0,0" IsEnabled="{Binding NotCapturing}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
@@ -427,8 +472,7 @@
                     <TextBlock Text="{Binding VideoLengthText}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}"/>
                     </StackPanel>
-                    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}">
                         <CheckBox Content="Speed-up (skip frames at encode)" IsChecked="{Binding SpeedUpEnabled}"
                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"
                                   ToolTip="Make the timelapse play faster by encoding only a subset of the frames. Non-destructive — applies to Encode and Trim; the frames on disk are untouched."/>
@@ -448,7 +492,6 @@
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
-                                Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
                         <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
@@ -457,6 +500,8 @@
                                      IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
                         <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
                                      IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
+                    </StackPanel>
+                    </StackPanel>
                     </StackPanel>
                     <!-- Stacked action rows: buttons keep their natural height regardless of how the status
                          text wraps (side-by-side, wrapping status stretched the row and the buttons with it). -->

@@ -33,7 +33,15 @@ namespace TimelapseCapture.Wpf
         {
             InitializeComponent();
             SyncFromHex(SelectedHex);
+            // Light dismiss fires on mouse DOWN; the chip's open handler runs on mouse UP. Without
+            // this, clicking the chip while the popup is open would close-then-instantly-reopen —
+            // and (the reported bug) opening on DOWN let the same click's UP dismiss it right away.
+            popup.Closed += (s, e) => { if (chip.IsMouseOver) _suppressReopen = true; };
         }
+
+        private bool _suppressReopen;
+
+        private void OnChipLeave(object sender, MouseEventArgs e) => _suppressReopen = false;
 
         private static void OnHexChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -55,7 +63,11 @@ namespace TimelapseCapture.Wpf
             catch { /* leave the last valid state */ }
         }
 
-        private void OnChipClick(object sender, MouseButtonEventArgs e) => popup.IsOpen = !popup.IsOpen;
+        private void OnChipClick(object sender, MouseButtonEventArgs e)
+        {
+            if (_suppressReopen) { _suppressReopen = false; return; }   // this click just light-dismissed it
+            popup.IsOpen = true;
+        }
 
         private void OnPopupOpened(object? sender, EventArgs e) => Dispatcher.BeginInvoke(UpdateVisuals);
 

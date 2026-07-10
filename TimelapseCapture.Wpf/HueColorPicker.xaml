@@ -5,7 +5,7 @@
         <!-- The chip shows the current colour and opens the picker. -->
         <Border x:Name="chip" Width="18" Height="18" CornerRadius="3" BorderThickness="1"
                 BorderBrush="{DynamicResource StrokeBrush}" Cursor="Hand" Background="White"
-                MouseLeftButtonDown="OnChipClick" ToolTip="Pick a colour (hue box)."/>
+                MouseLeftButtonUp="OnChipClick" MouseLeave="OnChipLeave" ToolTip="Pick a colour (hue box)."/>
         <Popup x:Name="popup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
                PopupAnimation="Fade" Opened="OnPopupOpened">
             <Border Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource StrokeBrush}"

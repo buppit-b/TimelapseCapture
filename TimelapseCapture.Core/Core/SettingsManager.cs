@@ -73,6 +73,10 @@ namespace TimelapseCapture
         // Keys of repeat-prone confirmations the user chose to skip ("don't ask again" — auto-YES).
         // Destructive consents never appear here. Reset from Settings.
         public System.Collections.Generic.List<string>? SuppressedPrompts { get; set; }
+        // Progressive disclosure on the main surface: the encode-tuning and smart-interval sections
+        // fold away (collapsed by default; a summary line keeps the values glanceable).
+        public bool EncodePanelExpanded { get; set; }
+        public bool SmartPanelExpanded { get; set; }
     }
 
 

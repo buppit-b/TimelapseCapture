@@ -213,10 +213,11 @@ the preview (zoom into the area under the overlay for fine placement), arrow-key
 ±0.1% with Shift), and/or a pop-out larger preview. Keep the main app compact; the precision
 surface lives in the dialog. ·
 **Layout reshape** *(Spike + external tester, 2026-07-04; **promoted 2026-07-10 to the next major
-arc** — "a priority needs to be improving the UI… more elegant and straightforward while still
-providing all the current power")*: rework the main two-column layout; the tester felt
-techy/setup bits eat workspace real estate — consider moving more into Settings/tabs and
-slimming the main surface. Pairs with the stats rework above. Bigger UI task, own branch. ·
+arc**)*: **slice 1 shipped 2026-07-11** — ffmpeg setup folds behind "Change…" once Ready; the
+encode-tuning cluster and Smart-interval settings collapse behind section headers with
+one-line summaries (persisted, collapsed by default); stats slimmed in Simple mode. *Still
+open:* the bigger two-column rethink (what lives in Settings vs the main surface, card order,
+visual rhythm) — gather Spike's reaction to the folded layout first. ·
 **Region-select global hotkey** *(Spike, 2026-07-04)*: trigger region select while the app is
 alt-tabbed/minimized (pairs with the new hide-window-on-select) — needs a second registered hotkey
 alongside start/stop; do it with the configurable-keybindings work. ·

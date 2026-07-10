@@ -9,6 +9,15 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **Main surface slimmed** (layout-reshape slice 1) — the encode tuning cluster (fps · CRF ·
+  preset · speed-up · end-hold) and the Smart-interval settings now **fold away** behind
+  section headers, each leaving a one-line summary ("30 fps · CRF 23 · Medium";
+  "on — skips frames after 60s idle") so nothing goes dark. Collapsed by default, state
+  persists, and the live Active/Idle status stays visible even when folded. The encoder card
+  at rest is now: FFmpeg line · Encode button · Trim/Cull/Crop.
+- **Hue-picker fix** — clicking the colour chip no longer opens-then-instantly-closes the
+  popup (a WPF light-dismiss race: opening on mouse-down let the same click's release dismiss
+  it); clicking the chip while open now cleanly closes it too.
 - **Stats panel rebuilt** (UI-arc opener) — the emoji text blob is now clean **icon · label ·
   value rows** (proper Segoe MDL2 glyphs): Video length leads as the anchor, Disk rate and Free
   space carry their warning states, and the detail rows (frame size, on-disk, at-target
