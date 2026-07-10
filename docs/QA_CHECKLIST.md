@@ -56,7 +56,7 @@ reasoned to be risky.
       clears both marker sets
 - [ ] Speed-up (keep 1 in N): video is N× faster; works combined with a Trim range ⚠
 - [ ] Mixed JPEG+PNG session → encode offers to convert; converted session encodes clean ⚠
-- [ ] Fresh install (no exe-side settings.json) writes to %APPDATA%\Framewright; dev/portable
+- [ ] Fresh install (no exe-side settings.json) writes to %APPDATA%\FrameWrite; dev/portable
       layout (settings.json beside exe) stays put ⚠
 - [ ] Deleted output folder shows the red warning line; Choose… opens at nearest surviving folder ⚠
 - [ ] Launching a second copy just focuses the first ⚠ (settings-clobber bug)

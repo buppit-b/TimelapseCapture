@@ -1,16 +1,16 @@
-# Framewright
+# FrameWrite
 
-**A timelapse studio for digital artists.** Framewright captures frames of your screen — a
+**A timelapse studio for digital artists.** FrameWrite captures frames of your screen — a
 region, a monitor, or a window it follows around — on a timer, then turns them into a timelapse
 video. Built for long, often-unattended capture sessions: it protects your frames, tells you
 when something goes wrong, and stays out of your way while you work.
 
 > *A wright is a craftsman — a playwright works in plays, a shipwright in ships.
-> Framewright works in frames.*
+> FrameWrite works in frames.*
 
 ## Highlights
 
-- **Window tracking** — pick a window and Framewright follows it as you move it; resize
+- **Window tracking** — pick a window and FrameWrite follows it as you move it; resize
   handling (lock / fit / stretch), minimize handling (stop or wait), optional keep-on-top.
 - **Set-and-forget safety** — pre-flight disk check, low-disk auto-stop, capture-failure
   auto-stop, optional max-duration and storage-budget caps, crash recovery, and a finish
@@ -42,22 +42,22 @@ dotnet publish TimelapseCapture.Wpf -c Release -r win-x64 --self-contained true 
 ```
 
 (The solution and projects still carry the working name `TimelapseCapture`; the mechanical
-rename to Framewright lands with 1.0.)
+rename to FrameWrite lands with 1.0.)
 
-**Where data lives:** settings, the log, and the downloaded FFmpeg go to `%APPDATA%\Framewright`.
+**Where data lives:** settings, the log, and the downloaded FFmpeg go to `%APPDATA%\FrameWrite`.
 Prefer a self-contained folder (USB stick)? Place a `settings.json` next to the exe and
-Framewright keeps everything there — portable mode. Captured sessions always live in the output
+FrameWrite keeps everything there — portable mode. Captured sessions always live in the output
 folder you choose.
 
 ## Video encoding
 
-Framewright encodes video by invoking **FFmpeg** as a separate program. It is not bundled: the
+FrameWrite encodes video by invoking **FFmpeg** as a separate program. It is not bundled: the
 app offers a one-click download of [BtbN's FFmpeg build](https://github.com/BtbN/FFmpeg-Builds)
 (GPL-licensed, its own terms), or you can point it at any `ffmpeg.exe` you already have.
 
 ## License & credits
 
-Framewright is [MIT-licensed](LICENSE).
+FrameWrite is [MIT-licensed](LICENSE).
 
 Created and directed by **Spike Tickner** · engineered with **Claude** (Anthropic) · video by
 **FFmpeg**.

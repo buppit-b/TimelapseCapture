@@ -158,7 +158,7 @@ namespace TimelapseCapture.Tests
         [Fact]
         public void FreshInstall_UsesAppData() =>
             AppPaths.ResolveDataDir(@"C:\Program Files\FW", @"C:\Users\u\AppData\Roaming", portableSettingsExist: false)
-                .Should().Be(@"C:\Users\u\AppData\Roaming\Framewright");
+                .Should().Be(@"C:\Users\u\AppData\Roaming\FrameWrite");
 
         [Fact]
         public void MissingAppData_FallsBackToExeDir() =>

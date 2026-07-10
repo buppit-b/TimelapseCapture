@@ -14,8 +14,15 @@ breaking changes are allowed but called out. The version lives in the two
 
 **Current: `0.9.4` — the 1.0 release candidate.** Everything on the 1.0 feature line has
 landed (window tracking, unattended safety, trim + cull, Simple mode + setup wizard, custom
-chrome, hardening/perf passes; 0-warning build, 33/33 tests). **1.0 = this RC + a clean
-soak test** (see "1.0 gate" below) + whatever that soak reveals.
+chrome, hardening/perf passes; 0-warning build, 68/68 tests).
+
+**Posture change (Spike, 2026-07-10): 1.0 has no deadline.** The app is mainly for personal
+use (public release still planned, later); development continues continuously rather than
+pausing for the QA/soak protocol. The soak + checklist run opportunistically, not as a gate.
+Keep the same engineering bar (rigorous testing/hardening of features, logic, and workflows —
+empirical smoke tests, real-ffmpeg encode tests, unit coverage), but favour development strides
+over process. **Next major arc: the UI elegance pass** (layout reshape + stats rework, below) —
+Spike's declared priority, matching the external tester's main feedback.
 
 ### What 1.0 means here
 A **versatile daily driver for timelapse capture**, aimed at artists capturing
@@ -48,6 +55,14 @@ candidates** section below for what happens next.
      capture (drop the title bar via `DwmGetWindowAttribute`); per-DPI rescale across monitors.
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
+   - *Lofty idea — **"smart tracking"** of on-screen elements (Spike, 2026-07-10; investigate
+     later, just noted for now):* follow a visual element that isn't a window — e.g. a canvas
+     inside an art app, a video panel — by re-locating it each tick. Candidate approaches, in
+     rising ambition: **UI Automation** (`IUIAutomation` bounding rects — real element geometry
+     for apps that expose it, cheap, no image processing); **template matching** on a downscaled
+     screen grab (find-the-crop by correlation — works anywhere but costs CPU and drifts when
+     content changes, needs a confidence threshold + "lost it" behaviour); full feature tracking
+     (OpenCV-class — heavy dependency, against the lean rule). UIA first if this ever runs.
    - **Hide-from-capture** toggle (0.9.2): excludes *this app's own* window from captures
      (`SetWindowDisplayAffinity`).
 2. **Hotkeys / pause** — ✅ **done (0.9.x)**: global start/stop hotkey (now opt-in +
@@ -70,6 +85,14 @@ candidates** section below for what happens next.
    {elapsed}/{frame} tokens, and an **encode-time overlay** option (apply at encode
    via ffmpeg drawtext/overlay — covers "forgot to enable it", though a true
    per-frame capture timestamp can only be baked live, not reconstructed at encode).
+   - **Retroactive overlay bake** *(Spike asked 2026-07-10; design decided, queued)*: burn the
+     overlay into frames already on disk. Timestamp tokens ARE genuinely recoverable — each
+     frame file's **LastWriteTime is the capture moment**, so {datetime}/{time}/{t:} resolve
+     per-frame from the file, not from "now". Implementation mirrors `CropFrames`:
+     `SessionManager.BakeOverlay` (GDI DrawImage per frame, temp+replace, progress+cancel),
+     behind an explicit consent dialog — it's destructive (pixels permanently altered), so
+     "type nothing, just confirm with a clear warning + suggest a copy first" like crop-on-disk.
+     Preserve each file's LastWriteTime across the rewrite so the trick still works afterwards.
 7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
    arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
    fps/CRF/preset. Good idea for this audience; keep the simple controls as the
@@ -101,20 +124,27 @@ session encodes clean end-to-end. Alongside it, run **`docs/QA_CHECKLIST.md`** �
 scenario matrix (fullscreen games, lock screen, multi-monitor/DPI, drag interactions) that
 automated tests can't reach; the 0.9.4 fullscreen-lockup bug is exactly the class it exists to
 catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
+*(2026-07-10: no longer a schedule gate — see the posture note at the top. The protocol stands;
+it runs when Spike has the hours, while development continues.)*
 
 ### Pre-distribution blockers (must happen before shipping 1.0 to anyone else)
 - **Settings/log/ffmpeg location** — ✅ done (2026-07-03): `AppPaths.DataDir` self-selects once at
   startup — portable (next to the exe) when a settings.json already sits there (dev builds, USB
-  layouts stay exactly as before), else `%APPDATA%\Framewright` (what an installer needs — the
+  layouts stay exactly as before), else `%APPDATA%\FrameWrite` (what an installer needs — the
   Program Files exe folder isn't writable). FindFfmpeg checks both locations; rule unit-tested.
-- **Packaging** — an installer or at least a versioned release zip on GitHub Releases.
-- **LICENSE** — ✅ done (2026-07-03): MIT, © Spike Tickner. README rewritten for Framewright
+- **Packaging** — ✅ done (2026-07-10): `scripts/publish-release.ps1` builds a self-contained
+  single-file `dist/FrameWrite-v{version}-win-x64.zip` (exe + README + LICENSE, ~65 MB; FFmpeg
+  deliberately not bundled — GPL + size, downloaded on demand). Verified end-to-end: publishes
+  clean, the exe launches and writes `%APPDATA%\FrameWrite` in installed mode. A proper
+  installer (Inno/MSIX) can come later if wanted; a GitHub Release just uploads this zip.
+- **LICENSE** — ✅ done (2026-07-03): MIT, © Spike Tickner. README rewritten for FrameWrite
   (features, build, publish); the FFmpeg-is-a-separate-GPL-program note lives in the README and
   the Settings credits tooltip.
-- **The Framewright rename, mechanically** — display branding is done (2026-07-03); at the 1.0
-  cut, rename the exe/projects/namespaces/repo (`TimelapseCapture*` → `Framewright*`), the
-  single-instance mutex name, and the docs. One dedicated commit; verify the FindWindow title
-  lookup and settings/log paths still line up.
+- **The FrameWrite rename, mechanically** — display branding done and the name **settled as
+  FrameWrite "for now"** (Spike, 2026-07-10; all UI strings, `%APPDATA%\FrameWrite`, the release
+  zip and staged exe use it). At the 1.0 cut, rename the projects/namespaces/repo
+  (`TimelapseCapture*` → `FrameWrite*`) and the single-instance mutex name. One dedicated
+  commit; verify the FindWindow title lookup and settings/log paths still line up.
 
 ### 1.1 candidates (top three, in recommended order)
 1. **Tray icon with recording state** — ✅ **pulled into 1.0 (2026-07-04)**: NotifyIcon (in-SDK
@@ -155,7 +185,7 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
   cheap downscaled-frame diff. (Smart-interval already SKIPS most idle frames live, so this is the
   cleanup for what slipped through.)
 
-### Stats panel rework (Spike, 2026-07-05 — "needs attention")
+### Stats panel rework (Spike, 2026-07-05 — elevated 2026-07-10 into the UI arc)
 - The stats panel grew organically and uses emoji (📦💾📊📁🖥️🎬💻). Rework: replace emoji with
   **dedicated glyph icons** (Segoe MDL2 Assets — already used for the window buttons, renders as
   proper monochrome icons, no image assets), restructure `SystemMonitor.GetStorageInfoString`'s
@@ -174,9 +204,11 @@ feels imprecise — cursor covers the text, small overlays are fiddly. Ideas: a 
 the preview (zoom into the area under the overlay for fine placement), arrow-key nudging (±1%/
 ±0.1% with Shift), and/or a pop-out larger preview. Keep the main app compact; the precision
 surface lives in the dialog. ·
-**Layout reshape** *(Spike + external tester, 2026-07-04 — "greatly interested", but "can wait")*:
-rework the main two-column layout; the tester felt techy/setup bits eat workspace real estate —
-consider moving more into Settings/tabs and slimming the main surface. Bigger UI task, own branch. ·
+**Layout reshape** *(Spike + external tester, 2026-07-04; **promoted 2026-07-10 to the next major
+arc** — "a priority needs to be improving the UI… more elegant and straightforward while still
+providing all the current power")*: rework the main two-column layout; the tester felt
+techy/setup bits eat workspace real estate — consider moving more into Settings/tabs and
+slimming the main surface. Pairs with the stats rework above. Bigger UI task, own branch. ·
 **Region-select global hotkey** *(Spike, 2026-07-04)*: trigger region select while the app is
 alt-tabbed/minimized (pairs with the new hide-window-on-select) — needs a second registered hotkey
 alongside start/stop; do it with the configurable-keybindings work. ·

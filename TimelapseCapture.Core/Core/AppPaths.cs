@@ -9,7 +9,7 @@ namespace TimelapseCapture
     /// Two modes, self-selecting once at startup:
     /// - PORTABLE: a settings.json already sits next to the exe (dev builds, or a user who keeps
     ///   the app self-contained on a USB stick) → keep everything there, exactly as before.
-    /// - INSTALLED: no exe-side settings.json → %APPDATA%\Framewright. This is what makes an
+    /// - INSTALLED: no exe-side settings.json → %APPDATA%\FrameWrite. This is what makes an
     ///   installer possible at all: under Program Files the exe folder isn't writable, so writing
     ///   next to the exe would silently lose settings, the log, and ffmpeg.
     ///
@@ -35,6 +35,6 @@ namespace TimelapseCapture
         internal static string ResolveDataDir(string exeDir, string appDataRoot, bool portableSettingsExist)
             => portableSettingsExist || string.IsNullOrWhiteSpace(appDataRoot)
                 ? exeDir
-                : Path.Combine(appDataRoot, "Framewright");
+                : Path.Combine(appDataRoot, "FrameWrite");
     }
 }

@@ -13,11 +13,12 @@ A Windows desktop app that captures screen frames on a timer and encodes them
 into timelapse videos via FFmpeg. Built for digital art and long-running, often
 unattended capture. Power-user oriented, not hand-holdy.
 
-**The app is display-named "Framewright"** (Spike chose it 2026-07-03) — but the name is **NOT
-final**: an external tester suggested **"FrameWrite"** and Spike liked it, so **hold the mechanical
-rename** (projects/exe/namespaces still `TimelapseCapture*`) until he settles the name. Display
-branding currently reads Framewright. Credits (Settings footer): created and directed by Spike
-Tickner · engineered with Claude (Anthropic) · video by FFmpeg.
+**The app is display-named "FrameWrite"** (Spike settled on it 2026-07-10, "for now"; it was
+"Framewright" before — an external tester suggested the FrameWrite spelling and Spike agreed).
+All display branding, the data dir (`%APPDATA%\FrameWrite`), and the release zip use FrameWrite;
+the **mechanical rename** (projects/exe/namespaces still `TimelapseCapture*`) stays deferred to
+the 1.0 cut in case the name shifts again. Credits (Settings footer): created and directed by
+Spike Tickner · engineered with Claude (Anthropic) · video by FFmpeg.
 
 **The app is mid-migration from WinForms to a WPF rebuild. WPF is the active
 front-end.** The two front-ends share one engine:
@@ -31,7 +32,7 @@ front-end.** The two front-ends share one engine:
   it; port anything missing into the WPF app instead. (It carries its own private
   copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
   the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 51 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+- **`TimelapseCapture.Tests`** — 68 tests, cover `SessionManager` (incl. `CullAndRenumber`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
@@ -72,7 +73,7 @@ Small, single-maintainer app. The working bar:
 
 - **Verify before you trust** (including claims in this file).
 - **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings (the legacy `src/` project
-  suppresses its pre-nullable noise), `dotnet test` at 51/51.
+  suppresses its pre-nullable noise), `dotnet test` at 68/68.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -300,14 +301,24 @@ custom chrome all landed).
 
 ## Handoff notes for the next thread
 
-- The app (**Framewright**, display-renamed; projects still `TimelapseCapture*`) is at **0.9.4,
+- The app (**FrameWrite**, display-renamed; projects still `TimelapseCapture*`) is at **0.9.4,
   the 1.0 RC**, tagged `v0.9.4`, with a large RC-refinement arc on `main` (see CHANGELOG). MIT
   LICENSE + README are in. Spike tests each build live and gives UX feedback.
-- The working loop: build green (0 warnings) + `dotnet test` 51/51 → commit per feature → push →
+- The working loop: build green (0 warnings) + `dotnet test` 68/68 → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
-- **Blocking 1.0:** Spike's 6–8h soak + a `docs/QA_CHECKLIST.md` pass, then the 1.0 cut = the
-  mechanical Framewright rename (projects/exe/namespaces/mutex) + version bump + CHANGELOG.
+- **1.0 posture (Spike, 2026-07-10): no deadline.** The app is professional-grade but mainly for
+  personal use; development continues continuously rather than gating on the QA/soak protocol.
+  Relax process where it buys development strides — but keep rigorously testing and hardening
+  features, logic, and workflows as we go (empirical smoke tests, encode-with-real-ffmpeg, unit
+  coverage). The soak/QA pass happens opportunistically, not as a blocker. The eventual 1.0 cut =
+  mechanical FrameWrite rename (projects/exe/namespaces/mutex) + version bump + CHANGELOG.
+- **Packaging is solved:** `scripts/publish-release.ps1` → self-contained single-file
+  `dist/FrameWrite-v{version}-win-x64.zip` (verified: publishes, launches, installed-mode data dir).
+- **Next major arc (Spike's priority): the UI elegance pass** — friend feedback says the UI is
+  the weak point; make it more elegant/straightforward while keeping all power. Includes the
+  stats-panel rework. Also queued: retroactive overlay bake (file-mtime timestamps), loupe/zoom
+  on preview; noted for later investigation: "smart tracking" of on-screen elements.
 - **1.1 line (agreed):** tray icon + hotkey chime · end-frame hold + encode-to-duration ·
   multi-session combine · configurable keybindings · crop-at-encode · loupe revisit ·
   Alt-drag-from-center region select · in-app bug report (pre-public) · WGC tracking slice 2.

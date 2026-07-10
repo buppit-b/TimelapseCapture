@@ -9,6 +9,10 @@
          (same as WPF) — NOT an external NuGet dependency. The tray class aliases the WinForms
          namespace to avoid Application/MessageBox ambiguity with WPF. -->
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- WFO0003: the WinForms analyzer wants DPI config moved out of app.manifest — but this is a
+         WPF app (WinForms is only linked for the tray NotifyIcon) and WPF takes PerMonitorV2 from
+         the manifest. The suggestion doesn't apply; keep the publish at 0 warnings. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <RootNamespace>TimelapseCapture.Wpf</RootNamespace>
     <AssemblyName>TimelapseCapture.Wpf</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>

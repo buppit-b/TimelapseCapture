@@ -16,7 +16,7 @@ namespace TimelapseCapture.Wpf
         private MessageDialog(string message, string title, MessageBoxButton buttons, MessageBoxImage image)
         {
             InitializeComponent();
-            Title = string.IsNullOrEmpty(title) ? "Framewright" : title;
+            Title = string.IsNullOrEmpty(title) ? "FrameWrite" : title;
             messageText.Text = message;
             ApplyIcon(image);
             BuildButtons(buttons);
@@ -81,7 +81,7 @@ namespace TimelapseCapture.Wpf
         }
 
         // ---- MessageBox.Show-compatible entry points ----
-        public static MessageBoxResult Show(string message) => Show(message, "Framewright");
+        public static MessageBoxResult Show(string message) => Show(message, "FrameWrite");
         public static MessageBoxResult Show(string message, string title) => Show(message, title, MessageBoxButton.OK);
         public static MessageBoxResult Show(string message, string title, MessageBoxButton buttons) =>
             Show(message, title, buttons, MessageBoxImage.None);

@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:TimelapseCapture.Wpf.ViewModels"
         xmlns:local="clr-namespace:TimelapseCapture.Wpf"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Framewright" Width="1040" Height="920" MinHeight="320" MinWidth="560"
+        Title="FrameWrite" Width="1040" Height="920" MinHeight="320" MinWidth="560"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen" WindowStyle="None"
         AllowDrop="True" Drop="OnWindowDrop"
@@ -34,7 +34,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0" ClipToBounds="True">
                 <TextBlock Text="&#128247;" FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <!-- Hide the title text before it would overlap the right-hand controls on a narrow window. -->
-                <TextBlock Text="Framewright" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
+                <TextBlock Text="FrameWrite" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
                            Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                         Converter={StaticResource MinWidthToVis}, ConverterParameter=760}"/>
                 <!-- Capture-state pill: red REC (actively grabbing), amber IDLE/PAUSED (smart inactivity
@@ -113,7 +113,7 @@
                               IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                            Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
-                              ToolTip="Keep the Framewright window above all other windows."/>
+                              ToolTip="Keep the FrameWrite window above all other windows."/>
                 <Button Style="{StaticResource BtnBase}" MaxWidth="170" VerticalAlignment="Center"
                         Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session">
                     <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"/>
@@ -333,7 +333,7 @@
                                       ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
                             <CheckBox Content="Hide this window from captures" IsChecked="{Binding HideFromCapture}"
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="18,0,0,0"
-                                      ToolTip="Exclude the Framewright window from screen captures so it never appears in frames (Win10 2004+)."/>
+                                      ToolTip="Exclude the FrameWrite window from screen captures so it never appears in frames (Win10 2004+)."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

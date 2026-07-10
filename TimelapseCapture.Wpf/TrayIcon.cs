@@ -42,7 +42,7 @@ namespace TimelapseCapture.Wpf
             _pausedIcon = MakeDotIcon(Color.FromArgb(0xE3, 0xB3, 0x41), recording: true); // amber ring: idle/paused
 
             var menu = new WinForms.ContextMenuStrip();
-            _showItem = new WinForms.ToolStripMenuItem("Show Framewright", null, (_, _) => RestoreWindow());
+            _showItem = new WinForms.ToolStripMenuItem("Show FrameWrite", null, (_, _) => RestoreWindow());
             _toggleItem = new WinForms.ToolStripMenuItem("Start capture", null, (_, _) => ToggleCapture());
             var exitItem = new WinForms.ToolStripMenuItem("Exit", null, (_, _) => ExitApp());
             menu.Items.Add(_showItem);
@@ -53,7 +53,7 @@ namespace TimelapseCapture.Wpf
             _icon = new WinForms.NotifyIcon
             {
                 Icon = _idleIcon,
-                Text = "Framewright",
+                Text = "FrameWrite",
                 Visible = true,
                 ContextMenuStrip = menu,
             };
@@ -82,7 +82,7 @@ namespace TimelapseCapture.Wpf
             string state = !rec ? "Idle"
                 : amber ? (string.IsNullOrEmpty(_vm.CaptureStatusDetail) ? "Paused" : _vm.CaptureStatusDetail)
                 : $"Recording ({_vm.FrameCount} frames)";
-            _icon.Text = $"Framewright — {state}";
+            _icon.Text = $"FrameWrite — {state}";
             _toggleItem.Text = rec ? "Stop capture" : "Start capture";
         }
 
@@ -93,7 +93,7 @@ namespace TimelapseCapture.Wpf
         {
             try
             {
-                _icon.BalloonTipTitle = "Framewright";
+                _icon.BalloonTipTitle = "FrameWrite";
                 _icon.BalloonTipText = message;
                 _icon.ShowBalloonTip(4000);
             }

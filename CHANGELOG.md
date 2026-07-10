@@ -5,7 +5,38 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 
 ## [0.9.4] — 2026-07-02 — the 1.0 release candidate
 
-Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test.
+Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test
+*(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
+
+### RC refinements (2026-07-08 → 10)
+- **The name is FrameWrite** (settled 2026-07-10, "for now") — all display branding, dialog
+  titles, tray strings, and the data dir (`%APPDATA%\FrameWrite`) renamed from Framewright;
+  project/namespace rename still lands at the 1.0 cut.
+- **Release packaging** — `scripts/publish-release.ps1` builds a self-contained single-file
+  `dist/FrameWrite-v{version}-win-x64.zip` (no .NET needed on the target machine; FFmpeg still
+  downloaded on demand). Verified: publishes clean, launches, uses the installed-mode data dir.
+- **Canonical frame size** — the frames already on disk now define a session's frame size, and
+  *every* capture source (static region, mid-session region change, tracked window, post-crop
+  capture) is scaled/letterboxed to it automatically. Closes the "saved region doesn't fit this
+  display" dead-end (art-tablet/second-monitor gone): reload on any machine, capture continues,
+  frames stay uniform, encode stays safe. The region row shows a "→ scaled to W×H" suffix
+  whenever scaling is active, and the mid-session change warning now promises scaling instead
+  of threatening mixed sizes.
+- **Crop: frame scrubber + clean flip** — the Crop dialog gained the same scrub-through-frames
+  bar as Trim/Cull (slider + ±1/±10 steppers), and the ratio **flip toggle (⇄)** now transposes
+  the current selection cleanly about its center (works on Free too). Region select has the same
+  flip toggle; picking Track Window resets the ratio to Free to reflect reality.
+- **Region overlay on mixed-DPI monitors** — the outline is now positioned in raw physical
+  pixels via `SetWindowPos` + per-monitor DPI, fixing the offset outline on a second monitor
+  with different scaling *(needs a multi-monitor verify)*.
+- **Window layout fixes** — long region/status text finally wraps (the ScrollViewer was
+  measuring content at infinite width, silently disabling wrapping app-wide); min/max/close
+  caption buttons can no longer be pushed off-screen when the window is squashed (session name
+  ellipsizes, Simple/Stay-on-top hide below 660px).
+- Known OS limit recorded: with "hide this window from capture" on, overlapping the capture area
+  can produce a **black box** (GDI reads `WDA_EXCLUDEFROMCAPTURE` windows as black) — WGC
+  (tracking slice 2) is the real fix; meanwhile keep the app off the captured area.
+- Tests 51 → **68**.
 
 ### RC refinements (2026-07-02 → 04, tagged v0.9.4)
 - **System tray** — a tray icon shows capture status at a glance (green stopped, red-ring dot +
@@ -43,14 +74,14 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
   fields; the four corner presets still work.
 - Fixed: the Encode button rendered too tall (an emoji forced a tall emoji font); region select
   "not taking the first time" when launched from the setup wizard (activation/z-order).
-- **The app is named Framewright** (display branding; project rename lands at 1.0), with in-app
+- **The app is named FrameWrite** (display branding; project rename lands at 1.0), with in-app
   credits, an MIT LICENSE, and a rewritten README.
 - **Reliability:** single-instance guard (a second copy focuses the first — two instances used to
   silently clobber each other's settings) · never pin a FULLSCREEN window topmost (it blocked
   alt-tab over the whole desktop) + auto-release if the tracked window goes fullscreen · a
   tracked window that hides to the tray or moves to another virtual desktop now pauses/stops
   instead of silently recording what's behind it · transient window-read failures no longer kill
-  an unattended run · settings/log/ffmpeg self-select portable vs `%APPDATA%\Framewright`.
+  an unattended run · settings/log/ffmpeg self-select portable vs `%APPDATA%\FrameWrite`.
 - **Encoding:** frame-skip speed-up ("keep 1 frame in every N", non-destructive, Trim-aware) ·
   live encode progress bar + % · CRF slider · mixed-format sessions offer to self-repair
   (convert to the majority format, with consent) · trim start/end shown on the scrubber and
