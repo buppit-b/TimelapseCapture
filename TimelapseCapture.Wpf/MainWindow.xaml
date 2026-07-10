@@ -114,12 +114,6 @@
                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                            Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
                               ToolTip="Keep the FrameWrite window above all other windows."/>
-                <!-- THE session identity — the one place the name lives (the session card holds actions). -->
-                <Button Style="{StaticResource BtnBase}" MaxWidth="170" VerticalAlignment="Center"
-                        Command="{Binding RenameSessionCommand}"
-                        ToolTip="{Binding SessionName, StringFormat='{}{0} — click to rename'}">
-                    <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"/>
-                </Button>
                 <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
                         Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"
@@ -177,9 +171,21 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="SESSION" Style="{StaticResource CardTitle}"/>
-                        <!-- The session's NAME lives in the title bar (always visible, click to rename) —
-                             this card holds the actions, not a second copy of the identity. -->
-                        <StackPanel Orientation="Horizontal">
+                        <!-- THE session identity — one home, next to the verbs that act on it. It doubles
+                             as the loaded-state cue ("No active session" when none) and the rename control.
+                             (It was in the title bar once; too easy to miss there — Spike's call.) -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource BtnBase}" HorizontalAlignment="Left" Padding="10,4"
+                                    Command="{Binding RenameSessionCommand}"
+                                    ToolTip="{Binding SessionName, StringFormat='{}{0} — click to rename'}">
+                                <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                            </Button>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Button Content="New Session" Style="{StaticResource BtnPrimaryPulse}"
                                     Command="{Binding NewSessionCommand}"/>
                             <Button Content="Load" Style="{StaticResource BtnBase}"
