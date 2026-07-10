@@ -25,8 +25,8 @@ reasoned to be risky.
 - [ ] **Keep-on-top + fullscreen game → pin is SKIPPED; alt-tab still works** ⚠ (0.9.4 lockup bug)
 - [ ] Windowed game toggled to fullscreen mid-capture → pin auto-releases within ~2s
 - [ ] Track a window on a second / different-DPI monitor; drag it across monitors
-- [ ] KNOWN (cosmetic): region outline can sit offset on a second monitor (mixed DPI) — capture
-      itself is correct; fix slated (SetWindowPos physical-px positioning) ⚠
+- [ ] Region outline sits EXACTLY on the region on a second / differently-scaled monitor —
+      fix implemented (SetWindowPos physical-px positioning), needs multi-monitor verify ⚠
 - [ ] Tracked app closes to TRAY (e.g. Discord/Telegram ✕) → treated as hidden: stop or hold ⚠
 - [ ] Move the tracked window to another VIRTUAL DESKTOP → treated as hidden, not wrong pixels ⚠
 - [ ] Picker lists neither cloaked windows (other desktops) nor this app's own windows ⚠
