@@ -95,6 +95,13 @@ namespace TimelapseCapture.Wpf
         private void OnFfmpegChange(object sender, RoutedEventArgs e)
             => (DataContext as MainViewModel)?.ExpandFfmpegSetup();
 
+        // The preview thumbnail opens the loupe: a floating zoom/scrub viewer over the session's frames.
+        private void OnPreviewClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (DataContext is MainViewModel vm && vm.CurrentSessionFolder is { } folder && vm.FrameCount > 0)
+                new FrameViewerWindow(folder) { Owner = this }.Show();
+        }
+
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);

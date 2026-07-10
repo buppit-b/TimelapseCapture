@@ -1,0 +1,195 @@
+using System;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace TimelapseCapture.Wpf
+{
+    /// <summary>
+    /// The loupe: a floating, resizable frame inspector. Wheel zooms at the cursor, drag pans,
+    /// double-click toggles fit ↔ 1:1, and the scrubber walks the session's frames while the
+    /// zoom/pan stays put — so you can compare the same detail across frames. Non-modal.
+    /// </summary>
+    public partial class FrameViewerWindow : Window
+    {
+        private readonly string _sessionFolder;
+        private string[] _files = Array.Empty<string>();
+        private int _current;          // 1-based frame number
+        private double _scale = 1;
+        private double _tx, _ty;
+        private bool _autoFit = true;  // re-fit on resize until the user zooms/pans by hand
+        private bool _panning;
+        private Point _panStart;
+        private (double x, double y) _panStartT;
+        private bool _scrubReady;      // ignore slider events during (re)initialisation
+
+        public FrameViewerWindow(string sessionFolder)
+        {
+            InitializeComponent();
+            _sessionFolder = sessionFolder;
+            Loaded += (s, e) => Reload(goToLast: true);
+        }
+
+        // ---- frame loading ----
+
+        private void Reload(bool goToLast)
+        {
+            int before = _files.Length;
+            _files = SessionManager.GetFrameFiles(_sessionFolder);
+            if (_files.Length == 0) { Close(); return; }
+
+            _scrubReady = false;
+            scrub.Maximum = _files.Length;
+            // Follow the newest frame when asked, or when we were sitting on the previous newest.
+            if (goToLast || (_current >= before && _files.Length > before)) _current = _files.Length;
+            _current = Math.Clamp(_current, 1, _files.Length);
+            scrub.Value = _current;
+            _scrubReady = true;
+            LoadFrame(_current, firstLoad: goToLast);
+        }
+
+        private void LoadFrame(int n, bool firstLoad = false)
+        {
+            if (n < 1 || n > _files.Length) return;
+            _current = n;
+            try
+            {
+                var file = _files[n - 1];
+                // Load from bytes so the file on disk is never locked (capture may still be writing).
+                var bytes = File.ReadAllBytes(file);
+                var bi = new BitmapImage();
+                using (var ms = new MemoryStream(bytes))
+                {
+                    bi.BeginInit();
+                    bi.CacheOption = BitmapCacheOption.OnLoad;
+                    bi.StreamSource = ms;
+                    bi.EndInit();
+                }
+                bi.Freeze();
+                img.Source = bi;
+                // 1 layout unit = 1 frame pixel, regardless of the image's DPI metadata.
+                img.Width = bi.PixelWidth;
+                img.Height = bi.PixelHeight;
+
+                posText.Text = $"frame {n} / {_files.Length}";
+                infoText.Text = $"{bi.PixelWidth}×{bi.PixelHeight} · {bytes.Length / 1024.0:F1} KB · " +
+                                $"{File.GetLastWriteTime(file):yyyy-MM-dd HH:mm:ss}";
+                if (firstLoad) Fit();
+            }
+            catch (Exception ex)
+            {
+                infoText.Text = $"couldn't load frame {n}: {ex.Message}";
+            }
+        }
+
+        private void OnScrub(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_scrubReady) LoadFrame((int)Math.Round(e.NewValue));
+        }
+
+        private void OnStep(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement el && int.TryParse(el.Tag as string, out int d))
+                scrub.Value = Math.Clamp(scrub.Value + d, scrub.Minimum, scrub.Maximum);
+        }
+
+        private void OnRefresh(object sender, RoutedEventArgs e) => Reload(goToLast: false);
+
+        // ---- zoom / pan ----
+
+        private void OnWheelZoom(object sender, MouseWheelEventArgs e)
+        {
+            if (img.Source == null) return;
+            double factor = e.Delta > 0 ? 1.2 : 1 / 1.2;
+            double newScale = Math.Clamp(_scale * factor, 0.05, 32);
+            factor = newScale / _scale;
+            var pos = e.GetPosition(viewport);
+            // Keep the frame point under the cursor stationary while the scale changes around it.
+            _tx = pos.X - factor * (pos.X - _tx);
+            _ty = pos.Y - factor * (pos.Y - _ty);
+            _scale = newScale;
+            _autoFit = false;
+            ApplyTransform();
+            e.Handled = true;
+        }
+
+        private void OnViewportDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                // Double-click: 1:1 at the clicked spot, or back to fit if already close to 1:1.
+                if (Math.Abs(_scale - 1) < 0.01) Fit();
+                else ZoomToActualSize(e.GetPosition(viewport));
+                return;
+            }
+            _panning = true;
+            _panStart = e.GetPosition(viewport);
+            _panStartT = (_tx, _ty);
+            viewport.CaptureMouse();
+            viewport.Cursor = Cursors.SizeAll;
+        }
+
+        private void OnViewportMove(object sender, MouseEventArgs e)
+        {
+            if (!_panning) return;
+            var p = e.GetPosition(viewport);
+            _tx = _panStartT.x + (p.X - _panStart.X);
+            _ty = _panStartT.y + (p.Y - _panStart.Y);
+            _autoFit = false;
+            ApplyTransform();
+        }
+
+        private void OnViewportUp(object sender, MouseButtonEventArgs e)
+        {
+            _panning = false;
+            viewport.ReleaseMouseCapture();
+            viewport.Cursor = Cursors.Cross;
+        }
+
+        private void OnViewportSized(object sender, SizeChangedEventArgs e)
+        {
+            if (_autoFit) Fit();
+        }
+
+        private void OnFit(object sender, RoutedEventArgs e) => Fit();
+
+        private void OnActualSize(object sender, RoutedEventArgs e)
+            => ZoomToActualSize(new Point(viewport.ActualWidth / 2, viewport.ActualHeight / 2));
+
+        private void Fit()
+        {
+            if (img.Source is not BitmapSource src || viewport.ActualWidth < 1 || viewport.ActualHeight < 1) return;
+            _scale = Math.Min(viewport.ActualWidth / src.PixelWidth, viewport.ActualHeight / src.PixelHeight);
+            _tx = (viewport.ActualWidth - src.PixelWidth * _scale) / 2;
+            _ty = (viewport.ActualHeight - src.PixelHeight * _scale) / 2;
+            _autoFit = true;
+            ApplyTransform();
+        }
+
+        private void ZoomToActualSize(Point focus)
+        {
+            if (img.Source == null) return;
+            // Keep the frame point at 'focus' in place while snapping the scale to exactly 1.
+            double factor = 1 / _scale;
+            _tx = focus.X - factor * (focus.X - _tx);
+            _ty = focus.Y - factor * (focus.Y - _ty);
+            _scale = 1;
+            _autoFit = false;
+            ApplyTransform();
+        }
+
+        private void ApplyTransform()
+        {
+            scaleT.ScaleX = scaleT.ScaleY = _scale;
+            transT.X = _tx;
+            transT.Y = _ty;
+            zoomText.Text = $"{_scale * 100:F0}%";
+            // Crisp pixels when magnifying (what a detail check needs); smooth when shrinking.
+            RenderOptions.SetBitmapScalingMode(img,
+                _scale >= 1 ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+        }
+    }
+}

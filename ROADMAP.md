@@ -201,7 +201,9 @@ below (gauges/sparklines) stay open for the broader GUI reshape:
   (the storage-rate warning already is), and make the key numbers (video length, storage rate,
   time-to-target — all now added) the visual anchors. A focused UI pass; pairs with the broader
   GUI reshape.
-4. **Configurable keybindings** *(Spike, 2026-07-03 — power-user philosophy: every hotkey
+4. **Configurable keybindings** *(Spike, 2026-07-03; **re-flagged 2026-07-11** — "we need to
+   make the global hotkey(s) reconfigurable at some point"; note the start/stop hotkey is
+   already rebindable in Settings, this item is the full keymap table)* *(power-user philosophy: every hotkey
    rebindable)* — grow the existing hotkey-capture control into a small keymap table in Settings
    (action · binding · reset-to-default), persisted additively. Covers the global start/stop plus
    the Trim/Cull editing keys (step ±1/±10, mark/unmark, set start/end).
@@ -231,8 +233,9 @@ Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report*
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
 to the clipboard)* · GIF export · all-screens preset (item 8) · in-app playback preview at
-target fps · zoom/loupe frame viewer (parked from 0.9.x — **Spike wants a revisit soon**; think
-click-preview → floating zoom pane with scrub, not the old cramped inline loupe) ·
+target fps · **zoom/loupe frame viewer — ✅ shipped (2026-07-11)**: click the Preview thumbnail →
+floating resizable viewer (wheel zoom-at-cursor, pan, fit/1:1, frame scrub with steppers,
+per-frame size + capture time, refresh for live sessions) ·
 **Alt-drag region select from center** (agreed 2026-07-03: PS/Illustrator muscle memory, cheap —
 anchor the drag at its start point and grow symmetrically while Alt is held, works with ratio
 lock for easy centered squares) · {elapsed}/{frame} overlay tokens

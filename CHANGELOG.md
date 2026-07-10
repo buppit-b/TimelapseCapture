@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **Frame viewer (the loupe)** — click the Preview thumbnail to open a floating, resizable
+  inspector: **scroll to zoom at the cursor** (crisp 1:1 pixels when magnified), drag to pan,
+  double-click for fit ↔ 100%, and **scrub through the whole session** (slider, ±1/±10
+  steppers, wheel) while the zoom stays put — compare the same detail across frames. Shows
+  each frame's size and real capture time; a refresh button picks up frames captured since
+  it opened. Non-modal — open several to compare frames side by side.
 - **Main surface slimmed** (layout-reshape slice 1) — the encode tuning cluster (fps · CRF ·
   preset · speed-up · end-hold) and the Smart-interval settings now **fold away** behind
   section headers, each leaving a one-line summary ("30 fps · CRF 23 · Medium";
