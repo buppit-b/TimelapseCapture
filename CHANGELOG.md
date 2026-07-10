@@ -9,6 +9,11 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **The GO strip** — Start / Stop / Pause moved out of the capture card onto their own
+  accent-framed strip at the end of the left column's workflow (session → area → speed → GO),
+  with a larger Start, the live frame count as a bold readout, and the status line + capture
+  error banner riding along. The primary action finally looks like one; the capture card is
+  now purely settings.
 - **Session name shown once** — the SESSION card is now the single home of the session's
   identity: the name sits above the New/Load/Open actions (semibold, click to rename, hover
   for the full name), doubling as the loaded-state cue. The title-bar copy was dropped —
