@@ -56,7 +56,8 @@
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
                        Text="How often to grab a frame. Slower speeds are fine for long sessions — the hint shows what you'll get."/>
             <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
-                    TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1" Margin="0,12,0,0"/>
+                    TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1" Margin="0,12,0,0"
+                    local:WheelStep.Amount="1"/>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="or exactly" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"

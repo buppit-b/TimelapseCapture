@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 10)
+- **Scroll-wheel stepping everywhere** — hover any numeric field and wheel to adjust it
+  (interval, quality, fps, CRF, overlay size/position, crop X/Y/W/H, safety limits, …):
+  ±1 per notch, **Shift = ×10**, **Ctrl = fine 0.1** on decimal fields; values commit and
+  clamp live. Sliders step too — including the Trim/Cull/Crop scrubbers, so the wheel now
+  scrubs frame-by-frame. (Also fixed en route: integer fields never had their typing/paste
+  filter attached — a WPF callback quirk when a property is explicitly set to its default.)
 - **The name is FrameWrite** (settled 2026-07-10, "for now") — all display branding, dialog
   titles, tray strings, and the data dir (`%APPDATA%\FrameWrite`) renamed from Framewright;
   project/namespace rename still lands at the 1.0 cut.

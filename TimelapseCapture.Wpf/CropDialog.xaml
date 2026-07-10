@@ -20,7 +20,7 @@
         </Border>
 
         <!-- Scrub to any frame — later frames may show the content that informs the crop. -->
-        <Slider x:Name="scrub" Minimum="1" Margin="0,10,0,0"
+        <Slider x:Name="scrub" Minimum="1" Margin="0,10,0,0" local:WheelStep.Amount="1"
                 IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="10"/>
         <Grid Margin="0,6,0,0">
             <Grid.ColumnDefinitions>

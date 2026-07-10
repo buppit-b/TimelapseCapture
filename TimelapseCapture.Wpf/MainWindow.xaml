@@ -251,7 +251,7 @@
                             <TextBlock Text="Speed" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                             <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
                                     TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1"
-                                    IsEnabled="{Binding NotCapturing}"/>
+                                    local:WheelStep.Amount="1" IsEnabled="{Binding NotCapturing}"/>
                             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                        FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
@@ -410,6 +410,7 @@
                         <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
                         <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
                                 IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
+                                local:WheelStep.Amount="1"
                                 ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
                         <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
                                  local:NumericInput.AllowDecimal="False"
