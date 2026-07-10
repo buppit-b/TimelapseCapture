@@ -114,8 +114,10 @@
                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                            Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
                               ToolTip="Keep the FrameWrite window above all other windows."/>
+                <!-- THE session identity — the one place the name lives (the session card holds actions). -->
                 <Button Style="{StaticResource BtnBase}" MaxWidth="170" VerticalAlignment="Center"
-                        Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session">
+                        Command="{Binding RenameSessionCommand}"
+                        ToolTip="{Binding SessionName, StringFormat='{}{0} — click to rename'}">
                     <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"/>
                 </Button>
                 <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
@@ -175,23 +177,17 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="SESSION" Style="{StaticResource CardTitle}"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Content="New Session" Style="{StaticResource BtnPrimaryPulse}"
+                        <!-- The session's NAME lives in the title bar (always visible, click to rename) —
+                             this card holds the actions, not a second copy of the identity. -->
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="New Session" Style="{StaticResource BtnPrimaryPulse}"
                                     Command="{Binding NewSessionCommand}"/>
-                            <Button Grid.Column="1" Content="Load" Style="{StaticResource BtnBase}"
+                            <Button Content="Load" Style="{StaticResource BtnBase}"
                                     Command="{Binding LoadSessionCommand}" Margin="8,0,0,0"/>
-                            <Button Grid.Column="2" Content="&#128194;  Open Folder" Style="{StaticResource BtnBase}"
+                            <Button Content="&#128194;  Open Folder" Style="{StaticResource BtnBase}"
                                     Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"
                                     ToolTip="Open the session folder in Explorer"/>
-                            <TextBlock Grid.Column="3" Text="{Binding SessionName}" Style="{StaticResource Body}"
-                                       VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis"/>
-                        </Grid>
+                        </StackPanel>
                         <StackPanel Margin="0,14,0,0">
                             <!-- Grid (not a horizontal StackPanel): a StackPanel measures the text with
                                  infinite width, so long region descriptions pushed the whole layout wide.

@@ -9,6 +9,9 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **Session name shown once** — the title-bar button is now the single home of the session's
+  identity (always visible; click to rename; hover for the full name when it's long). The
+  SESSION card dropped its duplicate copy and keeps just the actions (New / Load / Open Folder).
 - **One-click backup before destructive ops** — the bake-overlay and crop-frames-on-disk
   confirmations now offer **"Back up, then …"** right in the dialog (instead of just advising a
   copy): the session's frames + session.json are copied to a sibling
