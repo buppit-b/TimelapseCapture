@@ -88,8 +88,9 @@
                 <TextBlock Text="Colour" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"
                            ToolTip="Text colour and opacity."/>
                 <StackPanel x:Name="textSwatches" Orientation="Horizontal" VerticalAlignment="Center"/>
+                <local:HueColorPicker SelectedHex="{Binding OverlayTextColor}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 <TextBox Text="{Binding OverlayTextColor}" Style="{StaticResource DarkTextBox}" Width="70" TextAlignment="Center"
-                         Margin="6,0,0,0" local:ClampFlash.Enabled="True" FontFamily="Consolas" FontSize="11"
+                         Margin="8,0,0,0" local:ClampFlash.Enabled="True" FontFamily="Consolas" FontSize="11"
                          ToolTip="Text colour as hex, e.g. #FFD24A."/>
                 <TextBox Text="{Binding OverlayTextOpacity}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
                          Margin="8,0,0,0" local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
@@ -100,8 +101,9 @@
                 <TextBlock Text="Box" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"
                            ToolTip="The backdrop box behind the text — keeps it readable over busy frames. 0% removes it."/>
                 <StackPanel x:Name="backSwatches" Orientation="Horizontal" VerticalAlignment="Center"/>
+                <local:HueColorPicker SelectedHex="{Binding OverlayBackColor}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 <TextBox Text="{Binding OverlayBackColor}" Style="{StaticResource DarkTextBox}" Width="70" TextAlignment="Center"
-                         Margin="6,0,0,0" local:ClampFlash.Enabled="True" FontFamily="Consolas" FontSize="11"
+                         Margin="8,0,0,0" local:ClampFlash.Enabled="True" FontFamily="Consolas" FontSize="11"
                          ToolTip="Backdrop colour as hex, e.g. #000000."/>
                 <TextBox Text="{Binding OverlayBackOpacity}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
                          Margin="8,0,0,0" local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"

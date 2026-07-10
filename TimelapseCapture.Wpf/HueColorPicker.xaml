@@ -1,0 +1,73 @@
+<UserControl x:Class="TimelapseCapture.Wpf.HueColorPicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <!-- The chip shows the current colour and opens the picker. -->
+        <Border x:Name="chip" Width="18" Height="18" CornerRadius="3" BorderThickness="1"
+                BorderBrush="{DynamicResource StrokeBrush}" Cursor="Hand" Background="White"
+                MouseLeftButtonDown="OnChipClick" ToolTip="Pick a colour (hue box)."/>
+        <Popup x:Name="popup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True"
+               PopupAnimation="Fade" Opened="OnPopupOpened">
+            <Border Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4,8,8">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.5"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Saturation (left→right) / value (top→bottom) square over the current hue. -->
+                    <Grid x:Name="svSquare" Width="160" Height="116" Cursor="Cross"
+                          MouseLeftButtonDown="OnSvDown" MouseMove="OnSvMove" MouseLeftButtonUp="OnSvUp">
+                        <Rectangle x:Name="svHueLayer" Fill="Red" RadiusX="3" RadiusY="3"/>
+                        <Rectangle RadiusX="3" RadiusY="3">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="White" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <Rectangle RadiusX="3" RadiusY="3">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="Transparent" Offset="0"/>
+                                    <GradientStop Color="Black" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <Canvas IsHitTestVisible="False">
+                            <Ellipse x:Name="svThumb" Width="11" Height="11" Stroke="White" StrokeThickness="1.5">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="3" ShadowDepth="0" Opacity="0.9"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                        </Canvas>
+                    </Grid>
+                    <!-- Hue strip. -->
+                    <Grid x:Name="hueStrip" Height="14" Margin="0,8,0,0" Cursor="Cross"
+                          MouseLeftButtonDown="OnHueDown" MouseMove="OnHueMove" MouseLeftButtonUp="OnHueUp">
+                        <Rectangle RadiusX="3" RadiusY="3">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#FF0000" Offset="0"/>
+                                    <GradientStop Color="#FFFF00" Offset="0.167"/>
+                                    <GradientStop Color="#00FF00" Offset="0.333"/>
+                                    <GradientStop Color="#00FFFF" Offset="0.5"/>
+                                    <GradientStop Color="#0000FF" Offset="0.667"/>
+                                    <GradientStop Color="#FF00FF" Offset="0.833"/>
+                                    <GradientStop Color="#FF0000" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <Canvas IsHitTestVisible="False">
+                            <Rectangle x:Name="hueThumb" Width="4" Height="14" Fill="White" RadiusX="1" RadiusY="1">
+                                <Rectangle.Effect>
+                                    <DropShadowEffect BlurRadius="3" ShadowDepth="0" Opacity="0.9"/>
+                                </Rectangle.Effect>
+                            </Rectangle>
+                        </Canvas>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>
