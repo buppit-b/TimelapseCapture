@@ -29,6 +29,9 @@ namespace TimelapseCapture.Wpf
         /// <summary>True when the user chose (and confirmed) the destructive crop-frames-on-disk action.</summary>
         public bool DestructiveRequested { get; private set; }
 
+        /// <summary>Back up the session (frames + session.json) before the destructive crop.</summary>
+        public bool BackupFirstRequested { get; private set; }
+
         private Mode _mode = Mode.None;
         private System.Drawing.Point _dragStart;          // frame px where the drag began
         private System.Drawing.Rectangle _startRect;      // rect at drag start (Move/resize anchor)
@@ -354,11 +357,13 @@ namespace TimelapseCapture.Wpf
         private void OnDestructive(object sender, RoutedEventArgs e)
         {
             if (_rect is not { } r) return;
-            var res = MessageDialog.Show(
+            int choice = MessageDialog.ShowChoices(
                 $"Permanently crop EVERY frame on disk to {r.Width}×{r.Height} at ({r.X},{r.Y})?\n\n" +
                 "This re-writes the frames and can't be undone. If you capture more frames into this session afterwards, they'll be scaled (letterboxed) down to the cropped size to stay consistent.",
-                "Crop frames on disk", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (res != MessageBoxResult.Yes) return;
+                "Crop frames on disk", MessageBoxImage.Warning,
+                "Back up, then crop", "Crop without backup", "Cancel");
+            if (choice is not (0 or 1)) return;
+            BackupFirstRequested = choice == 0;
             CropRect = r;
             DestructiveRequested = true;
             DialogResult = true;

@@ -12,6 +12,7 @@ namespace TimelapseCapture.Wpf
     public partial class MessageDialog : Window
     {
         public MessageBoxResult Result { get; private set; } = MessageBoxResult.None;
+        private int _choice = -1;
 
         private MessageDialog(string message, string title, MessageBoxButton buttons, MessageBoxImage image)
         {
@@ -20,6 +21,31 @@ namespace TimelapseCapture.Wpf
             messageText.Text = message;
             ApplyIcon(image);
             BuildButtons(buttons);
+        }
+
+        // Custom-labelled buttons: choices[0] is the primary (rendered rightmost, default),
+        // the LAST choice is the cancel/escape one. Used where Yes/No can't carry the meaning.
+        private MessageDialog(string message, string title, MessageBoxImage image, string[] choices)
+        {
+            InitializeComponent();
+            Title = string.IsNullOrEmpty(title) ? "FrameWrite" : title;
+            messageText.Text = message;
+            ApplyIcon(image);
+            for (int i = choices.Length - 1; i >= 0; i--)   // reverse: primary ends up rightmost
+            {
+                int index = i;
+                var b = new Button
+                {
+                    Content = choices[i],
+                    Style = (Style)FindResource(i == 0 ? "BtnPrimary" : "BtnBase"),
+                    MinWidth = 88,
+                    Margin = new Thickness(8, 0, 0, 0),
+                    IsDefault = i == 0,
+                    IsCancel = i == choices.Length - 1,
+                };
+                b.Click += (_, _) => { _choice = index; DialogResult = true; };
+                buttonPanel.Children.Add(b);
+            }
         }
 
         private void ApplyIcon(MessageBoxImage image)
@@ -91,6 +117,17 @@ namespace TimelapseCapture.Wpf
             var dlg = new MessageDialog(message, title, buttons, image) { Owner = ActiveOwner() };
             dlg.ShowDialog();
             return dlg.Result;
+        }
+
+        /// <summary>
+        /// Custom-labelled choice buttons. choices[0] = primary/default (rightmost), the last
+        /// choice = cancel (Esc / close). Returns the clicked choice's index, or -1 when dismissed.
+        /// </summary>
+        public static int ShowChoices(string message, string title, MessageBoxImage image, params string[] choices)
+        {
+            var dlg = new MessageDialog(message, title, image, choices) { Owner = ActiveOwner() };
+            dlg.ShowDialog();
+            return dlg._choice;
         }
 
         /// <summary>

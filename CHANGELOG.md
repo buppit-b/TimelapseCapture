@@ -9,6 +9,16 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **One-click backup before destructive ops** — the bake-overlay and crop-frames-on-disk
+  confirmations now offer **"Back up, then …"** right in the dialog (instead of just advising a
+  copy): the session's frames + session.json are copied to a sibling
+  "NAME (backup date time)" folder — with free-space pre-check, capture times preserved, videos
+  (output/) skipped, and the copy's Active flag cleared so crash recovery ignores it. The backup
+  is loadable from the session picker like any session. A failed backup aborts the operation
+  before anything is touched.
+- **Stuck-green stats fixed** — rapid target changes (e.g. wheel-scrolling) could interrupt the
+  green "recalculated" pulse mid-flight and leave values green forever (killing the cue for the
+  next change). The pulse now always settles back to the base colour.
 - **Frame viewer (the loupe)** — click the Preview thumbnail to open a floating, resizable
   inspector: **scroll to zoom at the cursor** (crisp 1:1 pixels when magnified), drag to pan,
   double-click for fit ↔ 100%, and **scrub through the whole session** (slider, ±1/±10

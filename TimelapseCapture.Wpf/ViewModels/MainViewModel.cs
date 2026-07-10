@@ -1417,6 +1417,32 @@ namespace TimelapseCapture.Wpf.ViewModels
             dlg.ShowDialog();
         }
 
+        // Runs the offered pre-destructive-op backup behind the caller's busy flag. False = backup
+        // failed and the destructive operation must NOT proceed (nothing has been changed yet).
+        private async Task<bool> BackupSessionForSafety(string folder)
+        {
+            EncodeStatus = "Backing up session…";
+            try
+            {
+                string dest = await Task.Run(() => SessionManager.BackupSession(folder,
+                    (i, total) =>
+                    {
+                        if (i % 50 == 0 || i == total)
+                            Application.Current?.Dispatcher.BeginInvoke(
+                                () => EncodeStatus = $"Backing up… {i}/{total}");
+                    }));
+                Logger.Log("Wpf", $"Session backed up to {dest} before a destructive operation.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                EncodeStatus = "Backup failed — nothing was changed";
+                MessageDialog.Show($"Couldn't back up the session, so nothing was changed:\n{ex.Message}",
+                    "Backup", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
         private async Task OpenOverlay()
         {
             var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
@@ -1430,6 +1456,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             try
             {
                 var folder = _sessionFolder;
+                if (dlg.BackupFirstRequested && !await BackupSessionForSafety(folder)) return;
+                EncodeStatus = "Baking overlay…";
                 var overlay = BuildOverlay();
                 int done = await Task.Run(() => SessionManager.BakeOverlay(
                     folder, overlay, _settings.JpegQuality,
@@ -2447,6 +2475,10 @@ namespace TimelapseCapture.Wpf.ViewModels
                 EncodeStatus = "Cropping frames…";
                 try
                 {
+                    // A failed backup must abort BEFORE any frame is touched (the return also skips
+                    // the SetSessionCrop below — the session is exactly as it was).
+                    if (dlg.BackupFirstRequested && !await BackupSessionForSafety(_sessionFolder)) return;
+                    EncodeStatus = "Cropping frames…";
                     int done = await Task.Run(() => SessionManager.CropFrames(_sessionFolder, rect, _settings.JpegQuality));
                     EncodeStatus = $"Cropped {done} frame(s) ✓";
                     Logger.Log("Wpf", $"Destructive crop applied: {rect} → {done} frame(s).");

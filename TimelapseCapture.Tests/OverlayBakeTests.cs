@@ -151,6 +151,38 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void BackupSession_CopiesFramesAndSessionJson_SkipsOutput_PreservesTimes()
+        {
+            string dir = NewSessionDir(out string frames);
+            try
+            {
+                var t = new DateTime(2025, 5, 6, 7, 8, 9);
+                WriteFrame(Path.Combine(frames, "00001.png"), t);
+                File.WriteAllText(Path.Combine(dir, "session.json"), "{\"Name\":\"test\",\"Active\":false}");
+                Directory.CreateDirectory(Path.Combine(dir, "output"));
+                File.WriteAllText(Path.Combine(dir, "output", "video.mp4"), "not really a video");
+
+                string dest = SessionManager.BackupSession(dir);
+
+                Directory.Exists(dest).Should().BeTrue();
+                File.Exists(Path.Combine(dest, "session.json")).Should().BeTrue();
+                File.Exists(Path.Combine(dest, "frames", "00001.png")).Should().BeTrue();
+                Directory.Exists(Path.Combine(dest, "output")).Should().BeFalse("videos are products, not session data");
+                File.GetLastWriteTime(Path.Combine(dest, "frames", "00001.png"))
+                    .Should().Be(t, "the capture-moment record must travel with the backup");
+
+                // A second backup must land in its own folder, never overwrite the first.
+                string dest2 = SessionManager.BackupSession(dir);
+                dest2.Should().NotBe(dest);
+                Directory.Exists(dest2).Should().BeTrue();
+
+                try { Directory.Delete(dest, true); } catch { }
+                try { Directory.Delete(dest2, true); } catch { }
+            }
+            finally { try { Directory.Delete(dir, true); } catch { } }
+        }
+
+        [Fact]
         public void ConvertFrames_CarriesWriteTimeAcross()
         {
             string dir = NewSessionDir(out string frames);

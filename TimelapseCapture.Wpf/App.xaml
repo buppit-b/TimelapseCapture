@@ -12,14 +12,18 @@
             <local:MinWidthToVisibilityConverter x:Key="MinWidthToVis"/>
 
             <!-- Brief accent flash for a value that just recalculated (target/fps change). -->
+            <!-- FillBehavior=Stop: rapid re-triggers (wheel-scrolling a target box pulses per notch)
+                 used to interrupt a mid-flight pulse, snapshot the half-green colour as the new
+                 animation's start, reverse back INTO it, and hold green forever. Stop removes the
+                 finished animation so the property always lands back on its base colour. -->
             <Storyboard x:Key="PulseFg">
                 <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                                To="#3FB950" Duration="0:0:0.18" AutoReverse="True"/>
+                                To="#3FB950" Duration="0:0:0.18" AutoReverse="True" FillBehavior="Stop"/>
             </Storyboard>
             <!-- Flares a Border's outline to the accent and back — a "committed" pulse around a field. -->
             <Storyboard x:Key="PulseRing">
                 <ColorAnimation Storyboard.TargetProperty="(Border.BorderBrush).(SolidColorBrush.Color)"
-                                To="#3FB950" Duration="0:0:0.22" AutoReverse="True"/>
+                                To="#3FB950" Duration="0:0:0.22" AutoReverse="True" FillBehavior="Stop"/>
             </Storyboard>
             <!-- (The red out-of-range flash is the ClampFlash attached behavior — see Behaviors.cs.) -->
             <SolidColorBrush x:Key="BgBrush" Color="#0E0E0E"/>

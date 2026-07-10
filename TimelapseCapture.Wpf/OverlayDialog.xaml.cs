@@ -21,6 +21,9 @@ namespace TimelapseCapture.Wpf
         /// <summary>Set when the user confirmed a retroactive bake — the VM runs it after the dialog closes.</summary>
         public bool BakeRequested { get; private set; }
 
+        /// <summary>Back up the session (frames + session.json) before baking — the safe default.</summary>
+        public bool BackupFirstRequested { get; private set; }
+
         public OverlayDialog()
         {
             InitializeComponent();
@@ -78,15 +81,16 @@ namespace TimelapseCapture.Wpf
         private void OnBake(object sender, RoutedEventArgs e)
         {
             if (Vm is not { } vm || vm.FrameCount < 1) return;
-            var res = MessageDialog.Show(
+            int choice = MessageDialog.ShowChoices(
                 $"Permanently burn this overlay into all {vm.FrameCount} frame(s) on disk?\n\n" +
                 "Timestamp tokens use each frame file's own capture time, so past frames get their real " +
-                "times — not today's. This re-writes every frame and can't be undone; if unsure, copy the " +
-                "session folder first.\n\n" +
+                "times — not today's. This re-writes every frame and can't be undone.\n\n" +
                 "Note: frames that already had the overlay burned in at capture would get a second copy " +
                 "drawn over the first.",
-                "Bake overlay into frames", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (res != MessageBoxResult.Yes) return;
+                "Bake overlay into frames", MessageBoxImage.Warning,
+                "Back up, then bake", "Bake without backup", "Cancel");
+            if (choice is not (0 or 1)) return;
+            BackupFirstRequested = choice == 0;
             BakeRequested = true;
             Close();   // the bake runs from the main window (progress in the encode status line)
         }

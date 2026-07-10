@@ -647,6 +647,70 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// Copy the session's data to a sibling folder ("NAME (backup yyyy-MM-dd HHmm)") — the
+        /// one-click safety net offered before destructive frame rewrites. Copies session.json and
+        /// the frames; skips the output/ and temp/ subfolders (encoded videos are never touched by
+        /// the destructive ops, and temp is scratch). File write times (= capture moments) survive,
+        /// and the copy's Active flag is cleared so crash recovery never resumes into a backup.
+        /// Pre-checks free space and throws with a clear message when the copy wouldn't fit.
+        /// Returns the destination folder.
+        /// </summary>
+        public static string BackupSession(string sessionFolder, Action<int, int>? progress = null)
+        {
+            var src = new DirectoryInfo(sessionFolder);
+            if (!src.Exists) throw new DirectoryNotFoundException($"Session folder not found: {sessionFolder}");
+            string parent = src.Parent?.FullName
+                ?? throw new IOException("The session folder has no parent directory to back up into.");
+
+            // Everything except output/ and temp/ (top-level product/scratch folders).
+            string outputPrefix = Path.GetFullPath(GetOutputFolder(sessionFolder)) + Path.DirectorySeparatorChar;
+            string tempPrefix = Path.GetFullPath(GetTempFolder(sessionFolder)) + Path.DirectorySeparatorChar;
+            var files = src.GetFiles("*", SearchOption.AllDirectories)
+                .Where(f =>
+                {
+                    string full = Path.GetFullPath(f.FullName);
+                    return !full.StartsWith(outputPrefix, StringComparison.OrdinalIgnoreCase)
+                        && !full.StartsWith(tempPrefix, StringComparison.OrdinalIgnoreCase);
+                })
+                .ToArray();
+
+            long totalBytes = files.Sum(f => f.Length);
+            long freeBytes;
+            try { freeBytes = new DriveInfo(Path.GetPathRoot(parent) ?? "C:\\").AvailableFreeSpace; }
+            catch { freeBytes = long.MaxValue; }   // unknown drive info — let the copy itself decide
+            const long marginBytes = 256L * 1024 * 1024;   // keep a buffer; don't fill the disk to the brim
+            if (freeBytes < totalBytes + marginBytes)
+                throw new IOException(
+                    $"Not enough free space for a backup: it needs {totalBytes / (1024.0 * 1024):F0} MB " +
+                    $"but only {freeBytes / (1024.0 * 1024):F0} MB is free on this drive.");
+
+            string baseName = $"{src.Name} (backup {DateTime.Now:yyyy-MM-dd HHmm})";
+            string dest = Path.Combine(parent, baseName);
+            for (int n = 2; Directory.Exists(dest); n++)
+                dest = Path.Combine(parent, $"{baseName} {n}");
+
+            string srcRoot = Path.GetFullPath(sessionFolder).TrimEnd(Path.DirectorySeparatorChar);
+            int done = 0;
+            foreach (var f in files)
+            {
+                string relative = Path.GetFullPath(f.FullName).Substring(srcRoot.Length + 1);
+                string target = Path.Combine(dest, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(f.FullName, target);   // Copy preserves LastWriteTime — the capture record travels
+                progress?.Invoke(++done, files.Length);
+            }
+
+            // The copy must never look like the live/crashed session to recovery or the picker.
+            var copy = LoadSession(dest);
+            if (copy != null && copy.Active)
+            {
+                copy.Active = false;
+                SaveSession(dest, copy);
+            }
+            return dest;
+        }
+
+        /// <summary>
         /// DESTRUCTIVELY burn the overlay into every frame already on disk — the caller must obtain
         /// explicit consent first. Timestamp tokens resolve from each frame FILE's LastWriteTime (its
         /// capture moment), so the bake is genuinely retroactive: past frames get their real times.
