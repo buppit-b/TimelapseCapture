@@ -63,6 +63,25 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             </Style>
 
+            <!-- Stat rows (icon · label · value) — proper monochrome glyphs, no emoji font roulette. -->
+            <Style x:Key="StatIcon" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+            <Style x:Key="StatLabel" TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+            <Style x:Key="StatValue" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Consolas"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+            </Style>
+
             <!-- Themed slider (implicit — every Slider gets it): slim groove, accent fill on the
                  travelled side, round thumb. Ticks render only when a slider opts in via TickPlacement
                  (the wizard's speed notches); scrubbers with thousands of frames stay clean. -->

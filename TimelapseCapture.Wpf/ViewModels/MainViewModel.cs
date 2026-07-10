@@ -597,11 +597,27 @@ namespace TimelapseCapture.Wpf.ViewModels
             return Math.Max(0, _accumulatedSeconds + current - _timerRunBase);
         }
 
-        private string _storageInfo = "";
-        public string StorageInfo { get => _storageInfo; set => SetProperty(ref _storageInfo, value); }
+        // Structured stat rows (icon · label · value in the XAML) — replaced the old emoji text blobs.
+        private string _statFrameSize = "";
+        public string StatFrameSize { get => _statFrameSize; set => SetProperty(ref _statFrameSize, value); }
 
-        private string _resourcesInfo = "";
-        public string ResourcesInfo { get => _resourcesInfo; set => SetProperty(ref _resourcesInfo, value); }
+        private string _statSession = "";
+        public string StatSession { get => _statSession; set => SetProperty(ref _statSession, value); }
+
+        private string _statAtTarget = "";
+        public string StatAtTarget { get => _statAtTarget; set => SetProperty(ref _statAtTarget, value); }
+
+        private string _statFreeSpace = "";
+        public string StatFreeSpace { get => _statFreeSpace; set => SetProperty(ref _statFreeSpace, value); }
+
+        private bool _statLowSpace;
+        public bool StatLowSpace { get => _statLowSpace; set => SetProperty(ref _statLowSpace, value); }
+
+        private string _statMemory = "";
+        public string StatMemory { get => _statMemory; set => SetProperty(ref _statMemory, value); }
+
+        // "512 MB" below 10 GB, "24.3 GB" above — big numbers stay readable.
+        private static string FormatMB(double mb) => mb >= 10240 ? $"{mb / 1024.0:F1} GB" : $"{mb:F0} MB";
 
         private string _videoLengthText = "";
         public string VideoLengthText { get => _videoLengthText; set => SetProperty(ref _videoLengthText, value); }
@@ -2695,12 +2711,10 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int everyNth = Math.Max(1, EncodeEveryNth);
                 int encodedFrames = (_frameCount + everyNth - 1) / everyNth;
                 double vidLen = EncodeFps > 0 ? encodedFrames / (double)EncodeFps : 0;
-                VideoLengthText = everyNth > 1
-                    ? $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s (1 in {everyNth} frames)"
-                    : $"Video @ {EncodeFps}fps ≈ {vidLen:F1}s";
+                VideoLengthText = $"≈ {vidLen:F1}s @ {EncodeFps}fps" + (everyNth > 1 ? $" · 1 in {everyNth}" : "");
 
                 // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.
-                if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StorageInfo))
+                if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StatFrameSize))
                 {
                     RefreshOutputFolderMissing();   // folder can vanish while the app is running
 
@@ -2718,9 +2732,18 @@ namespace TimelapseCapture.Wpf.ViewModels
                     // storage-cap check (it reads frame files off disk — don't do it twice).
                     double avgFrameKb = (_sessionFolder != null && _frameCount > 0)
                         ? SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) : 0;
-                    StorageInfo = SystemMonitor.GetStorageInfoString(_sessionFolder, w, h,
+                    var st = SystemMonitor.GetStorageStats(_sessionFolder, w, h,
                         _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames, avgFrameKb);
-                    ResourcesInfo = SystemMonitor.GetResourcesInfoString();
+                    StatFrameSize = st.FrameSizeIsActual ? $"{st.FrameSizeKB:F1} KB avg" : $"~{st.FrameSizeKB:F1} KB est.";
+                    StatSession = st.CurrentFrames > 0 ? $"{FormatMB(st.SessionMB)} · {st.CurrentFrames:N0} frames" : "no frames yet";
+                    StatAtTarget = st.RemainingFrames > 0
+                        ? $"+{FormatMB(st.RemainingMB)} more → {FormatMB(st.TotalAtTargetMB)}"
+                        : (st.CurrentFrames > 0 ? "✓ at the target size" : "");
+                    StatFreeSpace = st.AvailableMB > 0
+                        ? $"{FormatMB(st.AvailableMB)}{(st.Drive.Length > 0 ? $" on {st.Drive}" : "")}"
+                        : "—";
+                    StatLowSpace = st.LowSpaceWarning;
+                    StatMemory = $"{SystemMonitor.GetProcessMemoryMB():F0} MB";
                     UpdateStorageRate(avgFrameKb);   // live "≈ X GB/hour" + fast-fill warning
 
                     // Unattended safety: stop before the drive fills (writes would start failing, and a full

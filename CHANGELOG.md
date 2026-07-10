@@ -8,7 +8,15 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
-### RC refinements (2026-07-08 → 10)
+### RC refinements (2026-07-08 → 11)
+- **Stats panel rebuilt** (UI-arc opener) — the emoji text blob is now clean **icon · label ·
+  value rows** (proper Segoe MDL2 glyphs): Video length leads as the anchor, Disk rate and Free
+  space carry their warning states, and the detail rows (frame size, on-disk, at-target
+  projection, memory, total elapsed) are **advanced-only, so Simple mode shows a calm panel** —
+  target, video, rate, free space, run time. One structured `GetStorageStats` computation feeds
+  the rows (unit-tested), replacing string parsing.
+- **Hue-box colour picker** — the overlay colour rows gained a compact picker chip: a popup
+  saturation/value square + hue strip, applying live while you drag (the preview follows).
 - **Overlay colour & opacity** — the overlay text and its backdrop box each get a colour
   (swatches or hex) and an opacity (0–100%); backdrop at 0% removes the box entirely. Defaults
   match the old look exactly (white text, black box ~59%). Applies live at capture, in the

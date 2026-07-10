@@ -184,7 +184,16 @@ it runs when Spike has the hours, while development continues.)*
   cheap downscaled-frame diff. (Smart-interval already SKIPS most idle frames live, so this is the
   cleanup for what slipped through.)
 
-### Stats panel rework (Spike, 2026-07-05 — elevated 2026-07-10 into the UI arc)
+### Stats panel rework — ✅ first slice shipped (2026-07-11)
+Structured **icon · label · value rows** (Segoe MDL2 glyphs, no emoji) replaced the one-blob
+string: Video length (anchor, larger) · Disk rate (red fast-fill warn) · Frame / On disk /
+At target (advanced-only) · Free space (red low-space warn) · Memory (advanced) · Run / Total.
+`SystemMonitor.GetStorageStats` provides the numbers (unit-tested; the legacy string formats
+from the same struct). **Simple mode now slims the panel** to Video / Disk rate / Free space /
+Run + the target block — the "intimidating" detail rows are advanced-only. Remaining ideas
+below (gauges/sparklines) stay open for the broader GUI reshape:
+
+*(original notes)*
 - The stats panel grew organically and uses emoji (📦💾📊📁🖥️🎬💻). Rework: replace emoji with
   **dedicated glyph icons** (Segoe MDL2 Assets — already used for the window buttons, renders as
   proper monochrome icons, no image assets), restructure `SystemMonitor.GetStorageInfoString`'s

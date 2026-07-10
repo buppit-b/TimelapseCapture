@@ -579,59 +579,144 @@
                             </EventTrigger>
                         </TextBlock.Triggers>
                     </TextBlock>
-                    <TextBlock Text="{Binding StorageInfo}" FontFamily="Consolas" FontSize="11"
-                               TextWrapping="Wrap" Margin="0,0,0,2" LineHeight="18"
-                               Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
-                        <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
-                        <TextBlock.Triggers>
-                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
-                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
-                            </EventTrigger>
-                        </TextBlock.Triggers>
-                    </TextBlock>
-                    <!-- Live storage rate; turns red when the settings would fill the drive fast. -->
-                    <TextBlock Text="{Binding StorageRateText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,2">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding StorageRateWarn}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <TextBlock Text="(disk use is for the raw frames, not the final video — CRF sets the video size)"
-                               Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding VideoLengthText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
-                               Margin="0,0,0,4" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
-                        <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
-                        <TextBlock.Triggers>
-                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
-                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
-                            </EventTrigger>
-                        </TextBlock.Triggers>
-                    </TextBlock>
-                    <TextBlock Text="{Binding ResourcesInfo}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
-                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Grid Margin="0,8,0,0">
+                    <!-- Structured stats: icon · label · value. Video length + disk rate are the anchors;
+                         the detail rows are advanced-only, so Simple mode keeps a calm panel. -->
+                    <Grid Margin="0,0,0,6" ToolTip="Length of the video these frames make at the current encode fps.">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Run" Style="{StaticResource Muted}"
-                                   ToolTip="Elapsed time of the current capture run."/>
-                        <TextBlock Grid.Column="1" Text="{Binding ElapsedText}" FontFamily="Consolas" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE714;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Video"/>
+                        <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" Text="{Binding VideoLengthText}"
+                                   Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                            <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
+                            <TextBlock.Triggers>
+                                <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                    <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                </EventTrigger>
+                            </TextBlock.Triggers>
+                        </TextBlock>
                     </Grid>
-                    <Grid Margin="0,4,0,0">
+                    <Grid Margin="0,0,0,6" ToolTip="How fast capturing eats the drive at the current settings — red when it would fill it within ~2 hours.">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Total" Style="{StaticResource Muted}"
-                                   ToolTip="Total capture time across all start/stop runs this session."/>
-                        <TextBlock Grid.Column="1" Text="{Binding TotalElapsedText}" FontFamily="Consolas" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE896;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Disk rate"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StorageRateText}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StorageRateWarn}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Grid>
+                    <StackPanel Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid Margin="0,0,0,6" ToolTip="Average size of one captured frame on disk (estimated until frames exist).">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE722;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Frame"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatFrameSize}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6" ToolTip="What this session's frames use on disk right now.">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE8B7;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="On disk"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatSession}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6" ToolTip="Extra storage the remaining frames need, and the session's total size once the target is reached.">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE74E;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="At target"/>
+                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Text="{Binding StatAtTarget}"
+                                       Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                                <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
+                                <TextBlock.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                    </EventTrigger>
+                                </TextBlock.Triggers>
+                            </TextBlock>
+                        </Grid>
+                    </StackPanel>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xEDA2;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Free space"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatFreeSpace}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StatLowSpace}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                            <Setter Property="ToolTip" Value="Reaching the target may not fit in the remaining space on this drive."/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <Grid Margin="0,0,0,6" ToolTip="Memory the app is using."
+                          Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE950;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Memory"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatMemory}"/>
+                    </Grid>
+                    <Grid Margin="0,0,0,4" ToolTip="Elapsed time of the current capture run.">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE916;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Run"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding ElapsedText}"/>
+                    </Grid>
+                    <Grid ToolTip="Total capture time across all start/stop runs this session."
+                          Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE823;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Total"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding TotalElapsedText}"/>
+                    </Grid>
+                    <TextBlock Text="Disk use is for the raw frames, not the final video — CRF sets the video size."
+                               Style="{StaticResource Muted}" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
                 </StackPanel>
             </Border>
 

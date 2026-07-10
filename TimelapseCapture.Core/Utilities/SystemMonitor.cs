@@ -204,10 +204,24 @@ namespace TimelapseCapture
         }
 
         /// <summary>
-        /// Build storage info string for UI display.
-        /// Shows both estimated and actual (if available) storage usage.
+        /// The storage picture as structured numbers — one computation feeding both the WPF stat
+        /// rows and the legacy string readout, so the two can never disagree.
         /// </summary>
-        public static string GetStorageInfoString(
+        public sealed class StorageStats
+        {
+            public double FrameSizeKB;          // actual average when frames exist, else the estimate
+            public bool FrameSizeIsActual;
+            public int CurrentFrames;
+            public double SessionMB;            // what the frames on disk use now
+            public int RemainingFrames;         // to reach the projection target (0 when already there)
+            public double RemainingMB;
+            public double TotalAtTargetMB;      // session size when the target is reached
+            public long AvailableMB;            // free space on the session's drive (0 = unknown)
+            public string Drive = "";           // e.g. "D:" — the disk the low-disk safety watches
+            public bool LowSpaceWarning;        // projected total (with 20% buffer) exceeds free space
+        }
+
+        public static StorageStats GetStorageStats(
             string? sessionFolder,
             int width,
             int height,
@@ -217,72 +231,70 @@ namespace TimelapseCapture
             int projectedFrames,
             double actualFrameSizeKBOverride = -1)   // >= 0: caller already sampled it — don't re-read the folder
         {
-            var result = new System.Text.StringBuilder();
-
-            // Calculate estimated frame size
-            double estimatedFrameSizeKB = EstimateFrameSizeKB(width, height, format, jpegQuality);
-
-            // Get actual average if we have captured frames (reuse the caller's sample when provided)
-            double actualFrameSizeKB = 0;
+            double estimatedKB = EstimateFrameSizeKB(width, height, format, jpegQuality);
+            double actualKB = 0;
             if (actualFrameSizeKBOverride >= 0)
-                actualFrameSizeKB = actualFrameSizeKBOverride;
+                actualKB = actualFrameSizeKBOverride;
             else if (!string.IsNullOrEmpty(sessionFolder) && currentFrames > 0)
-                actualFrameSizeKB = GetActualAverageFrameSizeKB(sessionFolder);
+                actualKB = GetActualAverageFrameSizeKB(sessionFolder);
 
-            // Show frame size info
-            if (actualFrameSizeKB > 0)
+            var s = new StorageStats
             {
-                result.AppendLine($"📦 Frame Size: {actualFrameSizeKB:F1} KB (actual avg)");
-            }
-            else
-            {
-                result.AppendLine($"📦 Frame Size: ~{estimatedFrameSizeKB:F1} KB (estimated)");
-            }
+                FrameSizeIsActual = actualKB > 0,
+                FrameSizeKB = actualKB > 0 ? actualKB : estimatedKB,
+                CurrentFrames = currentFrames,
+            };
+            s.SessionMB = s.FrameSizeKB * currentFrames / 1024.0;
+            s.RemainingFrames = Math.Max(0, projectedFrames - currentFrames);
+            s.RemainingMB = s.FrameSizeKB * s.RemainingFrames / 1024.0;
+            s.TotalAtTargetMB = s.FrameSizeKB * Math.Max(projectedFrames, currentFrames) / 1024.0;
 
-            // Show current storage if frames exist
-            if (currentFrames > 0)
-            {
-                double usedKB = actualFrameSizeKB > 0 
-                    ? actualFrameSizeKB * currentFrames 
-                    : estimatedFrameSizeKB * currentFrames;
-                double usedMB = usedKB / 1024.0;
-                
-                result.AppendLine($"💾 Current: {usedMB:F1} MB ({currentFrames} frames)");
-            }
-
-            // Show projected storage for remaining frames
-            if (projectedFrames > currentFrames)
-            {
-                double frameSize = actualFrameSizeKB > 0 ? actualFrameSizeKB : estimatedFrameSizeKB;
-                double projectedKB = frameSize * (projectedFrames - currentFrames);
-                double projectedMB = projectedKB / 1024.0;
-                
-                result.AppendLine($"📊 Projected: +{projectedMB:F1} MB ({projectedFrames - currentFrames} more frames)");
-                
-                double totalMB = (frameSize * projectedFrames) / 1024.0;
-                result.AppendLine($"📁 Total: {totalMB:F1} MB (when complete)");
-            }
-
-            // Show available disk space
             if (!string.IsNullOrEmpty(sessionFolder))
             {
-                long availableMB = GetAvailableDiskSpaceMB(sessionFolder);
-                if (availableMB > 0)
-                {
-                    // Show which drive is being watched — the low-disk safety guards this same disk (the one
-                    // the active session writes to), so it's clear where the threshold applies.
-                    string drive = (Path.GetPathRoot(sessionFolder) ?? "").TrimEnd('\\');
-                    result.AppendLine($"💿 Available: {availableMB:F0} MB free{(drive.Length > 0 ? $" on {drive}" : "")}");
-                    
-                    // Warning if low space
-                    double frameSize = actualFrameSizeKB > 0 ? actualFrameSizeKB : estimatedFrameSizeKB;
-                    double projectedTotalMB = (frameSize * projectedFrames) / 1024.0;
-                    
-                    if (availableMB < projectedTotalMB * 1.2) // Need 20% buffer
-                    {
-                        result.AppendLine("⚠️ WARNING: May run out of disk space!");
-                    }
-                }
+                s.AvailableMB = GetAvailableDiskSpaceMB(sessionFolder);
+                s.Drive = (Path.GetPathRoot(sessionFolder) ?? "").TrimEnd('\\');
+                // The 20% buffer matches the long-standing string readout's warning.
+                s.LowSpaceWarning = s.AvailableMB > 0 && s.AvailableMB < s.TotalAtTargetMB * 1.2;
+            }
+            return s;
+        }
+
+        /// <summary>
+        /// Build storage info string for UI display (legacy readout — the WPF app binds the
+        /// structured rows instead). Formats from GetStorageStats so the numbers always match.
+        /// </summary>
+        public static string GetStorageInfoString(
+            string? sessionFolder,
+            int width,
+            int height,
+            string format,
+            int jpegQuality,
+            int currentFrames,
+            int projectedFrames,
+            double actualFrameSizeKBOverride = -1)
+        {
+            var s = GetStorageStats(sessionFolder, width, height, format, jpegQuality,
+                                    currentFrames, projectedFrames, actualFrameSizeKBOverride);
+            var result = new System.Text.StringBuilder();
+
+            result.AppendLine(s.FrameSizeIsActual
+                ? $"📦 Frame Size: {s.FrameSizeKB:F1} KB (actual avg)"
+                : $"📦 Frame Size: ~{s.FrameSizeKB:F1} KB (estimated)");
+
+            if (s.CurrentFrames > 0)
+                result.AppendLine($"💾 Current: {s.SessionMB:F1} MB ({s.CurrentFrames} frames)");
+
+            if (s.RemainingFrames > 0)
+            {
+                result.AppendLine($"📊 Projected: +{s.RemainingMB:F1} MB ({s.RemainingFrames} more frames)");
+                result.AppendLine($"📁 Total: {s.TotalAtTargetMB:F1} MB (when complete)");
+            }
+
+            if (s.AvailableMB > 0)
+            {
+                result.AppendLine($"💿 Available: {s.AvailableMB:F0} MB free{(s.Drive.Length > 0 ? $" on {s.Drive}" : "")}");
+                if (s.LowSpaceWarning)
+                    result.AppendLine("⚠️ WARNING: May run out of disk space!");
             }
 
             return result.ToString().TrimEnd();
