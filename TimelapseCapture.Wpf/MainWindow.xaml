@@ -239,7 +239,7 @@
                                          IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=5}"/>
                             <ToggleButton Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
                                           IsChecked="{Binding RatioFlipped}" VerticalAlignment="Center"
-                                          ToolTip="Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Off by default; not remembered between runs."/>
+                                          ToolTip="Rotate the current selection 90° (swap its width and height about its centre — watch the outline) and flip the locked ratio for the next drag. Not remembered between runs."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -304,9 +304,11 @@
                     </StackPanel>
                 </Border>
 
-                <!-- The GO strip: the app's primary action on its own stage — accent-framed, at the end
-                     of the left column's workflow (session → area → speed → GO). Visible in Simple mode. -->
-                <Border Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource AccentBrush}"
+                <!-- The GO strip: the app's primary action on its own stage, at the end of the left
+                     column's workflow (session → area → speed → GO). Visible in Simple mode. Kept
+                     card-quiet on purpose — the lighter fill and the bigger Start carry the hierarchy
+                     without fighting the rest of the window for attention (Spike's call). -->
+                <Border Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                         BorderThickness="1" CornerRadius="10" Padding="18,14" Margin="0,0,0,14">
                     <StackPanel>
                         <Grid>

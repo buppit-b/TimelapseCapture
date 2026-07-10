@@ -310,8 +310,33 @@ namespace TimelapseCapture.Wpf.ViewModels
 
         // Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Deliberately TRANSIENT —
         // not persisted — so it's always off by default per Spike's call.
+        // Like the Crop dialog's flip, toggling ALSO transposes the current static region about its
+        // centre right away — the on-screen outline answers the click; no re-select needed to see it.
         private bool _ratioFlipped;
-        public bool RatioFlipped { get => _ratioFlipped; set => SetProperty(ref _ratioFlipped, value); }
+        public bool RatioFlipped
+        {
+            get => _ratioFlipped;
+            set
+            {
+                if (!SetProperty(ref _ratioFlipped, value)) return;
+                if (_region is not { } r || _trackedWindow != IntPtr.Zero || IsCapturing) return;
+                if (r.Width == r.Height) return;   // a square transposes to itself — nothing to show
+                // Same gate as every other region source — a session with frames gets the (suppressible)
+                // scale note first. Declining reverts the toggle: nothing happened.
+                if (!ConfirmRegionChange())
+                {
+                    _ratioFlipped = !value;
+                    OnPropertyChanged(nameof(RatioFlipped));
+                    return;
+                }
+                var flipped = new System.Drawing.Rectangle(
+                    r.X + (r.Width - r.Height) / 2, r.Y + (r.Height - r.Width) / 2, r.Height, r.Width);
+                // The transpose can poke off-screen (tall flip near an edge) — relocate like a loaded region.
+                flipped = ScreenHelper.FitRegionOnScreen(flipped, out _) ?? r;
+                if (flipped.Width >= 2 && flipped.Height >= 2 && flipped != r)
+                    ApplyRegion(flipped);
+            }
+        }
 
         // The effective ratio for region select/edit: the chosen preset, flipped when armed.
         private (int w, int h) EffectiveRatio()
