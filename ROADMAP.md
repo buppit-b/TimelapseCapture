@@ -169,6 +169,11 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
    the Trim/Cull editing keys (step ±1/±10, mark/unmark, set start/end).
 
 ### 1.x smaller ideas (parked, roughly by value)
+**Overlay drag precision** *(Spike, 2026-07-09)*: dragging the overlay text on the small preview
+feels imprecise — cursor covers the text, small overlays are fiddly. Ideas: a zoom slider beside
+the preview (zoom into the area under the overlay for fine placement), arrow-key nudging (±1%/
+±0.1% with Shift), and/or a pop-out larger preview. Keep the main app compact; the precision
+surface lives in the dialog. ·
 **Layout reshape** *(Spike + external tester, 2026-07-04 — "greatly interested", but "can wait")*:
 rework the main two-column layout; the tester felt techy/setup bits eat workspace real estate —
 consider moving more into Settings/tabs and slimming the main surface. Bigger UI task, own branch. ·

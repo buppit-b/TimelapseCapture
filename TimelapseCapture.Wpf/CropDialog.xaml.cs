@@ -100,24 +100,54 @@ namespace TimelapseCapture.Wpf
                 var parts = t.Split(':');
                 _baseRatioW = parts.Length == 2 && int.TryParse(parts[0], out int w) ? w : 0;
                 _baseRatioH = parts.Length == 2 && int.TryParse(parts[1], out int h) ? h : 0;
-                ApplyRatio();
+                ApplyRatioOrientation();
+                ReshapeToRatio();
             }
         }
 
-        private void OnFlip(object sender, RoutedEventArgs e) => ApplyRatio();
+        // Flip = TRANSPOSE the current selection (swap its width/height about its own centre) — a
+        // clean 90° rotation that works on the Free ratio too — and flip the lock's orientation for
+        // future drags. (The old behavior re-derived height from width via the ratio, which ballooned
+        // a wide selection into an enormous tall one instead of rotating it.)
+        private void OnFlip(object sender, RoutedEventArgs e)
+        {
+            ApplyRatioOrientation();
+            if (_rect is { } r)
+            {
+                double cx = r.X + r.Width / 2.0, cy = r.Y + r.Height / 2.0;
+                int nw = r.Height, nh = r.Width;
+                // Shrink proportionally if the rotated rect can't fit on the frame.
+                double s = Math.Min(1.0, Math.Min((double)_frameW / nw, (double)_frameH / nh));
+                nw = Math.Max(2, (int)(nw * s));
+                nh = Math.Max(2, (int)(nh * s));
+                int nx = Math.Clamp((int)Math.Round(cx - nw / 2.0), 0, Math.Max(0, _frameW - nw));
+                int ny = Math.Clamp((int)Math.Round(cy - nh / 2.0), 0, Math.Max(0, _frameH - nh));
+                _rect = VideoEncoder.ClampCrop(new System.Drawing.Rectangle(nx, ny, nw, nh),
+                    new System.Drawing.Size(_frameW, _frameH));
+                SyncUi();
+            }
+        }
 
-        private void ApplyRatio()
+        private void ApplyRatioOrientation()
         {
             bool flip = flipToggle.IsChecked == true;
             _ratioW = flip ? _baseRatioH : _baseRatioW;
             _ratioH = flip ? _baseRatioW : _baseRatioH;
-            // Re-shape the current crop to the new ratio immediately (keep width, anchor top-left).
-            if (_rect is { } r && _ratioW > 0 && _ratioH > 0)
-            {
-                int nh = Math.Max(2, r.Width * _ratioH / _ratioW);
-                _rect = Clamp(new System.Drawing.Rectangle(r.X, r.Y, r.Width, nh));
-                SyncUi();
-            }
+        }
+
+        // Re-shape the current crop to the active ratio: keep the width, adjust the height about the
+        // rect's centre; shrink the width when the new height can't fit the frame.
+        private void ReshapeToRatio()
+        {
+            if (_rect is not { } r || _ratioW <= 0 || _ratioH <= 0) return;
+            double cy = r.Y + r.Height / 2.0;
+            int nw = r.Width, nh = Math.Max(2, nw * _ratioH / _ratioW);
+            if (nh > _frameH) { nh = _frameH; nw = Math.Max(2, nh * _ratioW / _ratioH); }
+            int nx = Math.Clamp(r.X + (r.Width - nw) / 2, 0, Math.Max(0, _frameW - nw));
+            int ny = Math.Clamp((int)Math.Round(cy - nh / 2.0), 0, Math.Max(0, _frameH - nh));
+            _rect = VideoEncoder.ClampCrop(new System.Drawing.Rectangle(nx, ny, nw, nh),
+                new System.Drawing.Size(_frameW, _frameH));
+            SyncUi();
         }
 
         // ---- display ↔ frame mapping (the image is Uniform-stretched and letterboxed in the canvas) ----

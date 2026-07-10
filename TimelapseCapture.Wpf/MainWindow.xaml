@@ -102,14 +102,22 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- The two toggles hide on narrow windows so the min/max/close buttons can NEVER be
+                     pushed off-screen (they're preferences, still reachable; window controls aren't). -->
                 <ToggleButton Style="{StaticResource HeaderToggle}" Content="Simple" IsChecked="{Binding SimpleMode}"
                               VerticalAlignment="Center" Margin="0,0,14,0"
+                              Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                           Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
                               ToolTip="Simple mode: a speed slider and just the essentials. Turn off for full control."/>
                 <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
                               IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                           Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
                               ToolTip="Keep the Framewright window above all other windows."/>
-                <Button Style="{StaticResource BtnBase}" Content="{Binding SessionName}" VerticalAlignment="Center"
-                        Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session"/>
+                <Button Style="{StaticResource BtnBase}" MaxWidth="170" VerticalAlignment="Center"
+                        Command="{Binding RenameSessionCommand}" ToolTip="Click to rename this session">
+                    <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"/>
+                </Button>
                 <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
                         Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"
@@ -122,7 +130,14 @@
 
         <!-- Content (scrolls when the window is shrunk below its natural size) -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Margin="22,6,22,22">
+        <!-- ROOT CAUSE of "text never wraps": a ScrollViewer with horizontal scrolling measures its
+             child at INFINITE width, so star columns and TextWrapping silently never engage. Binding
+             this host's Width to the viewport bounds the layout (wrapping works, no h-scroll) while
+             MinWidth preserves shrink-to-scroll: below it the h-scrollbar appears instead of crushing
+             the cards. Padding replaces the old content margin so the width math stays exact. -->
+        <Border Padding="22,6,22,22" MinWidth="940"
+                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+        <Grid>
             <Grid.ColumnDefinitions>
                 <!-- Right column grows with the window (was a fixed 300px — the encoder card squished). -->
                 <ColumnDefinition Width="1.8*"/>
@@ -617,6 +632,7 @@
                 </Border>
             </StackPanel>
         </Grid>
+        </Border>
         </ScrollViewer>
     </Grid>
 </Window>

@@ -51,7 +51,7 @@
             <RadioButton Style="{StaticResource Seg}" GroupName="cropratio" Content="9:16" Tag="9:16" Click="OnRatio"/>
             <ToggleButton x:Name="flipToggle" Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
                           Click="OnFlip" VerticalAlignment="Center"
-                          ToolTip="Flip the locked ratio's orientation (16:9 ⇄ 9:16, 4:3 ⇄ 3:4). Off by default."/>
+                          ToolTip="Rotate the current selection 90° (swap its width and height about its centre) — works on any ratio, including Free — and flip the locked ratio for future drags."/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
