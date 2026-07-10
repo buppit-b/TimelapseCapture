@@ -18,6 +18,9 @@ namespace TimelapseCapture.Wpf
     {
         private readonly System.Windows.Threading.DispatcherTimer _renderDebounce;
 
+        /// <summary>Set when the user confirmed a retroactive bake — the VM runs it after the dialog closes.</summary>
+        public bool BakeRequested { get; private set; }
+
         public OverlayDialog()
         {
             InitializeComponent();
@@ -28,9 +31,32 @@ namespace TimelapseCapture.Wpf
             _renderDebounce = new System.Windows.Threading.DispatcherTimer
             { Interval = TimeSpan.FromMilliseconds(150) };
             _renderDebounce.Tick += (s, e) => { _renderDebounce.Stop(); RenderPreview(); };
-            Loaded += (s, e) => { Subscribe(); RenderPreview(); };
+            Loaded += (s, e) => { Subscribe(); RenderPreview(); RefreshBakeEnabled(); };
             Closed += (s, e) => { Unsubscribe(); _renderDebounce.Stop(); };
             sizeBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnApplySize(s, new RoutedEventArgs()); };
+        }
+
+        // Bake needs frames on disk, an idle app, and overlay text to draw — kept fresh via VM changes.
+        private void RefreshBakeEnabled()
+        {
+            bakeBtn.IsEnabled = Vm is { } vm && vm.FrameCount > 0 && !vm.IsCapturing && !vm.IsEncoding
+                                && !string.IsNullOrWhiteSpace(vm.OverlayText);
+        }
+
+        private void OnBake(object sender, RoutedEventArgs e)
+        {
+            if (Vm is not { } vm || vm.FrameCount < 1) return;
+            var res = MessageDialog.Show(
+                $"Permanently burn this overlay into all {vm.FrameCount} frame(s) on disk?\n\n" +
+                "Timestamp tokens use each frame file's own capture time, so past frames get their real " +
+                "times — not today's. This re-writes every frame and can't be undone; if unsure, copy the " +
+                "session folder first.\n\n" +
+                "Note: frames that already had the overlay burned in at capture would get a second copy " +
+                "drawn over the first.",
+                "Bake overlay into frames", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (res != MessageBoxResult.Yes) return;
+            BakeRequested = true;
+            Close();   // the bake runs from the main window (progress in the encode status line)
         }
 
         // The size box commits on focus-loss like every numeric field — this applies it immediately
@@ -86,7 +112,7 @@ namespace TimelapseCapture.Wpf
         private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName?.StartsWith("Overlay", StringComparison.Ordinal) == true)
-            { _renderDebounce.Stop(); _renderDebounce.Start(); }
+            { _renderDebounce.Stop(); _renderDebounce.Start(); RefreshBakeEnabled(); }
         }
 
         private void RenderPreview()

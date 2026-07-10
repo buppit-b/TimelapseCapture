@@ -9,6 +9,14 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 10)
+- **Retroactive overlay bake** — Overlay dialog → "Bake into frames…" burns the overlay into
+  every frame already on disk, for when you forgot to enable it before capturing. The trick:
+  timestamp tokens resolve from each frame FILE's own write time (= its capture moment), so past
+  frames get their **real** times, not today's — and the bake preserves those write times through
+  the rewrite so the record survives. Destructive with explicit consent (crash-safe temp+replace,
+  progress in the status line). The other on-disk rewrites (destructive crop, format convert) now
+  preserve frame write times too. Also hardened: capture can no longer start (incl. via
+  hotkey/tray) while an encode or an on-disk rewrite is running.
 - **Scroll-wheel stepping everywhere** — hover any numeric field and wheel to adjust it
   (interval, quality, fps, CRF, overlay size/position, crop X/Y/W/H, safety limits, …):
   ±1 per notch, **Shift = ×10**, **Ctrl = fine 0.1** on decimal fields; values commit and

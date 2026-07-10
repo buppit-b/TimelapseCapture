@@ -85,6 +85,9 @@
         </StackPanel>
 
         <Grid Margin="0,18,0,0">
+            <Button x:Name="bakeBtn" Content="Bake into frames…" Style="{StaticResource BtnBase}"
+                    HorizontalAlignment="Left" MinWidth="84" Click="OnBake"
+                    ToolTip="Burn this overlay into every frame already on disk — for when you forgot to enable it before capturing. Timestamps come from each frame file's own capture time, so past frames get their REAL times, not today's. Permanent (you'll be asked to confirm)."/>
             <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"
                     MinWidth="84" IsCancel="True"/>
         </Grid>

@@ -12,10 +12,17 @@ namespace TimelapseCapture
     {
         /// <summary>Best-effort: an overlay problem must never break the capture loop.</summary>
         public static void Draw(Bitmap bmp, OverlayConfig cfg, long frameNumber = 0)
+            => Draw(bmp, cfg, frameNumber, DateTime.Now);
+
+        /// <summary>
+        /// Same, with an explicit clock — the retroactive bake passes each frame FILE's write time,
+        /// so timestamp tokens resolve to the frame's real capture moment, not "now".
+        /// </summary>
+        public static void Draw(Bitmap bmp, OverlayConfig cfg, long frameNumber, DateTime now)
         {
             try
             {
-                string text = ResolveTokens(cfg.Text, DateTime.Now, frameNumber);
+                string text = ResolveTokens(cfg.Text, now, frameNumber);
                 if (string.IsNullOrEmpty(text)) return;
 
                 string family = string.IsNullOrWhiteSpace(cfg.FontFamily) ? "Consolas" : cfg.FontFamily;

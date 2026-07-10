@@ -53,7 +53,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing && !IsEncoding);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
-            OpenOverlayCommand = new RelayCommand(_ => OpenOverlay());
+            OpenOverlayCommand = new RelayCommand(async _ => await OpenOverlay());
             DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
             OpenLogCommand = new RelayCommand(_ => OpenLog());
             OpenWizardCommand = new RelayCommand(_ => OpenWizard(), _ => !IsCapturing);
@@ -74,7 +74,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             TrackWindowCommand = new RelayCommand(_ => TrackWindow(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);
             EditRegionCommand = new RelayCommand(_ => EditRegion(), _ => _session != null && _region.HasValue && !IsCapturing);
-            StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing);
+            StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing && !IsEncoding);
             StopCommand = new RelayCommand(_ => StopByUser(), _ => IsCapturing);
             PauseResumeCommand = new RelayCommand(_ => PauseResume(), _ => IsCapturing);
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
@@ -1240,10 +1240,39 @@ namespace TimelapseCapture.Wpf.ViewModels
             dlg.ShowDialog();
         }
 
-        private void OpenOverlay()
+        private async Task OpenOverlay()
         {
             var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
+            if (!dlg.BakeRequested || _sessionFolder == null || IsCapturing || IsEncoding) return;
+
+            // Retroactive bake — re-writes every frame on disk (consent already given in the dialog).
+            // Same busy pattern as the destructive crop: IsEncoding gates start/encode/trim/cull/switch.
+            IsEncoding = true;
+            EncodeStatus = "Baking overlay…";
+            try
+            {
+                var folder = _sessionFolder;
+                var overlay = BuildOverlay();
+                int done = await Task.Run(() => SessionManager.BakeOverlay(
+                    folder, overlay, _settings.JpegQuality,
+                    (i, total) =>
+                    {
+                        if (i % 25 == 0 || i == total)
+                            Application.Current?.Dispatcher.BeginInvoke(
+                                () => EncodeStatus = $"Baking overlay… {i}/{total}");
+                    }));
+                EncodeStatus = $"Overlay baked into {done} frame(s) ✓";
+                Logger.Log("Wpf", $"Retroactive overlay bake: {done} frame(s) in {folder}.");
+            }
+            catch (Exception ex)
+            {
+                EncodeStatus = "Overlay bake failed";
+                MessageDialog.Show($"Couldn't bake the overlay into the frames:\n{ex.Message}",
+                    "Bake overlay", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally { IsEncoding = false; }
+            UpdatePreview();   // the frames' pixels changed — show it
         }
 
         /// <summary>Guided setup — shown automatically on first run, re-runnable from Settings.</summary>
@@ -1808,6 +1837,10 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StartCapture()
         {
             if (_session == null || _sessionFolder == null || !_region.HasValue) return;
+            // Also reachable via hotkey/tray, which skip the command's CanExecute: never start while an
+            // encode OR an on-disk rewrite (destructive crop, overlay bake) is running — capturing into a
+            // session whose frames are being rewritten would mix sizes / skip frames mid-operation.
+            if (IsEncoding) return;
 
             // Pre-flight: don't begin a run onto a disk that's already below the low-disk safety limit
             // (it would auto-stop almost immediately) — let the user decide, but default to not starting.

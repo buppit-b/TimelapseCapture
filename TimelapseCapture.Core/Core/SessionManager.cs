@@ -582,11 +582,13 @@ namespace TimelapseCapture
                 string ext = Path.GetExtension(src).TrimStart('.').ToLowerInvariant();
                 if (ext == targetExt) continue;
                 string dst = Path.ChangeExtension(src, "." + targetExt);
+                var capturedAt = File.GetLastWriteTime(src);
                 using (var img = Image.FromFile(src))
                 {
                     if (targetExt == "png") img.Save(dst, System.Drawing.Imaging.ImageFormat.Png);
                     else SaveJpeg(img, dst, jpegQuality);
                 }
+                File.SetLastWriteTime(dst, capturedAt);   // write time = capture moment; carry it across
                 File.Delete(src);   // only after the replacement exists — a crash mid-run loses nothing
                 converted++;
             }
@@ -625,6 +627,7 @@ namespace TimelapseCapture
             {
                 string ext = Path.GetExtension(src).TrimStart('.').ToLowerInvariant();
                 string tmp = src + ".croptmp";
+                var capturedAt = File.GetLastWriteTime(src);
                 using (var img = Image.FromFile(src))
                 {
                     var r = VideoEncoder.ClampCrop(crop, img.Size);
@@ -637,7 +640,43 @@ namespace TimelapseCapture
                     else SaveJpeg(dst, tmp, jpegQuality);
                 }
                 File.Replace(tmp, src, null);   // original intact until the cropped copy is fully written
+                File.SetLastWriteTime(src, capturedAt);   // a frame's write time = its capture moment; keep it
                 done++;
+            }
+            return done;
+        }
+
+        /// <summary>
+        /// DESTRUCTIVELY burn the overlay into every frame already on disk — the caller must obtain
+        /// explicit consent first. Timestamp tokens resolve from each frame FILE's LastWriteTime (its
+        /// capture moment), so the bake is genuinely retroactive: past frames get their real times.
+        /// Each frame is rewritten via temp+replace (crash-safe like CropFrames) and its write time is
+        /// restored afterwards so the capture-moment record survives for future bakes/tools.
+        /// Returns the number of frames baked. Never call while capturing into the session.
+        /// </summary>
+        public static int BakeOverlay(string sessionFolder, OverlayConfig overlay, int jpegQuality = 90,
+                                      Action<int, int>? progress = null)
+        {
+            if (string.IsNullOrWhiteSpace(overlay?.Text)) return 0;   // nothing to draw — don't touch files
+            var files = GetFrameFiles(sessionFolder);
+            int done = 0;
+            foreach (var src in files)
+            {
+                string ext = Path.GetExtension(src).TrimStart('.').ToLowerInvariant();
+                string tmp = src + ".baketmp";
+                var capturedAt = File.GetLastWriteTime(src);
+                long frameNo = long.TryParse(Path.GetFileNameWithoutExtension(src), out var n) ? n : 0;
+                using (var img = Image.FromFile(src))
+                using (var bmp = new Bitmap(img))   // copy: Graphics can't draw on indexed pixel formats
+                {
+                    OverlayRenderer.Draw(bmp, overlay!, frameNo, capturedAt);
+                    if (ext == "png") bmp.Save(tmp, System.Drawing.Imaging.ImageFormat.Png);
+                    else if (ext == "bmp") bmp.Save(tmp, System.Drawing.Imaging.ImageFormat.Bmp);
+                    else SaveJpeg(bmp, tmp, jpegQuality);
+                }
+                File.Replace(tmp, src, null);             // original intact until the baked copy is complete
+                File.SetLastWriteTime(src, capturedAt);   // preserve the capture moment the bake relies on
+                progress?.Invoke(++done, files.Length);
             }
             return done;
         }

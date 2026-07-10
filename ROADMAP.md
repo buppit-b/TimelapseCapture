@@ -85,14 +85,13 @@ candidates** section below for what happens next.
    {elapsed}/{frame} tokens, and an **encode-time overlay** option (apply at encode
    via ffmpeg drawtext/overlay — covers "forgot to enable it", though a true
    per-frame capture timestamp can only be baked live, not reconstructed at encode).
-   - **Retroactive overlay bake** *(Spike asked 2026-07-10; design decided, queued)*: burn the
-     overlay into frames already on disk. Timestamp tokens ARE genuinely recoverable — each
-     frame file's **LastWriteTime is the capture moment**, so {datetime}/{time}/{t:} resolve
-     per-frame from the file, not from "now". Implementation mirrors `CropFrames`:
-     `SessionManager.BakeOverlay` (GDI DrawImage per frame, temp+replace, progress+cancel),
-     behind an explicit consent dialog — it's destructive (pixels permanently altered), so
-     "type nothing, just confirm with a clear warning + suggest a copy first" like crop-on-disk.
-     Preserve each file's LastWriteTime across the rewrite so the trick still works afterwards.
+   - **Retroactive overlay bake** — ✅ **shipped (2026-07-10)**: Overlay dialog → "Bake into
+     frames…". Timestamp tokens resolve from each frame file's **LastWriteTime (= its capture
+     moment)**, so past frames get their real times; `SessionManager.BakeOverlay` mirrors
+     `CropFrames` (temp+replace, consent dialog, progress via the encode status line) and
+     preserves each file's write time across the rewrite — as do destructive crop and format
+     convert now, so the capture-moment record survives every on-disk op. Unit-tested (per-frame
+     times differ, write times preserved, empty text touches nothing).
 7. **Advanced encode settings** — a power-user panel to pass extra/custom ffmpeg
    arguments (codec, pix_fmt, extra filters, two-pass, etc.) on top of the simple
    fps/CRF/preset. Good idea for this audience; keep the simple controls as the
