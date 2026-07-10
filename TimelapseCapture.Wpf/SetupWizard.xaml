@@ -65,7 +65,7 @@
                          ToolTip="Type a precise interval in seconds (decimals allowed). Minimum 0.1s, maximum 3600s — out-of-range entries snap back with a red flash."/>
                 <TextBlock Text="seconds between frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
             </StackPanel>
-            <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
+            <TextBlock Text="{Binding SpeedHintNamed}" Style="{StaticResource Muted}" FontFamily="Consolas"
                        FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
         </StackPanel>
 

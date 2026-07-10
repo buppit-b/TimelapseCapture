@@ -25,6 +25,14 @@ namespace TimelapseCapture.Wpf
 
         private void RefreshHotkeyText() => hotkeyBox.Text = (DataContext as MainViewModel)?.HotkeyDisplay ?? "";
 
+        // Clear every persisted "don't ask me again" choice; the button reports the outcome inline.
+        private void OnResetPrompts(object sender, RoutedEventArgs e)
+        {
+            int n = (DataContext as MainViewModel)?.ResetSuppressedPrompts() ?? 0;
+            resetPromptsBtn.Content = n > 0 ? $"Restored {n} confirmation(s) ✓" : "Nothing was dismissed";
+            resetPromptsBtn.IsEnabled = false;   // one-shot per visit; reopening Settings re-arms it
+        }
+
         // Capture a key combination for the global hotkey.
         private void OnHotkeyKeyDown(object sender, KeyEventArgs e)
         {

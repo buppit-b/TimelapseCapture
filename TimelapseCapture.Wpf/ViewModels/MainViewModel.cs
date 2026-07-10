@@ -43,6 +43,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _outputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
             RefreshOutputFolderMissing();   // warn immediately if the saved folder was deleted since last run
             RefreshFfmpegStatus();
+            RefreshTargetHint();
 
             _engine.FrameCaptured += OnFrameCaptured;
             _engine.CaptureFailed += OnCaptureFailed;
@@ -65,8 +66,6 @@ namespace TimelapseCapture.Wpf.ViewModels
             DeletePresetCommand = new RelayCommand(_ => DeletePreset(), _ => SelectedPreset != null);
             RestoreDefaultsCommand = new RelayCommand(_ => RestoreDefaults(), _ => !IsCapturing);
             RefreshPresets();   // no built-in presets — users create their own
-            SetTargetCommand = new RelayCommand(_ => SetTarget());
-            ValidateTarget();
 
             // After the window is up, check whether a previous run was interrupted mid-capture.
             Application.Current?.Dispatcher.BeginInvoke(new Action(CheckForInterruptedSession), DispatcherPriority.Background);
@@ -121,7 +120,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(SpeedNotch));
-                    OnPropertyChanged(nameof(SpeedHint));
+                    OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed));
                 }
                 // A clamped/rounded entry must be VISIBLE: re-notify after the binding transfer completes so
                 // the field snaps back to the real value instead of displaying e.g. "0.01" while running 0.1s.
@@ -213,8 +212,21 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int fps = Math.Max(1, EncodeFps);
                 double framesPerMin = 60.0 / (double)interval;
                 double oneHourVideoSec = 3600.0 / (double)interval / fps;
-                string name = SpeedIntervals[SpeedNotch] == interval ? SpeedNames[SpeedNotch] : "Custom";
-                return $"{name}  ·  every {interval}s  ·  ≈{framesPerMin:F0} frames/min  ·  a 1-hour session → ~{oneHourVideoSec:F0}s video @ {fps}fps";
+                return $"every {interval}s  ·  ≈{framesPerMin:F0} frames/min  ·  a 1-hour session → ~{oneHourVideoSec:F0}s video @ {fps}fps";
+            }
+        }
+
+        // The slider surfaces (Simple panel, setup wizard) prefix the notch name — that's THEIR
+        // vocabulary. The advanced interval row binds the plain SpeedHint so wheeling through values
+        // doesn't flash "Fine/Standard/…" at a power user.
+        public string SpeedHintNamed
+        {
+            get
+            {
+                string outcome = SpeedHint;
+                if (outcome.Length == 0) return "";
+                string name = SpeedIntervals[SpeedNotch] == IntervalSeconds ? SpeedNames[SpeedNotch] : "Custom";
+                return $"{name}  ·  {outcome}";
             }
         }
 
@@ -246,7 +258,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public int EncodeFps
         {
             get => _settings.EncodeFps;
-            set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); } }
+            set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed)); } }
         }
         public int EncodeCrf
         {
@@ -418,7 +430,28 @@ namespace TimelapseCapture.Wpf.ViewModels
         public bool IsFfmpegBusy
         {
             get => _isFfmpegBusy;
-            set { if (SetProperty(ref _isFfmpegBusy, value)) CommandManager.InvalidateRequerySuggested(); }
+            set
+            {
+                if (SetProperty(ref _isFfmpegBusy, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                    OnPropertyChanged(nameof(FfmpegControlsVisible));
+                    OnPropertyChanged(nameof(FfmpegChangeVisible));
+                }
+            }
+        }
+
+        // Once ffmpeg is Ready the Download/Browse row folds away behind a slim "Change…" link —
+        // setup shouldn't keep charging rent on the encoder card. Auto-expands while not found/busy.
+        private bool _ffmpegReady;
+        private bool _ffmpegSetupExpanded;
+        public bool FfmpegControlsVisible => _ffmpegSetupExpanded || IsFfmpegBusy || !_ffmpegReady;
+        public bool FfmpegChangeVisible => !FfmpegControlsVisible;
+        public void ExpandFfmpegSetup()
+        {
+            _ffmpegSetupExpanded = true;
+            OnPropertyChanged(nameof(FfmpegControlsVisible));
+            OnPropertyChanged(nameof(FfmpegChangeVisible));
         }
 
         public string StatusText =>
@@ -445,14 +478,49 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
         public string ShowButtonText => _isOverlayShown ? "Hide" : "Show";
 
-        private int _desiredVideoSeconds = 30;
+        // The target value, in seconds. TargetKind decides what it MEANS: a video length to aim for
+        // (frames goal, the original behaviour) or a recording timer (stop after this much active
+        // capture — paused time doesn't count, which is what makes pause useful mid-run).
+        private int _targetSeconds = 30;
+        private double _timerRunBase;   // _accumulatedSeconds when this run started — the rec-timer datum
 
-        // Planned capture length used for storage projection. Accepts "30s", "5m", "2h" (default seconds).
-        private string _targetText = "30s";
-        public string TargetText
+        private int _targetKind;   // 0 = video length · 1 = recording timer. Transient, like the value.
+        public int TargetKind
         {
-            get => _targetText;
-            set { if (SetProperty(ref _targetText, value)) ValidateTarget(); } // validate as you type; apply on Set
+            get => _targetKind;
+            set
+            {
+                if (SetProperty(ref _targetKind, value))
+                {
+                    OnPropertyChanged(nameof(StopAtTargetVisible));
+                    RefreshTargetHint();
+                    UpdateCaptureToTarget();
+                    RefreshStats();
+                    BumpRecalc();
+                    TargetPulse++;
+                }
+            }
+        }
+
+        /// <summary>The "Stop at target" checkbox only applies to the video-length kind — a timer always stops.</summary>
+        public bool StopAtTargetVisible => _targetKind == 0;
+
+        // Three wheel-friendly boxes (h / m / s). Each setter recomputes the total from its component,
+        // so overflow normalizes on commit: typing 90 into minutes reads back as 1h 30m.
+        public int TargetHours
+        {
+            get => _targetSeconds / 3600;
+            set => CommitTarget((long)Math.Max(0, value) * 3600 + _targetSeconds % 3600);
+        }
+        public int TargetMinutes
+        {
+            get => _targetSeconds % 3600 / 60;
+            set => CommitTarget((long)(_targetSeconds / 3600) * 3600 + (long)Math.Max(0, value) * 60 + _targetSeconds % 60);
+        }
+        public int TargetSecondsBox
+        {
+            get => _targetSeconds % 60;
+            set => CommitTarget((long)(_targetSeconds / 60) * 60 + Math.Max(0, value));
         }
 
         private string _targetHint = "";
@@ -461,52 +529,72 @@ namespace TimelapseCapture.Wpf.ViewModels
         private bool _targetHintError;
         public bool TargetHintError { get => _targetHintError; set => SetProperty(ref _targetHintError, value); }
 
-        // Live, non-intrusive feedback for the Target field — no popups.
-        private void ValidateTarget()
+        private void CommitTarget(long totalSeconds)
         {
-            if (TryParseTarget(_targetText, out var secs, out var human))
+            if (totalSeconds < 1)
             {
-                TargetHint = secs == _desiredVideoSeconds ? $"= {human} ✓" : $"= {human} · Enter / tab to apply";
-                TargetHintError = false;
-            }
-            else
-            {
-                TargetHint = "use e.g. 30s, 5m, 2h";
+                TargetHint = "target must be at least 1 second";
                 TargetHintError = true;
+                NotifyTargetBoxes();   // snap the boxes back to the kept value
+                return;
             }
-        }
-
-        private void SetTarget()
-        {
-            if (!TryParseTarget(_targetText, out var secs, out _)) { ValidateTarget(); return; }
-            _desiredVideoSeconds = secs;
-            ValidateTarget();   // hint now reads "= … ✓"
-            UpdateCaptureToTarget();
-            RefreshStats();     // projection / progress reflect the new target
-            BumpRecalc();       // flash the affected stats
-            TargetPulse++;      // pulse the field outline + "Target" label to confirm the commit
-        }
-
-        private static bool TryParseTarget(string? text, out int seconds, out string human)
-        {
-            seconds = 0; human = "";
-            var t = (text ?? "").Trim().ToLowerInvariant();
-            if (t.Length == 0) return false;
-            double mult = 1;
-            if (t.EndsWith("h")) { mult = 3600; t = t[..^1]; }
-            else if (t.EndsWith("m")) { mult = 60; t = t[..^1]; }
-            else if (t.EndsWith("s")) { mult = 1; t = t[..^1]; }
-            if (double.TryParse(t.Trim(), out var v) && v > 0)
+            int clamped = (int)Math.Min(totalSeconds, 360000);   // 100h cap — keeps the frames math in int range
+            bool changed = clamped != _targetSeconds;
+            _targetSeconds = clamped;
+            NotifyTargetBoxes();
+            RefreshTargetHint();
+            if (changed)
             {
-                double totalSec = v * mult;
-                if (totalSec < 1 || totalSec > 360000) return false;   // sub-1s rounds to 0; cap 100h (avoid int overflow)
-                seconds = (int)totalSec;
-                human = seconds >= 3600 ? $"{seconds / 3600.0:0.##} hr"
-                      : seconds >= 60 ? $"{seconds / 60.0:0.##} min"
-                      : $"{seconds} sec";
-                return true;
+                UpdateCaptureToTarget();
+                RefreshStats();     // projection / progress reflect the new target
+                BumpRecalc();       // flash the affected stats
+                TargetPulse++;      // pulse the field outline + "Target" label to confirm the commit
             }
-            return false;
+        }
+
+        private void NotifyTargetBoxes()
+        {
+            OnPropertyChanged(nameof(TargetHours));
+            OnPropertyChanged(nameof(TargetMinutes));
+            OnPropertyChanged(nameof(TargetSecondsBox));
+        }
+
+        private void RefreshTargetHint()
+        {
+            TargetHintError = false;
+            TargetHint = _targetKind == 1
+                ? $"= record for {HumanDuration(_targetSeconds)}, then stop"
+                : $"= a {HumanDuration(_targetSeconds)} video";
+        }
+
+        /// <summary>Clears every "don't ask again" choice; returns how many confirmations came back.</summary>
+        public int ResetSuppressedPrompts()
+        {
+            int n = _settings.SuppressedPrompts?.Count ?? 0;
+            if (n > 0)
+            {
+                _settings.SuppressedPrompts!.Clear();
+                SettingsManager.Save(_settings);
+            }
+            return n;
+        }
+
+        // The target isn't per-session state — reset on session switches / restore-defaults.
+        private void ResetTarget()
+        {
+            _targetSeconds = 30;
+            _targetKind = 0;
+            OnPropertyChanged(nameof(TargetKind));
+            OnPropertyChanged(nameof(StopAtTargetVisible));
+            NotifyTargetBoxes();
+            RefreshTargetHint();
+        }
+
+        /// <summary>Seconds of ACTIVE recording in the current run (pause excluded) — the rec-timer's clock.</summary>
+        private double RunActiveSeconds()
+        {
+            double current = (IsCapturing && _captureStart.HasValue) ? (DateTime.Now - _captureStart.Value).TotalSeconds : 0;
+            return Math.Max(0, _accumulatedSeconds + current - _timerRunBase);
         }
 
         private string _storageInfo = "";
@@ -538,19 +626,29 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void UpdateCaptureToTarget()
         {
             double interval = (double)IntervalSeconds;
-            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
-            if (targetFrames <= 0 || interval <= 0) { CaptureToTargetText = ""; return; }
+            if (_targetSeconds <= 0 || interval <= 0) { CaptureToTargetText = ""; return; }
 
+            if (TargetKind == 1)
+            {
+                // Recording timer: the readout is simply time left on the clock (active time only).
+                double remaining = Math.Max(0, _targetSeconds - RunActiveSeconds());
+                CaptureToTargetText = IsCapturing
+                    ? (remaining == 0 ? "✓ timer reached" : $"≈ {HumanDuration(remaining)} left on the timer (pause doesn't count)")
+                    : $"will record for {HumanDuration(_targetSeconds)}, then stop";
+                return;
+            }
+
+            long targetFrames = (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
             if (IsCapturing)
             {
                 long remaining = Math.Max(0, targetFrames - _frameCount);
                 CaptureToTargetText = remaining == 0
                     ? "✓ target reached — you can stop"
-                    : $"≈ {HumanDuration(remaining * interval)} more to reach your {HumanDuration(_desiredVideoSeconds)} target";
+                    : $"≈ {HumanDuration(remaining * interval)} more to reach your {HumanDuration(_targetSeconds)} target";
             }
             else
             {
-                CaptureToTargetText = $"≈ {HumanDuration(targetFrames * interval)} of capturing → a {HumanDuration(_desiredVideoSeconds)} video";
+                CaptureToTargetText = $"≈ {HumanDuration(targetFrames * interval)} of capturing → a {HumanDuration(_targetSeconds)} video";
             }
         }
 
@@ -698,7 +796,6 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand OpenWizardCommand { get; }
         public ICommand ExportSettingsCommand { get; }
         public ICommand ImportSettingsCommand { get; }
-        public ICommand SetTargetCommand { get; }
         public ICommand FullScreenCommand { get; }
         public ICommand TrackWindowCommand { get; }
         public ICommand SelectRegionCommand { get; }
@@ -778,7 +875,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _region = null;
             _trackedWindow = IntPtr.Zero;
             _accumulatedSeconds = 0;
-            _desiredVideoSeconds = 30; TargetText = "30s";
+            ResetTarget();
             PreviewImage = null;
             ClearCaptureError();
             RegionText = "Not selected";
@@ -860,7 +957,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
 
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
-            _desiredVideoSeconds = 30; TargetText = "30s";     // target isn't per-session — reset, don't carry over
+            ResetTarget();   // target isn't per-session — reset, don't carry over
             SessionName = session.Name ?? "Session";
             if (_region.HasValue)
             {
@@ -1176,6 +1273,41 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.OverlayFontFamily != value) { _settings.OverlayFontFamily = value ?? "Consolas"; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Colour/opacity for the overlay text and its backdrop box. Hex setters keep the last valid
+        // value on bad input (ClampFlash's UpdateTarget snaps the box back on blur).
+        public string OverlayTextColor
+        {
+            get => _settings.OverlayTextColor;
+            set { if (TryNormalizeHex(value, out var v) && _settings.OverlayTextColor != v) { _settings.OverlayTextColor = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int OverlayTextOpacity
+        {
+            get => _settings.OverlayTextOpacity;
+            set { var v = Math.Clamp(value, 0, 100); if (_settings.OverlayTextOpacity != v) { _settings.OverlayTextOpacity = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public string OverlayBackColor
+        {
+            get => _settings.OverlayBackColor;
+            set { if (TryNormalizeHex(value, out var v) && _settings.OverlayBackColor != v) { _settings.OverlayBackColor = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int OverlayBackOpacity
+        {
+            get => _settings.OverlayBackOpacity;
+            set { var v = Math.Clamp(value, 0, 100); if (_settings.OverlayBackOpacity != v) { _settings.OverlayBackOpacity = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        private static bool TryNormalizeHex(string? input, out string hex)
+        {
+            hex = "";
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            string s = input.Trim().TrimStart('#');
+            if (s.Length is not (6 or 8)) return false;
+            foreach (char c in s)
+                if (!Uri.IsHexDigit(c)) return false;
+            hex = "#" + s.ToUpperInvariant();
+            return true;
+        }
+
         private OverlayConfig BuildOverlay() => new()
         {
             Enabled = _settings.OverlayTimestamp,
@@ -1185,6 +1317,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             FontFamily = _settings.OverlayFontFamily,
             CustomX = _settings.OverlayCustomX,
             CustomY = _settings.OverlayCustomY,
+            TextColor = _settings.OverlayTextColor,
+            TextOpacity = _settings.OverlayTextOpacity,
+            BackColor = _settings.OverlayBackColor,
+            BackOpacity = _settings.OverlayBackOpacity,
         };
 
         public bool OpenFolderAfterEncode
@@ -1609,11 +1745,21 @@ namespace TimelapseCapture.Wpf.ViewModels
                 var canonical = _sessionFolder != null ? SessionManager.GetFrameSize(_sessionFolder) : System.Drawing.Size.Empty;
                 // Only promise scaling when we could actually read the canonical size — if the first
                 // frame is unreadable, StartEngine can't arm scaling and sizes could genuinely mix.
-                string sizeNote = canonical.Width >= 2
-                    ? $"This session's frames are {canonical.Width}×{canonical.Height}. A different-sized selection or tracked window will be SCALED to match (letterboxed if the shape differs) so the video stays consistent — scaling costs a little sharpness."
-                    : "The existing frames' size couldn't be read, so a different-sized selection may MIX frame sizes and break the final encode.";
+                if (canonical.Width >= 2)
+                {
+                    // Benign case (new source auto-scales to match) — the repeat-prone prompt gets a
+                    // "don't ask again" way out. The unreadable-canonical case below stays a hard ask.
+                    return Prompts.Confirm(_settings, "region-change-scaled",
+                        $"This session already has {_frameCount} frame(s).\n\n" +
+                        $"This session's frames are {canonical.Width}×{canonical.Height}. A different-sized selection or tracked window " +
+                        "will be SCALED to match (letterboxed if the shape differs) so the video stays consistent — scaling costs a " +
+                        "little sharpness.\n\nChange the region?",
+                        "Change region?");
+                }
                 var r = MessageDialog.Show(
-                    $"This session already has {_frameCount} frame(s).\n\n{sizeNote}\n\nChange the region?",
+                    $"This session already has {_frameCount} frame(s).\n\n" +
+                    "The existing frames' size couldn't be read, so a different-sized selection may MIX frame sizes and break the " +
+                    "final encode.\n\nChange the region?",
                     "Change region?", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 return r == MessageBoxResult.Yes;
             }
@@ -1905,6 +2051,16 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StopByUser()
         {
             if (!IsCapturing) return;
+            // An armed recording timer is a commitment — stopping early deserves a check (with a
+            // "don't ask again" way out, since the timer's owner may still prefer manual stops).
+            if (TargetKind == 1)
+            {
+                double remaining = _targetSeconds - RunActiveSeconds();
+                if (remaining > 0.5 && !Prompts.Confirm(_settings, "stop-active-timer",
+                        $"The recording timer still has {HumanDuration(remaining)} left — stop anyway?",
+                        "Stop recording?"))
+                    return;
+            }
             StopCapture();
             PlayStartStopCue();
         }
@@ -1914,12 +2070,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         private bool AccumulatedStopAlreadyMet(out string message)
         {
             message = "";
-            // Input frames needed for a _desiredVideoSeconds video — with frame-skip you need N× as many.
-            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
-            if (_settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
+            // Input frames needed for a _targetSeconds video — with frame-skip you need N× as many.
+            long targetFrames = (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
+            if (TargetKind == 0 && _settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
             {
                 message = $"This session already has {_frameCount} frames — at or beyond your target of {targetFrames} " +
-                          $"({_desiredVideoSeconds}s @ {EncodeFps}fps), and “Stop at target” is on.\n\n" +
+                          $"({_targetSeconds}s @ {EncodeFps}fps), and “Stop at target” is on.\n\n" +
                           "Raise the target or turn off “Stop at target” to keep capturing, or start a new session.";
                 return true;
             }
@@ -2007,6 +2163,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _settings.CaptureCursor, BuildOverlay(), _trackedWindow, _settings.PauseOnTrackedMinimize,
                 _settings.TrackResizeMode, scaleOutputTo: scaleTo);
             _captureStart = DateTime.Now;
+            _timerRunBase = _accumulatedSeconds;   // the rec-timer counts THIS run's active time from here
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }
 
@@ -2119,8 +2276,8 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                 // Optional unattended stop: end the run once we've reached the target number of INPUT
                 // frames — frame-skip needs N× as many to yield the target video length (matches Trim).
-                long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
-                if (_settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
+                long targetFrames = (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
+                if (TargetKind == 0 && _settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
                 {
                     Logger.Log("Wpf", $"Auto-stop: reached target ({count} >= {targetFrames} frames).");
                     StopCapture();
@@ -2168,11 +2325,11 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
             // Offer the Stats target as a one-click range ("clip to your target") when it's meaningful.
             // With frame-skip active, hitting the target VIDEO length needs Nx as many input frames.
-            long targetFrames = (long)_desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
+            long targetFrames = TargetKind == 0 ? (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth) : 0;
             int target = (targetFrames > 0 && targetFrames < _frameCount) ? (int)targetFrames : 0;
             var saved = SessionManager.LoadSession(_sessionFolder);
             var dlg = new TrimDialog(_sessionFolder, _frameCount, target,
-                $"{_desiredVideoSeconds}s @ {Math.Max(1, EncodeFps)}fps" +
+                $"{_targetSeconds}s @ {Math.Max(1, EncodeFps)}fps" +
                 (EncodeEveryNth > 1 ? $" · 1 in {EncodeEveryNth}" : ""),
                 saved?.TrimStartFrame ?? 0, saved?.TrimEndFrame ?? 0)
             { Owner = Application.Current?.MainWindow };
@@ -2451,9 +2608,13 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _ffmpegCts?.Dispose();
                 _ffmpegCts = null;
                 IsFfmpegBusy = false;
-                RefreshFfmpegStatus();
                 CommandManager.InvalidateRequerySuggested();
             }
+            // Let the downloader's last word ("FFmpeg already installed" / "Download complete") read
+            // for a moment, THEN settle to Ready. Doing this inside finally raced the status callback's
+            // queued BeginInvoke — the stale message landed after Ready and stuck forever.
+            await Task.Delay(1500);
+            if (!IsFfmpegBusy) RefreshFfmpegStatus();   // don't stomp a download the user restarted
         }
 
         private void BrowseFfmpeg()
@@ -2501,10 +2662,35 @@ namespace TimelapseCapture.Wpf.ViewModels
                     return;   // nothing else to refresh this tick
                 }
 
-                int projectedFrames = Math.Max(_frameCount, _desiredVideoSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth));
-                double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
-                CaptureProgress = pct;
-                ProgressText = $"{_frameCount} / {projectedFrames} frames · {pct:F0}% of a {_desiredVideoSeconds}s video @ {Math.Max(1, EncodeFps)}fps";
+                // Recording timer: stop once this run's ACTIVE capture time reaches the target (a normal
+                // completion — notify, no error banner). Paused time never advances the clock.
+                if (IsCapturing && TargetKind == 1 && RunActiveSeconds() >= _targetSeconds)
+                {
+                    Logger.Log("Wpf", $"Auto-stop: recording timer reached ({RunActiveSeconds():F0}s >= {_targetSeconds}s of active capture).");
+                    StopCapture();
+                    NotifyFinished();
+                    return;
+                }
+
+                int projectedFrames;   // also feeds the storage projection below, for either kind
+                if (TargetKind == 1)
+                {
+                    // Timer kind: frames expected from running the timer out at the current interval.
+                    projectedFrames = Math.Max(_frameCount, (int)(_targetSeconds / Math.Max(0.1, (double)IntervalSeconds)));
+                    double active = RunActiveSeconds();
+                    double pct = Math.Min(100.0, active * 100.0 / Math.Max(1, _targetSeconds));
+                    CaptureProgress = pct;
+                    ProgressText = IsCapturing
+                        ? $"{FormatTime(active)} / {FormatTime(_targetSeconds)} recorded · {pct:F0}% of the timer"
+                        : $"{_frameCount} frames · timer set for {HumanDuration(_targetSeconds)}";
+                }
+                else
+                {
+                    projectedFrames = Math.Max(_frameCount, _targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth));
+                    double pct = projectedFrames > 0 ? Math.Min(100.0, _frameCount * 100.0 / projectedFrames) : 0;
+                    CaptureProgress = pct;
+                    ProgressText = $"{_frameCount} / {projectedFrames} frames · {pct:F0}% of a {_targetSeconds}s video @ {Math.Max(1, EncodeFps)}fps";
+                }
 
                 int everyNth = Math.Max(1, EncodeEveryNth);
                 int encodedFrames = (_frameCount + everyNth - 1) / everyNth;
@@ -2582,7 +2768,11 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void RefreshFfmpegStatus()
         {
             var path = FfmpegRunner.FindFfmpeg(_settings.FfmpegPath);
-            FfmpegStatus = string.IsNullOrEmpty(path) ? "Not found" : "Ready";
+            _ffmpegReady = !string.IsNullOrEmpty(path);
+            FfmpegStatus = _ffmpegReady ? "Ready ✓" : "Not found";
+            _ffmpegSetupExpanded = false;   // a fresh resolve folds the setup row back up
+            OnPropertyChanged(nameof(FfmpegControlsVisible));
+            OnPropertyChanged(nameof(FfmpegChangeVisible));
         }
 
         public void Dispose()

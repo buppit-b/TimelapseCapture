@@ -61,11 +61,18 @@ namespace TimelapseCapture
         public string OverlayFontFamily { get; set; } = "Consolas";
         public double OverlayCustomX { get; set; } = -1;     // free placement (0..1); <0 = use corner Position
         public double OverlayCustomY { get; set; } = -1;
+        public string OverlayTextColor { get; set; } = "#FFFFFF";  // text fill (hex)
+        public int OverlayTextOpacity { get; set; } = 100;         // 0–100 %
+        public string OverlayBackColor { get; set; } = "#000000";  // backdrop box (hex)
+        public int OverlayBackOpacity { get; set; } = 59;          // 0–100 % (59 ≈ the original 150/255)
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
         public string OutputNameTemplate { get; set; } = "timelapse_{date}_{time}"; // tokens: {session} {date} {time} {datetime}
         public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)
         public int HotkeyModifiers { get; set; } = 0x0006;  // Win32 fsModifiers: Ctrl(0x2) + Shift(0x4)
         public int HotkeyVk { get; set; } = 0x78;           // Win32 virtual-key: F9
+        // Keys of repeat-prone confirmations the user chose to skip ("don't ask again" — auto-YES).
+        // Destructive consents never appear here. Reset from Settings.
+        public System.Collections.Generic.List<string>? SuppressedPrompts { get; set; }
     }
 
 

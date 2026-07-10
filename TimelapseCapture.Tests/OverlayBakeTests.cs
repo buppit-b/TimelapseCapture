@@ -101,6 +101,56 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void Renderer_HonoursColourAndOpacity()
+        {
+            using var bmp = new Bitmap(160, 90);
+            using (var g = Graphics.FromImage(bmp)) g.Clear(Color.Black);
+
+            // Solid green box, red text, top-left corner.
+            OverlayRenderer.Draw(bmp, new OverlayConfig
+            {
+                Text = "X",
+                FontSize = 20,
+                FontFamily = "Arial",
+                Position = 0,
+                TextColor = "#FF0000",
+                TextOpacity = 100,
+                BackColor = "#00FF00",
+                BackOpacity = 100,
+            });
+
+            // The box's left padding (x-5 from text x=8) is pure backdrop — no glyph there.
+            bmp.GetPixel(4, 10).ToArgb().Should().Be(Color.FromArgb(255, 0, 255, 0).ToArgb());
+            bool redSeen = false;
+            for (int y = 0; y < bmp.Height && !redSeen; y++)
+                for (int x = 0; x < bmp.Width && !redSeen; x++)
+                {
+                    var p = bmp.GetPixel(x, y);
+                    redSeen = p.R > 180 && p.G < 90 && p.B < 90;
+                }
+            redSeen.Should().BeTrue("the text must render in the chosen colour");
+        }
+
+        [Fact]
+        public void Renderer_ZeroBackOpacity_DrawsNoBox()
+        {
+            using var bmp = new Bitmap(160, 90);
+            using (var g = Graphics.FromImage(bmp)) g.Clear(Color.Black);
+
+            OverlayRenderer.Draw(bmp, new OverlayConfig
+            {
+                Text = "X",
+                FontSize = 20,
+                FontFamily = "Arial",
+                Position = 0,
+                BackOpacity = 0,
+            });
+
+            // The padding pixel that the box would cover stays untouched background.
+            bmp.GetPixel(4, 10).ToArgb().Should().Be(Color.FromArgb(255, 0, 0, 0).ToArgb());
+        }
+
+        [Fact]
         public void ConvertFrames_CarriesWriteTimeAcross()
         {
             string dir = NewSessionDir(out string frames);

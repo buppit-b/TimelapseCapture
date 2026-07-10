@@ -9,6 +9,23 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 10)
+- **Overlay colour & opacity** — the overlay text and its backdrop box each get a colour
+  (swatches or hex) and an opacity (0–100%); backdrop at 0% removes the box entirely. Defaults
+  match the old look exactly (white text, black box ~59%). Applies live at capture, in the
+  dialog preview, and through the retroactive bake — one shared renderer.
+- **Target rework** — the "30s"-style unit box is now **three wheelable h / m / s fields**
+  (overflow normalizes: 90m reads back as 1h 30m; commits as you go, no Set step). And the
+  target now has **two kinds**: *Video length* (the original frames goal) or *Timer* — record
+  for that much time, then stop automatically. The timer counts **active recording only**
+  (pause suspends it, which finally gives pause a real job) and stopping early asks first.
+- **"Don't ask me again"** — repeat-prone confirmations (mid-session region change, stopping
+  an armed timer) offer a persistent opt-out; destructive consents (cull, crop-on-disk, bake)
+  never do. Settings gains **"Ask everything again"** to restore them all.
+- **FFmpeg card tidied** — the stuck "FFmpeg already installed" status now settles back to
+  Ready (it was a dispatcher race), and once ffmpeg is Ready the Download/Browse row folds
+  away behind a slim "Change…" link.
+- **Interval hint** — the advanced interval row no longer flashes Simple-mode speed names
+  (Fine/Standard/…) as you scroll through values; names stay in Simple mode and the wizard.
 - **Retroactive overlay bake** — Overlay dialog → "Bake into frames…" burns the overlay into
   every frame already on disk, for when you forgot to enable it before capturing. The trick:
   timestamp tokens resolve from each frame FILE's own write time (= its capture moment), so past

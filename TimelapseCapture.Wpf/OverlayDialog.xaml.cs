@@ -34,6 +34,38 @@ namespace TimelapseCapture.Wpf
             Loaded += (s, e) => { Subscribe(); RenderPreview(); RefreshBakeEnabled(); };
             Closed += (s, e) => { Unsubscribe(); _renderDebounce.Stop(); };
             sizeBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnApplySize(s, new RoutedEventArgs()); };
+            BuildSwatches(textSwatches, (vm, hex) => vm.OverlayTextColor = hex);
+            BuildSwatches(backSwatches, (vm, hex) => vm.OverlayBackColor = hex);
+        }
+
+        // Compact clickable colour chips beside the hex boxes — the hex box stays the precise input.
+        private static readonly string[] Swatches =
+        {
+            "#FFFFFF", "#000000", "#808080", "#E5534B", "#F5A623",
+            "#F7D74A", "#39D353", "#2FC7D8", "#4A90D9", "#C061F0",
+        };
+
+        private void BuildSwatches(System.Windows.Controls.Panel host, Action<MainViewModel, string> apply)
+        {
+            foreach (var hex in Swatches)
+            {
+                var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+                var chip = new System.Windows.Controls.Border
+                {
+                    Width = 16,
+                    Height = 16,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    CornerRadius = new CornerRadius(3),
+                    BorderThickness = new Thickness(1),
+                    Background = new System.Windows.Media.SolidColorBrush(color),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = hex,
+                };
+                chip.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, "StrokeBrush");
+                string h = hex;   // capture per-chip
+                chip.MouseLeftButtonDown += (s, e) => { if (Vm is { } vm) apply(vm, h); };
+                host.Children.Add(chip);
+            }
         }
 
         // Bake needs frames on disk, an idle app, and overlay text to draw — kept fresh via VM changes.
@@ -145,6 +177,10 @@ namespace TimelapseCapture.Wpf
                     FontFamily = vm.OverlayFontFamily,
                     CustomX = vm.OverlayCustomX,
                     CustomY = vm.OverlayCustomY,
+                    TextColor = vm.OverlayTextColor,
+                    TextOpacity = vm.OverlayTextOpacity,
+                    BackColor = vm.OverlayBackColor,
+                    BackOpacity = vm.OverlayBackOpacity,
                 }, Math.Max(1, vm.FrameCount));   // sample frame number so {frame} previews realistically
 
                 // If the session has an encode-crop, show it: dim everything outside + an accent outline,

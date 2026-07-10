@@ -93,6 +93,20 @@ namespace TimelapseCapture.Wpf
             return dlg.Result;
         }
 
+        /// <summary>
+        /// Same dialog with a "Don't ask me again" checkbox. For repeat-prone confirmations only —
+        /// NEVER for destructive consents (cull / crop-on-disk / overlay bake), those must always ask.
+        /// Callers persist the suppression; see Prompts.Confirm.
+        /// </summary>
+        public static (MessageBoxResult result, bool dontAskAgain) ShowWithSuppress(
+            string message, string title, MessageBoxButton buttons, MessageBoxImage image)
+        {
+            var dlg = new MessageDialog(message, title, buttons, image) { Owner = ActiveOwner() };
+            dlg.dontAskBox.Visibility = Visibility.Visible;
+            dlg.ShowDialog();
+            return (dlg.Result, dlg.dontAskBox.IsChecked == true);
+        }
+
         private static Window? ActiveOwner()
         {
             var app = Application.Current;

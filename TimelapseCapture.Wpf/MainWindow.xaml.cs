@@ -81,11 +81,19 @@ namespace TimelapseCapture.Wpf
 
         // Apply the capture-length target when the field loses focus (tab away / click out),
         // mirroring the Enter key binding — so there's no separate "Set" button.
-        private void OnTargetCommit(object sender, RoutedEventArgs e)
+        // Enter in a target box commits it in place (wheel and tab-away commit on their own).
+        private void OnTargetEnter(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (DataContext is MainViewModel vm && vm.SetTargetCommand.CanExecute(null))
-                vm.SetTargetCommand.Execute(null);
+            if (e.Key == System.Windows.Input.Key.Enter && sender is System.Windows.Controls.TextBox tb)
+            {
+                tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+                e.Handled = true;
+            }
         }
+
+        // Unfold the ffmpeg Download/Browse row (it stays slim while ffmpeg is Ready).
+        private void OnFfmpegChange(object sender, RoutedEventArgs e)
+            => (DataContext as MainViewModel)?.ExpandFfmpegSetup();
 
         protected override void OnSourceInitialized(EventArgs e)
         {

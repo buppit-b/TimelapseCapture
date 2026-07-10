@@ -15,6 +15,10 @@
             <TextBlock x:Name="messageText" TextWrapping="Wrap" MaxWidth="440" VerticalAlignment="Center"
                        Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" LineHeight="19"/>
         </StackPanel>
+        <!-- Shown only via ShowWithSuppress — repeat-prone confirmations offer a way out. -->
+        <CheckBox x:Name="dontAskBox" Content="Don't ask me again" Visibility="Collapsed"
+                  Margin="52,14,0,0" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                  ToolTip="Skip this confirmation from now on (answering Yes automatically). Undo anytime in Settings → “Reset ‘don't ask again’ answers”."/>
         <StackPanel x:Name="buttonPanel" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0"/>
     </StackPanel>
 </Window>

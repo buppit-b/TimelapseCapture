@@ -33,6 +33,8 @@
                             ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
                     <Button Content="Restore defaults" Style="{StaticResource BtnBase}" Command="{Binding RestoreDefaultsCommand}" Margin="0,0,8,4"
                             ToolTip="Reset everything to a safe default state (keeps your output folder and FFmpeg location). Use this if something gets misconfigured."/>
+                    <Button x:Name="resetPromptsBtn" Content="Ask everything again" Style="{StaticResource BtnBase}" Click="OnResetPrompts" Margin="0,0,8,4"
+                            ToolTip="Bring back every confirmation you've dismissed with “Don't ask me again”."/>
                 </WrapPanel>
                 <Button Grid.Column="1" Content="Close" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"
                         MinWidth="84" IsCancel="True"/>

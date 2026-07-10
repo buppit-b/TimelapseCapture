@@ -50,11 +50,32 @@ namespace TimelapseCapture
                     y = cfg.Position is 2 or 3 ? bmp.Height - size.Height - m : m; // 2=BL, 3=BR → bottom
                 }
 
-                using var bg = new SolidBrush(Color.FromArgb(150, 0, 0, 0));
-                g.FillRectangle(bg, x - 5, y - 2, size.Width + 10, size.Height + 4);
-                g.DrawString(text, font, Brushes.White, x, y);
+                int backA = Math.Clamp(cfg.BackOpacity, 0, 100) * 255 / 100;
+                if (backA > 0)
+                {
+                    using var bg = new SolidBrush(Color.FromArgb(backA, ParseColor(cfg.BackColor, Color.Black)));
+                    g.FillRectangle(bg, x - 5, y - 2, size.Width + 10, size.Height + 4);
+                }
+                int textA = Math.Clamp(cfg.TextOpacity, 0, 100) * 255 / 100;
+                if (textA > 0)
+                {
+                    using var fg = new SolidBrush(Color.FromArgb(textA, ParseColor(cfg.TextColor, Color.White)));
+                    g.DrawString(text, font, fg, x, y);
+                }
             }
             catch { /* best-effort by contract */ }
+        }
+
+        private static Color ParseColor(string? hex, Color fallback)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(hex)) return fallback;
+                string s = hex.Trim();
+                if (!s.StartsWith('#')) s = "#" + s;
+                return ColorTranslator.FromHtml(s);
+            }
+            catch { return fallback; }
         }
 
         /// <summary>

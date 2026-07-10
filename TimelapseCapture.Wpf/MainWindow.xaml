@@ -252,7 +252,7 @@
                             <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
                                     TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1"
                                     local:WheelStep.Amount="1" IsEnabled="{Binding NotCapturing}"/>
-                            <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                            <TextBlock Text="{Binding SpeedHintNamed}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                        FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
                         <!-- Advanced: the raw interval field, in seconds or fps (same value, two views) -->
@@ -384,11 +384,18 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="64"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
-                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Change&#8230;" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,2"
+                                Click="OnFfmpegChange" Visibility="{Binding FfmpegChangeVisible, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Point at a different ffmpeg (re-download or browse to one)."/>
                     </Grid>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <!-- Setup controls fold away once ffmpeg is Ready — reachable again via Change… -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                Visibility="{Binding FfmpegControlsVisible, Converter={StaticResource BoolToVis}}">
                         <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
                                 Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
                         <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
@@ -500,7 +507,7 @@
                     <StackPanel Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal">
                             <!-- "Target" flashes green on commit (own brush so PulseFg animates only this label). -->
-                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"
                                        Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
                                 <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
                                 <TextBlock.Triggers>
@@ -509,24 +516,37 @@
                                     </EventTrigger>
                                 </TextBlock.Triggers>
                             </TextBlock>
-                            <!-- Outline ring flares to accent on commit (Enter / tab-away). -->
-                            <Border BorderThickness="1.5" CornerRadius="4" Padding="2"
-                                    Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
-                                <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
-                                <Border.Triggers>
-                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
-                                        <BeginStoryboard Storyboard="{StaticResource PulseRing}"/>
-                                    </EventTrigger>
-                                </Border.Triggers>
-                                <TextBox Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
-                                         Width="64" TextAlignment="Center" LostFocus="OnTargetCommit"
-                                         ToolTip="Planned capture length, used to project storage and progress. Press Enter or tab away to apply. e.g. 30s, 5m, 2h">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding SetTargetCommand}"/>
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                            </Border>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Video length"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                                         ToolTip="Aim for a video of this length — progress and storage projections count frames toward it."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Timer"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                         ToolTip="Record for this much time, then stop automatically. Pause doesn't count toward the timer."/>
                         </StackPanel>
+                        <!-- Outline ring flares to accent on commit (wheel / Enter / tab-away). -->
+                        <Border BorderThickness="1.5" CornerRadius="4" Padding="2" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
+                            <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                    <BeginStoryboard Storyboard="{StaticResource PulseRing}"/>
+                                </EventTrigger>
+                            </Border.Triggers>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
+                                         ToolTip="Hours. Scroll to adjust (Shift = ×10); commits as you go."/>
+                                <TextBlock Text="h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                         local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                         ToolTip="Minutes — values past 59 roll into hours. Scroll to adjust; commits as you go."/>
+                                <TextBlock Text="m" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                         local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                         ToolTip="Seconds — values past 59 roll into minutes. Scroll to adjust; commits as you go."/>
+                                <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                            </StackPanel>
+                        </Border>
                         <TextBlock Text="{Binding TargetHint}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
@@ -544,7 +564,8 @@
                                    Foreground="{DynamicResource AccentBrush}"/>
                         <CheckBox Content="Stop at target" IsChecked="{Binding StopAtTarget}"
                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
-                                  ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps)."/>
+                                  Visibility="{Binding StopAtTargetVisible, Converter={StaticResource BoolToVis}}"
+                                  ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps). A Timer target always stops by itself."/>
                     </StackPanel>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
                                  Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"

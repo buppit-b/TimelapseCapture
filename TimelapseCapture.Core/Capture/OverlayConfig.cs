@@ -13,5 +13,12 @@ namespace TimelapseCapture
         // "not set" → fall back to the corner Position. Set by dragging the overlay on the preview.
         public double CustomX { get; set; } = -1;
         public double CustomY { get; set; } = -1;
+
+        // Colours as hex strings (JSON/culture-safe); opacity in whole percent. Defaults reproduce the
+        // original hard-coded look: solid white text on a black box at ~59% (150/255).
+        public string TextColor { get; set; } = "#FFFFFF";
+        public int TextOpacity { get; set; } = 100;
+        public string BackColor { get; set; } = "#000000";
+        public int BackOpacity { get; set; } = 59;
     }
 }
