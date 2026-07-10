@@ -1770,6 +1770,12 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             try
             {
+                // The region outline is an UNOWNED window (deliberately — it must survive minimize-to-
+                // tray). Left open, it outlived the app: with the default OnLastWindowClose shutdown it
+                // kept the whole process alive as an orphan outline on screen. Close it explicitly
+                // (ShutdownMode=OnMainWindowClose is the belt-and-braces systemic guarantee).
+                _overlay?.Close();
+                _overlay = null;
                 if (IsCapturing) StopCapture();
                 _engine.Dispose();
             }

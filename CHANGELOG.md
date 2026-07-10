@@ -9,6 +9,11 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **Fixed: closing the app left the region outline on screen** — the outline is an unowned
+  window (so it can survive minimize-to-tray), and with WPF's default shutdown mode it kept
+  the whole PROCESS alive as an invisible zombie plus an orphan outline. Two-layer fix: the
+  app now explicitly closes the outline on exit, and the shutdown mode is tied to the main
+  window so no stray window can ever keep FrameWrite running after you close it.
 - **The GO strip** — Start / Stop / Pause moved out of the capture card onto their own strip
   at the end of the left column's workflow (session → area → speed → GO), with a larger Start,
   the live frame count as a bold readout, and the status line + capture error banner riding
