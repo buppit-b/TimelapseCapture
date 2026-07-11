@@ -19,7 +19,7 @@ namespace TimelapseCapture.Wpf
         private const uint FLASHW_ALL = 3, FLASHW_TIMERNOFG = 12; // flash caption+taskbar until the window is focused
         private const int WM_HOTKEY = 0x0312;
         private const int WM_GETMINMAXINFO = 0x0024;
-        private const int HOTKEY_TOGGLE = 1; // start/stop capture (configurable, off by default)
+        private const int HOTKEY_ID_BASE = 0x4600; // + index into MainViewModel.HotkeyActions
         private const uint WDA_NONE = 0x0, WDA_EXCLUDEFROMCAPTURE = 0x11; // hide window from screen capture
         private const int MONITOR_DEFAULTTONEAREST = 2;
 
@@ -29,7 +29,7 @@ namespace TimelapseCapture.Wpf
         [StructLayout(LayoutKind.Sequential)] private struct MINMAXINFO { public POINTL ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize; }
 
         private HwndSource? _source;
-        private bool _hotkeyRegistered;
+        private readonly System.Collections.Generic.List<int> _registeredHotkeys = new();
         private TrayIcon? _tray;
 
         public MainWindow()
@@ -147,23 +147,37 @@ namespace TimelapseCapture.Wpf
             try { SetWindowDisplayAffinity(h, hide ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE); } catch { }
         }
 
-        // Register (or unregister) the global hotkey to match the current settings.
+        // Re-register every bound action's global hotkey to match the current keymap.
         private void RefreshHotkey()
         {
             var handle = new WindowInteropHelper(this).Handle;
             if (handle == IntPtr.Zero) return;
 
-            if (_hotkeyRegistered) { UnregisterHotKey(handle, HOTKEY_TOGGLE); _hotkeyRegistered = false; }
+            foreach (int id in _registeredHotkeys) UnregisterHotKey(handle, id);
+            _registeredHotkeys.Clear();
 
-            if (DataContext is MainViewModel vm && vm.HotkeysEnabled)
-                _hotkeyRegistered = RegisterHotKey(handle, HOTKEY_TOGGLE, (uint)vm.HotkeyModifiers, (uint)vm.HotkeyVk);
+            if (DataContext is not MainViewModel vm || !vm.HotkeysEnabled) return;
+            for (int i = 0; i < MainViewModel.HotkeyActions.Length; i++)
+            {
+                var binding = vm.GetHotkey(MainViewModel.HotkeyActions[i]);
+                if (binding.Vk == 0) continue;   // unbound slot
+                int id = HOTKEY_ID_BASE + i;
+                if (RegisterHotKey(handle, id, (uint)binding.Modifiers, (uint)binding.Vk))
+                    _registeredHotkeys.Add(id);
+            }
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_TOGGLE)
+            int hkIndex = msg == WM_HOTKEY ? wParam.ToInt32() - HOTKEY_ID_BASE : -1;
+            if (hkIndex >= 0 && hkIndex < MainViewModel.HotkeyActions.Length && DataContext is MainViewModel vmHk)
             {
-                (DataContext as MainViewModel)?.ToggleCaptureHotkey();
+                switch (MainViewModel.HotkeyActions[hkIndex])
+                {
+                    case MainViewModel.HotkeyStartStop: vmHk.ToggleCaptureHotkey(); break;
+                    case MainViewModel.HotkeyPause: vmHk.PauseHotkey(); break;
+                    case MainViewModel.HotkeyRegionSelect: vmHk.RegionSelectHotkey(); break;
+                }
                 handled = true;
             }
             else if (msg == WM_GETMINMAXINFO)
@@ -216,7 +230,8 @@ namespace TimelapseCapture.Wpf
             }
 
             var handle = new WindowInteropHelper(this).Handle;
-            if (_hotkeyRegistered) UnregisterHotKey(handle, HOTKEY_TOGGLE);
+            foreach (int id in _registeredHotkeys) UnregisterHotKey(handle, id);
+            _registeredHotkeys.Clear();
             if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
             _source?.RemoveHook(WndProc);
             _tray?.Dispose();   // remove the tray icon so it doesn't linger after exit

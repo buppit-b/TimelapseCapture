@@ -5,6 +5,14 @@ using System.Text.Json;
 
 namespace TimelapseCapture
 {
+    /// <summary>One rebindable global-hotkey slot (Win32 fsModifiers + virtual-key; Vk 0 = unbound).</summary>
+    public class HotkeyBinding
+    {
+        public string Action { get; set; } = "";
+        public int Modifiers { get; set; }
+        public int Vk { get; set; }
+    }
+
     public class CaptureSettings
     {
         public string? SaveFolder { get; set; }
@@ -67,9 +75,12 @@ namespace TimelapseCapture
         public int OverlayBackOpacity { get; set; } = 59;          // 0–100 % (59 ≈ the original 150/255)
         public bool OpenFolderAfterEncode { get; set; }     // auto-open the output folder when encoding finishes
         public string OutputNameTemplate { get; set; } = "timelapse_{date}_{time}"; // tokens: {session} {date} {time} {datetime}
-        public bool HotkeysEnabled { get; set; }            // global start/stop hotkey (off by default)
-        public int HotkeyModifiers { get; set; } = 0x0006;  // Win32 fsModifiers: Ctrl(0x2) + Shift(0x4)
+        public bool HotkeysEnabled { get; set; }            // master switch for ALL global hotkeys (off by default)
+        public int HotkeyModifiers { get; set; } = 0x0006;  // LEGACY start/stop combo (kept in sync; old exports)
         public int HotkeyVk { get; set; } = 0x78;           // Win32 virtual-key: F9
+        // The keymap: one binding per action ("startstop" / "pause" / "regionselect"; Vk 0 = unbound).
+        // Null on older settings files — seeded from the legacy pair above on first access.
+        public System.Collections.Generic.List<HotkeyBinding>? Hotkeys { get; set; }
         // Keys of repeat-prone confirmations the user chose to skip ("don't ask again" — auto-YES).
         // Destructive consents never appear here. Reset from Settings.
         public System.Collections.Generic.List<string>? SuppressedPrompts { get; set; }

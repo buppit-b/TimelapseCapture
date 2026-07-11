@@ -1395,45 +1395,129 @@ namespace TimelapseCapture.Wpf.ViewModels
             set { if (_settings.OpenFolderAfterEncode != value) { _settings.OpenFolderAfterEncode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
-        // ---- Global hotkey (off by default, configurable). The window registers/unregisters it. ----
+        // ---- Global hotkeys (off by default; every action rebindable in the Settings keymap). ----
         public event Action? HotkeysChanged;
+
+        public const string HotkeyStartStop = "startstop";
+        public const string HotkeyPause = "pause";
+        public const string HotkeyRegionSelect = "regionselect";
+        /// <summary>Registration order — the window derives its Win32 hotkey ids from these indexes.</summary>
+        public static readonly string[] HotkeyActions = { HotkeyStartStop, HotkeyPause, HotkeyRegionSelect };
+
+        public static string HotkeyFriendly(string action) => action switch
+        {
+            HotkeyStartStop => "Start / Stop",
+            HotkeyPause => "Pause / Resume",
+            HotkeyRegionSelect => "Select region",
+            _ => action,
+        };
 
         public bool HotkeysEnabled
         {
             get => _settings.HotkeysEnabled;
-            set { if (_settings.HotkeysEnabled != value) { _settings.HotkeysEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); HotkeysChanged?.Invoke(); } }
+            set { if (_settings.HotkeysEnabled != value) { _settings.HotkeysEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); NotifyHotkeysChanged(); } }
         }
 
-        public int HotkeyModifiers => _settings.HotkeyModifiers;
-        public int HotkeyVk => _settings.HotkeyVk;
-
-        public string HotkeyDisplay
+        // Older settings files carry only the single start/stop pair — seed the keymap from it once,
+        // and make sure every known action has a row (future actions slot in the same way).
+        private List<HotkeyBinding> EnsureHotkeys()
         {
-            get
+            _settings.Hotkeys ??= new List<HotkeyBinding>
             {
-                var parts = new List<string>();
-                if ((_settings.HotkeyModifiers & 0x0002) != 0) parts.Add("Ctrl");
-                if ((_settings.HotkeyModifiers & 0x0004) != 0) parts.Add("Shift");
-                if ((_settings.HotkeyModifiers & 0x0001) != 0) parts.Add("Alt");
-                if ((_settings.HotkeyModifiers & 0x0008) != 0) parts.Add("Win");
-                parts.Add(KeyInterop.KeyFromVirtualKey(_settings.HotkeyVk).ToString());
-                return string.Join(" + ", parts);
-            }
+                new() { Action = HotkeyStartStop, Modifiers = _settings.HotkeyModifiers, Vk = _settings.HotkeyVk },
+            };
+            foreach (var action in HotkeyActions)
+                if (!_settings.Hotkeys.Any(b => b.Action == action))
+                    _settings.Hotkeys.Add(new HotkeyBinding { Action = action });
+            return _settings.Hotkeys;
         }
 
-        /// <summary>Store a new hotkey combo (from the Settings key-capture field).</summary>
-        public void SetHotkey(ModifierKeys mods, Key key)
+        public HotkeyBinding GetHotkey(string action) => EnsureHotkeys().First(b => b.Action == action);
+
+        public string GetHotkeyDisplay(string action)
+        {
+            var b = GetHotkey(action);
+            if (b.Vk == 0) return "not set";
+            var parts = new List<string>();
+            if ((b.Modifiers & 0x0002) != 0) parts.Add("Ctrl");
+            if ((b.Modifiers & 0x0004) != 0) parts.Add("Shift");
+            if ((b.Modifiers & 0x0001) != 0) parts.Add("Alt");
+            if ((b.Modifiers & 0x0008) != 0) parts.Add("Win");
+            parts.Add(KeyInterop.KeyFromVirtualKey(b.Vk).ToString());
+            return string.Join(" + ", parts);
+        }
+
+        /// <summary>Bind a combo to an action. Returns null on success, or the OTHER action already using it.</summary>
+        public string? SetHotkey(string action, ModifierKeys mods, Key key)
         {
             uint fs = 0;
             if (mods.HasFlag(ModifierKeys.Alt)) fs |= 0x0001;
             if (mods.HasFlag(ModifierKeys.Control)) fs |= 0x0002;
             if (mods.HasFlag(ModifierKeys.Shift)) fs |= 0x0004;
             if (mods.HasFlag(ModifierKeys.Windows)) fs |= 0x0008;
-            _settings.HotkeyModifiers = (int)fs;
-            _settings.HotkeyVk = KeyInterop.VirtualKeyFromKey(key);
+            int vk = KeyInterop.VirtualKeyFromKey(key);
+            if (vk == 0) return null;   // unmappable key — ignore (and never "conflict" with unbound rows)
+
+            var conflict = EnsureHotkeys().FirstOrDefault(b => b.Action != action && b.Vk == vk && b.Modifiers == (int)fs);
+            if (conflict != null) return conflict.Action;
+
+            var binding = GetHotkey(action);
+            binding.Modifiers = (int)fs;
+            binding.Vk = vk;
+            PersistHotkeys();
+            return null;
+        }
+
+        public void ClearHotkey(string action)
+        {
+            var binding = GetHotkey(action);
+            if (binding.Vk == 0) return;
+            binding.Vk = 0;
+            binding.Modifiers = 0;
+            PersistHotkeys();
+        }
+
+        private void PersistHotkeys()
+        {
+            // Mirror start/stop into the legacy pair so old exports / older builds keep working.
+            var ss = GetHotkey(HotkeyStartStop);
+            if (ss.Vk != 0)
+            {
+                _settings.HotkeyModifiers = ss.Modifiers;
+                _settings.HotkeyVk = ss.Vk;
+            }
             SettingsManager.Save(_settings);
-            OnPropertyChanged(nameof(HotkeyDisplay));
+            NotifyHotkeysChanged();
+        }
+
+        private void NotifyHotkeysChanged()
+        {
+            OnPropertyChanged(nameof(StartHotkeyTooltip));
+            OnPropertyChanged(nameof(StopHotkeyTooltip));
             HotkeysChanged?.Invoke();
+        }
+
+        // The Start/Stop buttons advertise the live binding instead of a hard-coded combo.
+        public string StartHotkeyTooltip => "Start capture" + HotkeyHintSuffix(HotkeyStartStop);
+        public string StopHotkeyTooltip => "Stop capture" + HotkeyHintSuffix(HotkeyStartStop);
+
+        private string HotkeyHintSuffix(string action)
+        {
+            if (!HotkeysEnabled) return "";
+            var b = GetHotkey(action);
+            return b.Vk == 0 ? "" : $" — global hotkey: {GetHotkeyDisplay(action)}";
+        }
+
+        /// <summary>Global-hotkey action: pause/resume, with the buttons' own gating (needs a running capture).</summary>
+        public void PauseHotkey()
+        {
+            if (PauseResumeCommand.CanExecute(null)) PauseResumeCommand.Execute(null);
+        }
+
+        /// <summary>Global-hotkey action: pick a capture region — works while the app sits in the tray.</summary>
+        public void RegionSelectHotkey()
+        {
+            if (SelectRegionCommand.CanExecute(null)) SelectRegionCommand.Execute(null);
         }
 
         private void OpenSettings()

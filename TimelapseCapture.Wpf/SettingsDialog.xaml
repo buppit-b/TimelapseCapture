@@ -181,19 +181,40 @@
         </StackPanel>
 
         <!-- Hotkey -->
-        <ToggleButton x:Name="secHotkey" Style="{StaticResource SectionHeader}" Content="HOTKEY" IsChecked="True"/>
+        <ToggleButton x:Name="secHotkey" Style="{StaticResource SectionHeader}" Content="HOTKEYS" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secHotkey, Converter={StaticResource BoolToVis}}">
-            <CheckBox Content="Enable global start/stop hotkey" IsChecked="{Binding HotkeysEnabled}"
+            <CheckBox Content="Enable global hotkeys" IsChecked="{Binding HotkeysEnabled}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
-                      ToolTip="Register a system-wide hotkey to start/stop capture without focusing this window."/>
-            <StackPanel Margin="22,6,0,0" Visibility="{Binding HotkeysEnabled, Converter={StaticResource BoolToVis}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Shortcut" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="58"/>
-                    <TextBox x:Name="hotkeyBox" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
-                             Style="{StaticResource DarkTextBox}" Width="200" PreviewKeyDown="OnHotkeyKeyDown"/>
+                      ToolTip="Register system-wide hotkeys that work without focusing this window. Each action below is rebindable."/>
+            <StackPanel Margin="22,8,0,0" Visibility="{Binding HotkeysEnabled, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Start / Stop" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Toggle capture from anywhere."/>
+                    <TextBox x:Name="hkStartStop" Tag="startstop" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="startstop" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
                 </StackPanel>
-                <TextBlock Text="Click the box above, then press your combination (must include Ctrl, Shift or Alt)."
-                           Style="{StaticResource Muted}" FontSize="10" Margin="58,4,0,0" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Pause / Resume" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Pause or resume the current capture from anywhere."/>
+                    <TextBox x:Name="hkPause" Tag="pause" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="pause" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Select region" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Open the region picker from anywhere — works while the app is minimized or in the tray."/>
+                    <TextBox x:Name="hkRegion" Tag="regionselect" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="regionselect" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
+                </StackPanel>
+                <TextBlock x:Name="hotkeyConflictText" Foreground="{DynamicResource DangerBrush}" FontSize="10"
+                           Margin="96,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                <TextBlock Text="Click a box, then press your combination (must include Ctrl, Shift, Alt or Win)."
+                           Style="{StaticResource Muted}" FontSize="10" Margin="96,6,0,0" TextWrapping="Wrap"/>
             </StackPanel>
         </StackPanel>
             </StackPanel>

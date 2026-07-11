@@ -18,12 +18,25 @@ namespace TimelapseCapture.Wpf
             versionText.Text = v != null ? $"FrameWrite v{v.Major}.{v.Minor}.{v.Build} — timelapse capture" : "FrameWrite";
             creditsText.Text = "Created and directed by Spike Tickner · engineered with Claude (Anthropic) · video by FFmpeg";
 
-            Loaded += (s, e) => RefreshHotkeyText();
-            hotkeyBox.GotKeyboardFocus += (s, e) => hotkeyBox.Text = "Press a key combination…";
-            hotkeyBox.LostKeyboardFocus += (s, e) => RefreshHotkeyText();
+            Loaded += (s, e) => RefreshHotkeyBoxes();
+            HookHotkeyBox(hkStartStop);
+            HookHotkeyBox(hkPause);
+            HookHotkeyBox(hkRegion);
         }
 
-        private void RefreshHotkeyText() => hotkeyBox.Text = (DataContext as MainViewModel)?.HotkeyDisplay ?? "";
+        private void HookHotkeyBox(System.Windows.Controls.TextBox box)
+        {
+            box.GotKeyboardFocus += (s, e) => box.Text = "Press a key combination…";
+            box.LostKeyboardFocus += (s, e) => RefreshHotkeyBoxes();
+        }
+
+        private void RefreshHotkeyBoxes()
+        {
+            if (DataContext is not MainViewModel vm) return;
+            hkStartStop.Text = vm.GetHotkeyDisplay(MainViewModel.HotkeyStartStop);
+            hkPause.Text = vm.GetHotkeyDisplay(MainViewModel.HotkeyPause);
+            hkRegion.Text = vm.GetHotkeyDisplay(MainViewModel.HotkeyRegionSelect);
+        }
 
         // Clear every persisted "don't ask me again" choice; the button reports the outcome inline.
         private void OnResetPrompts(object sender, RoutedEventArgs e)
@@ -33,7 +46,7 @@ namespace TimelapseCapture.Wpf
             resetPromptsBtn.IsEnabled = false;   // one-shot per visit; reopening Settings re-arms it
         }
 
-        // Capture a key combination for the global hotkey.
+        // Capture a key combination for whichever action's box has focus (its Tag names the action).
         private void OnHotkeyKeyDown(object sender, KeyEventArgs e)
         {
             e.Handled = true;
@@ -47,8 +60,26 @@ namespace TimelapseCapture.Wpf
             // A global hotkey should include at least one modifier (otherwise it would hijack a plain key).
             if (Keyboard.Modifiers == ModifierKeys.None) return;
 
-            (DataContext as MainViewModel)?.SetHotkey(Keyboard.Modifiers, key);
-            RefreshHotkeyText();
+            if (DataContext is not MainViewModel vm || sender is not System.Windows.Controls.TextBox box) return;
+            string action = (string)box.Tag;
+            string? conflict = vm.SetHotkey(action, Keyboard.Modifiers, key);
+            if (conflict != null)
+            {
+                hotkeyConflictText.Text = $"That combination is already bound to {MainViewModel.HotkeyFriendly(conflict)} — pick another.";
+                hotkeyConflictText.Visibility = Visibility.Visible;
+                return;   // keep focus so the user can try again straight away
+            }
+            hotkeyConflictText.Visibility = Visibility.Collapsed;
+            RefreshHotkeyBoxes();
+            box.Text = (DataContext as MainViewModel)?.GetHotkeyDisplay(action) ?? box.Text;
+        }
+
+        private void OnHotkeyClear(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not MainViewModel vm || sender is not System.Windows.FrameworkElement el) return;
+            vm.ClearHotkey((string)el.Tag);
+            hotkeyConflictText.Visibility = Visibility.Collapsed;
+            RefreshHotkeyBoxes();
         }
     }
 }

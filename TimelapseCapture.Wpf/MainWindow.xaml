@@ -320,10 +320,10 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Content="&#9654;  Start" Style="{StaticResource BtnSuccess}"
                                     Command="{Binding StartCommand}" Margin="0,0,10,0"
-                                    FontSize="15" Padding="24,9" ToolTip="Start capture — global hotkey: Ctrl+Shift+F9"/>
+                                    FontSize="15" Padding="24,9" ToolTip="{Binding StartHotkeyTooltip}"/>
                             <Button Grid.Column="1" Content="&#9209;  Stop" Style="{StaticResource BtnStop}"
                                     Command="{Binding StopCommand}" Margin="0,0,10,0" Padding="16,9"
-                                    ToolTip="Stop capture — global hotkey: Ctrl+Shift+F9"/>
+                                    ToolTip="{Binding StopHotkeyTooltip}"/>
                             <Button Grid.Column="2" Content="{Binding PauseResumeText}" Style="{StaticResource BtnBase}"
                                     Command="{Binding PauseResumeCommand}" Padding="12,9"
                                     Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}"

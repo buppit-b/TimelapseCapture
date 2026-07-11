@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **The keymap** — Settings → HOTKEYS is now a table of rebindable global actions:
+  **Start/Stop**, **Pause/Resume** (new), and **Select region** (new — opens the region picker
+  from anywhere, even with the app minimized or in the tray). Click a box, press a combination;
+  duplicate combos are caught with a clear message; Clear unbinds an action. Your existing
+  start/stop binding migrates automatically, and the Start/Stop tooltips now advertise the
+  live binding instead of a hard-coded one.
 - **Fixed: closing the app left the region outline on screen** — the outline is an unowned
   window (so it can survive minimize-to-tray), and with WPF's default shutdown mode it kept
   the whole PROCESS alive as an invisible zombie plus an orphan outline. Two-layer fix: the

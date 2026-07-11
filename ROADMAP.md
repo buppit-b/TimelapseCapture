@@ -201,12 +201,12 @@ below (gauges/sparklines) stay open for the broader GUI reshape:
   (the storage-rate warning already is), and make the key numbers (video length, storage rate,
   time-to-target — all now added) the visual anchors. A focused UI pass; pairs with the broader
   GUI reshape.
-4. **Configurable keybindings** *(Spike, 2026-07-03; **re-flagged 2026-07-11** — "we need to
-   make the global hotkey(s) reconfigurable at some point"; note the start/stop hotkey is
-   already rebindable in Settings, this item is the full keymap table)* *(power-user philosophy: every hotkey
-   rebindable)* — grow the existing hotkey-capture control into a small keymap table in Settings
-   (action · binding · reset-to-default), persisted additively. Covers the global start/stop plus
-   the Trim/Cull editing keys (step ±1/±10, mark/unmark, set start/end).
+4. **Configurable keybindings** — ✅ **global keymap shipped (2026-07-11)**: Settings → HOTKEYS
+   is a rebindable table (Start/Stop · Pause/Resume · Select region — the region picker works
+   from the tray), with conflict detection, per-action Clear, additive persistence
+   (`CaptureSettings.Hotkeys`), and automatic migration from the legacy single binding.
+   *Still open:* rebindable Trim/Cull dialog editing keys (step ±1/±10, mark/unmark,
+   set start/end) — local keys, lower value, revisit on demand.
 
 ### 1.x smaller ideas (parked, roughly by value)
 **Overlay drag precision** *(Spike, 2026-07-09)*: dragging the overlay text on the small preview
