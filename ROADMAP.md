@@ -102,11 +102,12 @@ candidates** section below for what happens next.
    filename template for encodes/trims (Settings → Encoding). A chosen encode output *path*
    (separate from the session folder) is still open.
 10. **Provenance / app signature** *(Spike's idea — identifying the app's output in the wild.
-    Direction decided 2026-06-26; **marked for later**, toward 1.0.)* Two approved approaches:
-    - **(1) ffmpeg metadata tags** on every encode/trim — `-metadata encoder="TimelapseCapture x.y.z"`
-      plus `comment`/`software`. Standard, non-destructive, doesn't touch the picture; read by
-      ffprobe / MediaInfo / Windows file properties. ~2 lines in `VideoEncoder`. *Caveat:* platforms
-      (YouTube etc.) often strip metadata on re-encode, so this best identifies files shared directly.
+    Direction decided 2026-06-26.)* Two approved approaches:
+    - **(1) ffmpeg metadata tags** — ✅ **shipped (2026-07-11)**: every encode/trim carries
+      `-metadata encoder="FrameWrite x.y.z"` + a comment tag (version read from the assembly;
+      fixed strings, no user input in the args). Verified against a real encode in the
+      integration tests. *Caveat stands:* platforms often strip metadata on re-encode — this
+      identifies directly-shared files.
     - **(2) Optional visible watermark / logo** — off by default, reusing the overlay system; survives
       re-encoding. A credit feature for users who want it (most artists will leave it off).
     - **Ruled out:** covert steganographic pixel watermarking — fragile through compression, and a

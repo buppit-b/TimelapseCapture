@@ -36,6 +36,7 @@ namespace TimelapseCapture.Wpf
             _renderDebounce.Tick += (s, e) => { _renderDebounce.Stop(); RenderPreview(); };
             Loaded += (s, e) => { Subscribe(); RenderPreview(); RefreshBakeEnabled(); };
             Closed += (s, e) => { Unsubscribe(); _renderDebounce.Stop(); };
+            PreviewKeyDown += OnNudgeKey;   // arrow-key nudging for precise overlay placement
             sizeBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnApplySize(s, new RoutedEventArgs()); };
             BuildSwatches(textSwatches, (vm, hex) => vm.OverlayTextColor = hex);
             BuildSwatches(backSwatches, (vm, hex) => vm.OverlayBackColor = hex);
@@ -101,6 +102,32 @@ namespace TimelapseCapture.Wpf
         {
             sizeBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
             RenderPreview();
+        }
+
+        // Arrow keys fine-tune a dragged placement: ±1% of the frame per press, Shift = ±0.1%.
+        // Solves "the cursor covers the text and small overlays feel imprecise" — drag roughly,
+        // then nudge exactly. Inert while a text box has focus (arrows keep moving the caret there).
+        private void OnNudgeKey(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (Vm is not { } vm || !vm.OverlayUsesCustom) return;
+            if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+                or System.Windows.Controls.ComboBox) return;
+
+            double step = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift)
+                ? 0.001 : 0.01;
+            (double dx, double dy) = e.Key switch
+            {
+                System.Windows.Input.Key.Left => (-step, 0.0),
+                System.Windows.Input.Key.Right => (step, 0.0),
+                System.Windows.Input.Key.Up => (0.0, -step),
+                System.Windows.Input.Key.Down => (0.0, step),
+                _ => (0.0, 0.0),
+            };
+            if (dx == 0 && dy == 0) return;
+            vm.SetOverlayCustomNormalized(vm.OverlayCustomX + dx, vm.OverlayCustomY + dy);
+            _renderDebounce.Stop();
+            RenderPreview();   // immediate feedback, same as dragging
+            e.Handled = true;
         }
 
         // ---- drag-to-place on the preview ----

@@ -109,8 +109,15 @@ namespace TimelapseCapture
             if (outputLimit > 0 && holdFrames > 0) outputLimit += holdFrames;
             string limit = outputLimit > 0 ? $"-frames:v {outputLimit} " : "";
 
+            // Provenance (ROADMAP item 10, approach 1): open metadata tags naming the app — readable by
+            // ffprobe / MediaInfo / file properties. Fixed strings only (no user input reaches the args);
+            // platforms that re-encode may strip them, which is fine — this identifies directly-shared files.
+            string appVersion = typeof(VideoEncoder).Assembly.GetName().Version is { } v
+                ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
+            string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
+
             // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
-            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}" +
+            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}{meta}" +
                           $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
             Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}" +
                 (everyNth > 1 ? $" everyNth={everyNth}" : ""));

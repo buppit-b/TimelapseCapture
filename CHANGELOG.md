@@ -9,6 +9,16 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 11)
+- **Provenance metadata** — every encode/trim now carries open metadata tags
+  (encoder "FrameWrite x.y.z" + a comment), readable in ffprobe/MediaInfo/file properties.
+  Non-destructive, never touches the picture; verified against a real encode. (ROADMAP item 10
+  approach 1; the optional visible watermark remains a separate, off-by-default idea.)
+- **Cull gets the backup choice** — deleting fumble frames now offers the same
+  "Back up, then delete" primary option as bake/crop, and the delete + renumber pass runs off
+  the UI thread behind the busy flag with progress in the status line.
+- **Overlay nudge keys** — after dragging the overlay text into place, arrow keys move it by
+  1% of the frame and Shift+arrows by 0.1% — the precision the drag can't give (your cursor
+  covers the text). Inert while a text field has focus.
 - **The keymap** — Settings → HOTKEYS is now a table of rebindable global actions:
   **Start/Stop**, **Pause/Resume** (new), and **Select region** (new — opens the region picker
   from anywhere, even with the app minimized or in the tray). Click a box, press a combination;

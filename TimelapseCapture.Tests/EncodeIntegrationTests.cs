@@ -88,6 +88,10 @@ namespace TimelapseCapture.Tests
                 var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23);
                 r.Success.Should().BeTrue(r.Error);
                 CountFrames(r.OutputPath!).Should().Be(30);
+                // Provenance: the metadata tags must land in the container (mp4 stores them as text).
+                var bytes = File.ReadAllBytes(r.OutputPath!);
+                System.Text.Encoding.ASCII.GetString(bytes).Should().Contain("FrameWrite",
+                    "encodes carry open provenance metadata");
             }
             finally { try { Directory.Delete(root, true); } catch { } }
         }

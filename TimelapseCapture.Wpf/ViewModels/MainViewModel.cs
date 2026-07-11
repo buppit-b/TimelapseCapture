@@ -79,7 +79,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             TrimCommand = new RelayCommand(async _ => await Trim(), _ => CanEncode);
-            CullCommand = new RelayCommand(_ => Cull(), _ => CanEncode);
+            CullCommand = new RelayCommand(async _ => await Cull(), _ => CanEncode);
             CropCommand = new RelayCommand(async _ => await Crop(), _ => CanEncode);
             DownloadFfmpegCommand = new RelayCommand(async _ => await DownloadFfmpeg(), _ => !IsFfmpegBusy);
             BrowseFfmpegCommand = new RelayCommand(_ => BrowseFfmpeg(), _ => !IsFfmpegBusy);
@@ -2534,7 +2534,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         }
 
         // Review frames and delete fumbles, renumbering the rest so the sequence stays gapless (encodable).
-        private void Cull()
+        private async Task Cull()
         {
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
             var savedSession = SessionManager.LoadSession(_sessionFolder);
@@ -2555,7 +2555,27 @@ namespace TimelapseCapture.Wpf.ViewModels
                 return;
             }
 
-            int newCount = SessionManager.CullAndRenumber(_sessionFolder, new HashSet<int>(dlg.MarkedForDeletion));
+            // Deletes + renumbers on disk — busy-gated like the other destructive ops (and the
+            // renumber pass on a big session is worth keeping off the UI thread anyway).
+            int newCount;
+            IsEncoding = true;
+            EncodeStatus = "Deleting frames…";
+            try
+            {
+                if (dlg.BackupFirstRequested && !await BackupSessionForSafety(_sessionFolder)) return;
+                EncodeStatus = "Deleting frames…";
+                var folder = _sessionFolder;
+                newCount = await Task.Run(() => SessionManager.CullAndRenumber(folder, new HashSet<int>(dlg.MarkedForDeletion)));
+                EncodeStatus = $"Deleted {dlg.MarkedForDeletion.Count} frame(s) ✓";
+            }
+            catch (Exception ex)
+            {
+                EncodeStatus = "Cull failed";
+                MessageDialog.Show($"Couldn't delete the frames:\n{ex.Message}", "Cull frames",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;   // leave marks/trim as they are — the user can inspect what happened
+            }
+            finally { IsEncoding = false; }
             FrameCount = newCount;
             UpdatePreview();   // the "latest" frame likely changed
 

@@ -133,6 +133,9 @@ namespace TimelapseCapture.Wpf
             applyBtn.IsEnabled = _marked.Count > 0;
         }
 
+        /// <summary>Back up the session (frames + session.json) before deleting — the safe default.</summary>
+        public bool BackupFirstRequested { get; private set; }
+
         private void OnApply(object sender, RoutedEventArgs e)
         {
             if (_marked.Count == 0) return;
@@ -142,9 +145,13 @@ namespace TimelapseCapture.Wpf
                     "Cull frames", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            var r = MessageDialog.Show($"Delete {_marked.Count} frame(s) and renumber the rest? This can't be undone.",
-                "Cull frames", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (r == MessageBoxResult.Yes) DialogResult = true;
+            int choice = MessageDialog.ShowChoices(
+                $"Delete {_marked.Count} frame(s) and renumber the rest? This can't be undone.",
+                "Cull frames", MessageBoxImage.Warning,
+                "Back up, then delete", "Delete without backup", "Cancel");
+            if (choice is not (0 or 1)) return;
+            BackupFirstRequested = choice == 0;
+            DialogResult = true;
         }
     }
 }
