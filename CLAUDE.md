@@ -202,7 +202,13 @@ TimelapseCapture.Wpf/
 │   WindowPickerDialog · TextPromptDialog   (dark modal dialogs)
 ├── RegionOverlay / RegionSelectOverlay / RegionEditOverlay   (on-screen region UI)
 └── ViewModels/
-    ├── MainViewModel.cs       the brain — all commands/properties/state
+    ├── MainViewModel.cs       the brain — ONE partial class split by concern (2026-07-12):
+    │     .cs (core: fields/ctor/commands/Dispose) · .State (bound settings props + flags)
+    │     · .Target (h/m/s + timer + run clock) · .Stats (stat rows + RefreshStats tick)
+    │     · .Session (folder/new/load/rename/crash-recovery) · .Prefs (theme/tray/safety/
+    │     overlay props) · .Hotkeys (keymap) · .SettingsOps (dialogs/backup/presets/import)
+    │     · .Region (sources + outline, ApplyRegion funnel) · .Capture (start/stop/engine
+    │     events) · .Encode (encode/trim/cull/crop/ffmpeg)
     ├── RelayCommand.cs        ICommand (CommandManager.RequerySuggested)
     └── ViewModelBase.cs       INotifyPropertyChanged + SetProperty
 

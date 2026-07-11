@@ -49,6 +49,12 @@ candidates** section below for what happens next.
      window as a BLACK BOX in BitBlt frames instead of revealing what's behind — a Windows
      compositor behavior, not fixable with GDI capture; WGC (below) is the real fix. Workaround:
      keep the app off the captured area (it minimizes to tray anyway).
+   - *Known limits recorded in the 2026-07-12 engine audit:* (a) a crash in the instant between
+     writing a frame and incrementing the count means the next run overwrites that one frame
+     (frame-count ownership rework, parked, is the real fix); (b) unplugging the captured
+     monitor MID-RUN yields black frames — BitBlt against dead coordinates "succeeds"; the
+     canonical-size relocate covers reloads, not live unplugs (display-change detection would
+     pair with WGC slice 2).
    - *Deferred (slice 2+):* **Windows.Graphics.Capture (WGC)** for occluded/off-screen windows
      (hardware-accelerated, the modern approach; `PrintWindow` is a middle option); persisting
      tracking across restarts (HWNDs aren't stable — re-match by title/process); client-area-only
