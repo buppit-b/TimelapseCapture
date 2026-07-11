@@ -940,6 +940,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _region = null;
             _trackedWindow = IntPtr.Zero;
             _accumulatedSeconds = 0;
+            _timerRunBase = 0;                 // fresh session — the run clock starts from nothing
             ResetTarget();
             PreviewImage = null;
             ClearCaptureError();
@@ -1022,6 +1023,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             }
 
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
+            _timerRunBase = _accumulatedSeconds;   // run clock reads 00:00 until capture starts here
             ResetTarget();   // target isn't per-session — reset, don't carry over
             SessionName = session.Name ?? "Session";
             if (_region.HasValue)
@@ -2890,7 +2892,7 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                 // Elapsed (current run) + total across start/stop — updated every tick (1s) so it counts smoothly.
                 double current = (IsCapturing && _captureStart.HasValue) ? (DateTime.Now - _captureStart.Value).TotalSeconds : 0;
-                ElapsedText = FormatTime(current);
+                ElapsedText = FormatTime(RunActiveSeconds());
                 double totalCaptureSeconds = _accumulatedSeconds + current;
                 TotalElapsedText = FormatTime(totalCaptureSeconds);
                 UpdateCaptureToTarget();   // live time-to-target readout

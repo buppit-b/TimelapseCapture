@@ -151,6 +151,25 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void GetFrameFiles_OrdersNumerically_PastFiveDigits()
+        {
+            string dir = NewSessionDir(out string frames);
+            try
+            {
+                // Ordinal string order would put "100000" BEFORE "99999" — numeric order must win,
+                // or cull/trim/preview scramble on 100k+ frame sessions.
+                foreach (var name in new[] { "100000", "00002", "99999", "00010" })
+                    File.WriteAllText(Path.Combine(frames, name + ".jpg"), name);
+
+                var ordered = SessionManager.GetFrameFiles(dir)
+                    .Select(Path.GetFileNameWithoutExtension).ToArray();
+
+                ordered.Should().Equal("00002", "00010", "99999", "100000");
+            }
+            finally { try { Directory.Delete(dir, true); } catch { } }
+        }
+
+        [Fact]
         public void BackupSession_CopiesFramesAndSessionJson_SkipsOutput_PreservesTimes()
         {
             string dir = NewSessionDir(out string frames);

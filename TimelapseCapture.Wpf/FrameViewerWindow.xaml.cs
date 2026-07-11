@@ -26,11 +26,26 @@ namespace TimelapseCapture.Wpf
         private (double x, double y) _panStartT;
         private bool _scrubReady;      // ignore slider events during (re)initialisation
 
+        // 1:1 means one FRAME pixel per DEVICE pixel — on a scaled monitor (e.g. 150%) that is a
+        // layout scale of 1/1.5, not 1.0 (which would render each pixel soft at 150%).
+        private double _pixelScale = 1;
+
         public FrameViewerWindow(string sessionFolder)
         {
             InitializeComponent();
             _sessionFolder = sessionFolder;
-            Loaded += (s, e) => Reload(goToLast: true);
+            Loaded += (s, e) =>
+            {
+                _pixelScale = 1.0 / VisualTreeHelper.GetDpi(this).DpiScaleX;
+                Reload(goToLast: true);
+            };
+        }
+
+        protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+        {
+            base.OnDpiChanged(oldDpi, newDpi);
+            _pixelScale = 1.0 / newDpi.DpiScaleX;   // dragged to a differently-scaled monitor
+            ApplyTransform();                        // zoom % readout re-baselines
         }
 
         // ---- frame loading ----
@@ -121,7 +136,7 @@ namespace TimelapseCapture.Wpf
             if (e.ClickCount == 2)
             {
                 // Double-click: 1:1 at the clicked spot, or back to fit if already close to 1:1.
-                if (Math.Abs(_scale - 1) < 0.01) Fit();
+                if (Math.Abs(_scale - _pixelScale) < 0.01) Fit();
                 else ZoomToActualSize(e.GetPosition(viewport));
                 return;
             }
@@ -172,11 +187,11 @@ namespace TimelapseCapture.Wpf
         private void ZoomToActualSize(Point focus)
         {
             if (img.Source == null) return;
-            // Keep the frame point at 'focus' in place while snapping the scale to exactly 1.
-            double factor = 1 / _scale;
+            // Keep the frame point at 'focus' in place while snapping to true pixel-for-pixel.
+            double factor = _pixelScale / _scale;
             _tx = focus.X - factor * (focus.X - _tx);
             _ty = focus.Y - factor * (focus.Y - _ty);
-            _scale = 1;
+            _scale = _pixelScale;
             _autoFit = false;
             ApplyTransform();
         }
@@ -186,10 +201,10 @@ namespace TimelapseCapture.Wpf
             scaleT.ScaleX = scaleT.ScaleY = _scale;
             transT.X = _tx;
             transT.Y = _ty;
-            zoomText.Text = $"{_scale * 100:F0}%";
+            zoomText.Text = $"{_scale / _pixelScale * 100:F0}%";   // 100% = one frame pixel per screen pixel
             // Crisp pixels when magnifying (what a detail check needs); smooth when shrinking.
             RenderOptions.SetBitmapScalingMode(img,
-                _scale >= 1 ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
+                _scale >= _pixelScale ? BitmapScalingMode.NearestNeighbor : BitmapScalingMode.HighQuality);
         }
     }
 }

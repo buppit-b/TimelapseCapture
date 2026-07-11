@@ -140,6 +140,15 @@ namespace TimelapseCapture
                     session = LoadSession(sessionFolder); // Reload
                 }
 
+                // Defence at the load boundary: a corrupt/hand-edited file must not push impossible
+                // numbers into the app — a negative FramesCaptured would drive the engine's next
+                // frame filename NEGATIVE ("-0004.jpg": unencodable, scrambles the sequence).
+                if (session != null)
+                {
+                    if (session.FramesCaptured < 0) session.FramesCaptured = 0;
+                    if (session.TotalCaptureSeconds < 0) session.TotalCaptureSeconds = 0;
+                }
+
                 return session;
             }
             catch
@@ -407,10 +416,15 @@ namespace TimelapseCapture
             if (!Directory.Exists(framesPath))
                 return Array.Empty<string>();
 
+            // NUMERIC order, not ordinal: past frame 99999 the zero-padded names grow a sixth digit
+            // and "100000" sorts before "99999" as a string — which would scramble preview/trim/cull
+            // (cull renumbers DESTRUCTIVELY in list order) on very long runs. ffmpeg's %05d pattern
+            // handles 6+ digits printf-style, so long sessions stay fully encodable.
             var files = Directory.GetFiles(framesPath, "*.jpg")
                 .Concat(Directory.GetFiles(framesPath, "*.png"))
                 .Concat(Directory.GetFiles(framesPath, "*.bmp"))
-                .OrderBy(f => f, StringComparer.Ordinal)
+                .OrderBy(f => long.TryParse(Path.GetFileNameWithoutExtension(f), out var n) ? n : long.MaxValue)
+                .ThenBy(f => f, StringComparer.Ordinal)   // stable fallback for non-numeric names
                 .ToArray();
 
             return files;

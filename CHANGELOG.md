@@ -9,6 +9,15 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **Hardening round 2** (long-run + hostile-input sweep) — frame files now sort **numerically**:
+  past frame 99,999 the names grow a sixth digit and the old string sort put "100000" before
+  "99999", which would scramble preview/trim/**cull** (destructive!) on very long runs; ffmpeg
+  itself handles 6+ digits fine, so 100k+ sessions stay encodable. The **Run clock** now shows
+  the run's active time (it used to reset to 0:00 at every resume, and now holds the final time
+  after a stop). The loupe's **1:1 is now true pixel-for-pixel** on scaled monitors (100% used
+  to mean 150%-soft on a 150% display; re-baselines when dragged across monitors). And a
+  corrupt/hand-edited session.json with negative counters is clamped at load — a negative
+  frame count would have produced unencodable "-0004.jpg" filenames.
 - **Hardening pass** (self-audit of the recent arc) — fixed: presets carried the NEW keymap,
   dismissed-confirmation list, and panel fold state (applying one could silently rebind your
   hotkeys — now excluded on both save and apply, contract-tested) · imported settings left
