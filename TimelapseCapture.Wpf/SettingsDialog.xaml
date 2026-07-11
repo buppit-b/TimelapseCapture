@@ -213,6 +213,19 @@
                 </StackPanel>
                 <TextBlock x:Name="hotkeyConflictText" Foreground="{DynamicResource DangerBrush}" FontSize="10"
                            Margin="96,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                <!-- OS-level registration problems (combo owned by another app) — set by the main window. -->
+                <TextBlock Text="{Binding HotkeyWarning}" Foreground="{DynamicResource DangerBrush}" FontSize="10"
+                           Margin="96,6,0,0" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HotkeyWarning}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
                 <TextBlock Text="Click a box, then press your combination (must include Ctrl, Shift, Alt or Win)."
                            Style="{StaticResource Muted}" FontSize="10" Margin="96,6,0,0" TextWrapping="Wrap"/>
             </StackPanel>

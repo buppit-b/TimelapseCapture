@@ -45,10 +45,15 @@ namespace TimelapseCapture
             dst.StopAtStorageMB = src.StopAtStorageMB;
             dst.StopAtTarget = src.StopAtTarget;
             dst.NotifyOnFinish = src.NotifyOnFinish;
-            // Global hotkey — a system-registration side effect, not a capture-look preference.
+            // Global hotkeys — a system-registration side effect, not a capture-look preference.
             dst.HotkeysEnabled = src.HotkeysEnabled;
             dst.HotkeyModifiers = src.HotkeyModifiers;
             dst.HotkeyVk = src.HotkeyVk;
+            dst.Hotkeys = src.Hotkeys;                      // the keymap follows the same rule
+            // User-global choices, not capture-look: dismissed confirmations and panel fold state.
+            dst.SuppressedPrompts = src.SuppressedPrompts;
+            dst.EncodePanelExpanded = src.EncodePanelExpanded;
+            dst.SmartPanelExpanded = src.SmartPanelExpanded;
         }
 
         private static CaptureSettings Clone(CaptureSettings s) =>

@@ -147,7 +147,8 @@ namespace TimelapseCapture.Wpf
             try { SetWindowDisplayAffinity(h, hide ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE); } catch { }
         }
 
-        // Re-register every bound action's global hotkey to match the current keymap.
+        // Re-register every bound action's global hotkey to match the current keymap, and report
+        // failures back to the VM — RegisterHotKey fails silently when another app owns the combo.
         private void RefreshHotkey()
         {
             var handle = new WindowInteropHelper(this).Handle;
@@ -156,15 +157,22 @@ namespace TimelapseCapture.Wpf
             foreach (int id in _registeredHotkeys) UnregisterHotKey(handle, id);
             _registeredHotkeys.Clear();
 
-            if (DataContext is not MainViewModel vm || !vm.HotkeysEnabled) return;
-            for (int i = 0; i < MainViewModel.HotkeyActions.Length; i++)
+            if (DataContext is not MainViewModel vm) return;
+            var failed = new System.Collections.Generic.List<string>();
+            if (vm.HotkeysEnabled)
             {
-                var binding = vm.GetHotkey(MainViewModel.HotkeyActions[i]);
-                if (binding.Vk == 0) continue;   // unbound slot
-                int id = HOTKEY_ID_BASE + i;
-                if (RegisterHotKey(handle, id, (uint)binding.Modifiers, (uint)binding.Vk))
-                    _registeredHotkeys.Add(id);
+                for (int i = 0; i < MainViewModel.HotkeyActions.Length; i++)
+                {
+                    var binding = vm.GetHotkey(MainViewModel.HotkeyActions[i]);
+                    if (binding.Vk == 0) continue;   // unbound slot
+                    int id = HOTKEY_ID_BASE + i;
+                    if (RegisterHotKey(handle, id, (uint)binding.Modifiers, (uint)binding.Vk))
+                        _registeredHotkeys.Add(id);
+                    else
+                        failed.Add(MainViewModel.HotkeyActions[i]);
+                }
             }
+            vm.ReportHotkeyRegistration(failed);
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

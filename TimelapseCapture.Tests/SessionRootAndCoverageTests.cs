@@ -132,6 +132,31 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void ApplyOnto_NeverCarries_KeymapOrUserGlobalState()
+        {
+            var preset = new CaptureSettings
+            {
+                Hotkeys = new() { new HotkeyBinding { Action = "startstop", Modifiers = 1, Vk = 0x41 } },
+                SuppressedPrompts = new() { "some-prompt-from-another-machine" },
+                EncodePanelExpanded = true,
+                SmartPanelExpanded = true,
+            };
+            var live = new CaptureSettings
+            {
+                Hotkeys = new() { new HotkeyBinding { Action = "startstop", Modifiers = 6, Vk = 0x78 } },
+                SuppressedPrompts = new() { "stop-active-timer" },
+                EncodePanelExpanded = false,
+                SmartPanelExpanded = false,
+            };
+            var merged = PresetManager.ApplyOnto(preset, live);
+            // A preset must never rebind the user's keys, resurrect/dismiss confirmations, or fold panels.
+            merged.Hotkeys.Should().BeEquivalentTo(live.Hotkeys);
+            merged.SuppressedPrompts.Should().BeEquivalentTo(live.SuppressedPrompts);
+            merged.EncodePanelExpanded.Should().BeFalse();
+            merged.SmartPanelExpanded.Should().BeFalse();
+        }
+
+        [Fact]
         public void StripIdentity_ClearsMachinePathsButKeepsLook()
         {
             var live = new CaptureSettings { SaveFolder = @"D:\MyArt", FfmpegPath = @"D:\ff.exe", Theme = "Synth", IntervalSecondsExact = 7m };

@@ -121,8 +121,20 @@ namespace TimelapseCapture.Wpf
             tb.PreviewTextInput += OnPreviewTextInput;
             tb.PreviewMouseWheel -= OnWheel;
             tb.PreviewMouseWheel += OnWheel;
+            tb.LostFocus -= OnLostFocusRestore;
+            tb.LostFocus += OnLostFocusRestore;
             DataObject.RemovePastingHandler(tb, OnPaste);
             DataObject.AddPastingHandler(tb, OnPaste);
+        }
+
+        // Emptied/garbled input never reaches the source (the binding's conversion fails silently),
+        // which left the box showing nothing while the real value lived on. Snap the display back on
+        // blur so a numeric box can never lie about what's actually set.
+        private static void OnLostFocusRestore(object sender, RoutedEventArgs e)
+        {
+            var tb = (TextBox)sender;
+            if (!decimal.TryParse(tb.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+                tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
         }
 
         private static void OnWheel(object sender, MouseWheelEventArgs e)

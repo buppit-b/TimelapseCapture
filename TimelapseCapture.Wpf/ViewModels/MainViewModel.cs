@@ -49,10 +49,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             _engine.CaptureFailed += OnCaptureFailed;
             _engine.SmartStatusChanged += OnSmartStatus;
 
-            ChooseFolderCommand = new RelayCommand(_ => ChooseFolder(), _ => !IsCapturing);
-            NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing);
+            ChooseFolderCommand = new RelayCommand(_ => ChooseFolder(), _ => !IsCapturing && !IsEncoding);
+            NewSessionCommand = new RelayCommand(_ => NewSession(), _ => HasOutputFolder && !IsCapturing && !IsEncoding);
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing && !IsEncoding);
-            RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing);
+            RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing && !IsEncoding);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             OpenOverlayCommand = new RelayCommand(async _ => await OpenOverlay());
             DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
@@ -1367,7 +1367,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             hex = "";
             if (string.IsNullOrWhiteSpace(input)) return false;
             string s = input.Trim().TrimStart('#');
-            if (s.Length is not (6 or 8)) return false;
+            // 6 digits only: alpha lives in the opacity fields, and the renderer's parser
+            // (ColorTranslator.FromHtml) rejects #AARRGGBB — accepting it here would let a value
+            // "take" in the box while silently not applying to the frames.
+            if (s.Length != 6) return false;
             foreach (char c in s)
                 if (!Uri.IsHexDigit(c)) return false;
             hex = "#" + s.ToUpperInvariant();
@@ -1443,8 +1446,25 @@ namespace TimelapseCapture.Wpf.ViewModels
             if ((b.Modifiers & 0x0004) != 0) parts.Add("Shift");
             if ((b.Modifiers & 0x0001) != 0) parts.Add("Alt");
             if ((b.Modifiers & 0x0008) != 0) parts.Add("Win");
-            parts.Add(KeyInterop.KeyFromVirtualKey(b.Vk).ToString());
+            var key = KeyInterop.KeyFromVirtualKey(b.Vk);
+            parts.Add(key == Key.None ? $"VK 0x{b.Vk:X2}" : key.ToString());   // corrupt/foreign vk — stay honest
             return string.Join(" + ", parts);
+        }
+
+        // Registration happens in the window (it owns the HWND); it reports back here so Settings can
+        // show WHY a binding isn't working — RegisterHotKey fails silently when another app holds the
+        // combination, which otherwise reads as "the hotkey is broken".
+        private string _hotkeyWarning = "";
+        public string HotkeyWarning { get => _hotkeyWarning; private set => SetProperty(ref _hotkeyWarning, value); }
+
+        public void ReportHotkeyRegistration(IReadOnlyList<string> failedActions)
+        {
+            HotkeyWarning = failedActions.Count == 0
+                ? ""
+                : "Couldn't register " +
+                  string.Join(", ", failedActions.Select(a => $"{HotkeyFriendly(a)} ({GetHotkeyDisplay(a)})")) +
+                  " — the combination may be in use by another app. Pick a different one.";
+            if (HotkeyWarning.Length > 0) Logger.Log("Wpf", $"Hotkey registration failed: {HotkeyWarning}");
         }
 
         /// <summary>Bind a combo to an action. Returns null on success, or the OTHER action already using it.</summary>
@@ -1757,6 +1777,10 @@ namespace TimelapseCapture.Wpf.ViewModels
             RefreshOutputFolderMissing();
             OnPropertyChanged(string.Empty); // refresh every binding against the new settings
             RefreshStats(); BumpRecalc();    // recompute storage/length/progress from the imported fps/skip/format
+            // Side effects the blanket notify can't reach: imported hotkey bindings must re-register
+            // with Win32 NOW (they used to sit inert until restart), and hide-from-capture re-applies.
+            HotkeysChanged?.Invoke();
+            WindowAffinityChanged?.Invoke();
         }
 
         // Clamp fields that aren't already re-clamped at point of use, so a hand-edited/foreign settings.json
@@ -2097,8 +2121,15 @@ namespace TimelapseCapture.Wpf.ViewModels
         // Show a full-screen region overlay, optionally hiding the main window first so it doesn't
         // block the very thing the user is trying to select (default on). Keeps the wizard as owner
         // when a pick is launched from it; never owns the overlay by a window we've hidden.
+        // Re-entrancy guard: the region-select global hotkey (and key mashing generally) fires even
+        // while a picker is already on screen — a second full-screen overlay on top of the first is
+        // pure confusion. One picker at a time.
+        private bool _regionPickerOpen;
+
         private bool? ShowRegionOverlay(Window overlay)
         {
+            if (_regionPickerOpen) return null;
+            _regionPickerOpen = true;
             var main = Application.Current?.MainWindow;
             var active = ActiveWindow();
             if (active != null && active != main && active.IsVisible) overlay.Owner = active;
@@ -2106,7 +2137,11 @@ namespace TimelapseCapture.Wpf.ViewModels
             bool hide = _settings.HideWindowDuringRegionSelect && main != null && main.IsVisible;
             if (hide) main!.Hide();
             try { return overlay.ShowDialog(); }
-            finally { if (hide) { main!.Show(); main.Activate(); } }
+            finally
+            {
+                _regionPickerOpen = false;
+                if (hide) { main!.Show(); main.Activate(); }
+            }
         }
 
         // The window that should own a transient dialog: the active one (e.g. the modal setup wizard

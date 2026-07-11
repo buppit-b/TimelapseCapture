@@ -8,7 +8,18 @@ All notable changes to TimelapseCapture are recorded here. Format follows
 Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soak test
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
-### RC refinements (2026-07-08 → 11)
+### RC refinements (2026-07-08 → 12)
+- **Hardening pass** (self-audit of the recent arc) — fixed: presets carried the NEW keymap,
+  dismissed-confirmation list, and panel fold state (applying one could silently rebind your
+  hotkeys — now excluded on both save and apply, contract-tested) · imported settings left
+  hotkey bindings and hide-from-capture inert until restart · renaming / switching sessions or
+  the output folder was possible DURING a bake/backup/cull (the rename moves the folder out
+  from under the running rewrite — now gated) · the region-select hotkey could stack a second
+  full-screen picker over an open one · a failed RegisterHotKey (combo owned by another app)
+  was silent — Settings now shows exactly which binding didn't take · clearing a numeric box
+  and tabbing away left it empty while the old value silently lived on (all numeric boxes now
+  restore on blur) · 8-digit hex was accepted by the overlay colour box but silently ignored
+  by the renderer.
 - **Provenance metadata** — every encode/trim now carries open metadata tags
   (encoder "FrameWrite x.y.z" + a comment), readable in ffprobe/MediaInfo/file properties.
   Non-destructive, never touches the picture; verified against a real encode. (ROADMAP item 10
