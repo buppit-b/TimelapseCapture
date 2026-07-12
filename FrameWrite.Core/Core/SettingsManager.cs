@@ -94,6 +94,11 @@ namespace FrameWrite
         // the fps is computed from however many frames are being encoded (works for trims too).
         public bool EncodeDurationMode { get; set; }
         public double EncodeDurationSeconds { get; set; } = 30;
+        // Developer mode (hidden — unlocked by clicking the Settings version 5×): lets a power user
+        // push past the safe interval floor and skips the configurable low-disk auto-stop. The
+        // absolute EMERGENCY disk floor (Constants.EmergencyDiskFloorMB) still applies — dev mode
+        // pushes the CAPTURE to its limits, but never lets the drive fill to a machine-killing zero.
+        public bool DeveloperMode { get; set; }
     }
 
 

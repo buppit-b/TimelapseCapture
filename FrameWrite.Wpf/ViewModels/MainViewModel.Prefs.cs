@@ -25,6 +25,53 @@ namespace FrameWrite.Wpf.ViewModels
             set { if (_settings.Theme != value) { _settings.Theme = value; SettingsManager.Save(_settings); ThemeManager.Apply(value); OnPropertyChanged(); } }
         }
 
+        // ---- Developer mode: hidden power-user unlock (bypasses the SAFE interval floor + the
+        // configurable low-disk auto-stop). The emergency disk floor still applies — see Capture. ----
+        public bool DeveloperMode
+        {
+            get => _settings.DeveloperMode;
+            set
+            {
+                if (_settings.DeveloperMode == value) return;
+                _settings.DeveloperMode = value;
+                SettingsManager.Save(_settings);
+                Logger.Log("Wpf", $"Developer mode {(value ? "ENABLED — safety limits relaxed" : "disabled")}.");
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DevModeUnlocked));
+                OnPropertyChanged(nameof(IntervalTooltip));
+                OnPropertyChanged(nameof(FpsTooltip));
+                // Re-clamp the interval to the now-active floor (leaving dev mode with a 0.05s interval
+                // set must snap it back up to 0.1s).
+                if (!value && IntervalSeconds < 0.1m) IntervalSeconds = 0.1m;
+                OnPropertyChanged(nameof(IntervalSeconds));
+            }
+        }
+        /// <summary>Once unlocked, Settings reveals the toggle (so the user can turn it back off).</summary>
+        public bool DevModeUnlocked => _settings.DeveloperMode;
+
+        /// <summary>The lowest interval the user may set: 0.1s normally, 0.01s (100 fps) in developer mode.</summary>
+        public decimal MinIntervalSeconds => _settings.DeveloperMode ? 0.01m : 0.1m;
+
+        // Gesture: clicking the Settings version label 5× unlocks dev mode (with a scary confirm).
+        private int _versionClicks;
+        /// <summary>Returns true once the gesture crosses the threshold and the user confirms.</summary>
+        public bool RegisterVersionClickForDevUnlock()
+        {
+            if (_settings.DeveloperMode) return false;   // already on
+            if (++_versionClicks < 5) return false;
+            _versionClicks = 0;
+            var r = MessageDialog.Show(
+                "Unlock developer mode?\n\n" +
+                "It lets you push past the safe capture limits — sub-0.1s intervals and no low-disk " +
+                "auto-stop — for testing the app to its edges. Frames may drop and files can balloon.\n\n" +
+                "A hard emergency stop still protects your drive from filling completely, so this can't " +
+                "crash Windows — but everything short of that is on you.",
+                "Developer mode", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (r != MessageBoxResult.Yes) return false;
+            DeveloperMode = true;
+            return true;
+        }
+
         public event Action? WindowAffinityChanged;
         public bool HideFromCapture
         {

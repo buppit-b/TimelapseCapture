@@ -13,6 +13,12 @@ namespace FrameWrite
         public const int BRACKET_SIZE = 20;
         public const int BORDER_SIZE = 50;
         
+        // The absolute, non-negotiable free-disk floor. Capture stops here even in developer mode
+        // (which bypasses the configurable low-disk stop) — below a few hundred MB the OS itself
+        // starts failing (pagefile, temp, the app can't even write its log). Dev mode pushes the
+        // CAPTURE to its limits, never the machine to a crash.
+        public const int EmergencyDiskFloorMB = 256;
+
         // Capture Constants
         public const int MAX_CONSECUTIVE_ERRORS = 3;
         public const int MIN_DISK_SPACE_MB = 50;

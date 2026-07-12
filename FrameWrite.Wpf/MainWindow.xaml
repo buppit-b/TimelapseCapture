@@ -22,6 +22,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="44"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -124,8 +125,20 @@
             </StackPanel>
         </Grid>
 
+        <!-- Developer-mode strip: always visible while dev mode is on, so relaxed safety is never forgotten. -->
+        <Border Grid.Row="1" Background="#33E5534B" BorderBrush="{DynamicResource DangerBrush}"
+                BorderThickness="0,1,0,1" Padding="18,4"
+                Visibility="{Binding DeveloperMode, Converter={StaticResource BoolToVis}}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="&#9888;" Foreground="{DynamicResource DangerBrush}" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="DEVELOPER MODE — safety limits relaxed (sub-0.1s intervals, no low-disk auto-stop). Emergency disk floor still active."
+                           Foreground="{DynamicResource DangerBrush}" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </Border>
+
         <!-- Content (scrolls when the window is shrunk below its natural size) -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <!-- ROOT CAUSE of "text never wraps": a ScrollViewer with horizontal scrolling measures its
              child at INFINITE width, so star columns and TextWrapping silently never engage. Binding
              this host's Width to the viewport bounds the layout (wrapping works, no h-scroll) while
@@ -269,11 +282,11 @@
                                 <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                          local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="Seconds between frames (decimals OK). From 0.1s (10×/second) up to 3600s (once an hour); out-of-range entries snap back."/>
+                                         ToolTip="{Binding IntervalTooltip}"/>
                                 <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                          local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="Capture rate in frames per second. Maximum 10 fps (= the 0.1s interval floor); out-of-range entries snap back."/>
+                                         ToolTip="{Binding FpsTooltip}"/>
                                 <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="sec" Margin="10,0,0,0"
                                              IsChecked="{Binding IntervalUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
                                              ToolTip="Edit the interval as seconds between frames."/>

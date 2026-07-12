@@ -53,9 +53,14 @@ namespace FrameWrite.Tests
             Directory.CreateDirectory(dir);
             try
             {
+                // Warm the path first: the timed assertion is about the retry LOOP (each retry sleeps 40ms),
+                // not first-call JIT. A missing file returns before the first Sleep, so a warmed call is
+                // sub-millisecond — timing it cold made this flaky on a loaded box. Both calls must return null.
+                SessionManager.IncrementFrameCount(dir).Should().BeNull();
+
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 SessionManager.IncrementFrameCount(dir).Should().BeNull();
-                sw.ElapsedMilliseconds.Should().BeLessThan(40, "a genuinely missing file must fail fast, not retry");
+                sw.ElapsedMilliseconds.Should().BeLessThan(40, "a genuinely missing file must fail fast, not retry (one retry alone sleeps 40ms)");
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }

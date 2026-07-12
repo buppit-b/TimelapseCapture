@@ -28,10 +28,12 @@ namespace FrameWrite.Wpf.ViewModels
             get => _settings.IntervalSecondsExact > 0 ? _settings.IntervalSecondsExact : _settings.IntervalSeconds;
             set
             {
-                // 0.1s (10 fps) is the engine floor: each tick synchronously grabs + encodes + writes a
-                // frame, and below ~100ms ticks overlap and get dropped — that's screen-recorder territory.
-                // Ceiling 3600s (one frame an hour) — beyond that is almost certainly a typo, not a plan.
-                decimal v = value < 0.1m ? 0.1m : value > 3600m ? 3600m : value;
+                // 0.1s (10 fps) is the normal floor — below ~100ms ticks overlap and get dropped
+                // (screen-recorder territory). Developer mode lowers it to 0.01s (MinIntervalSeconds)
+                // for edge testing. Ceiling 3600s (one frame an hour) — beyond that is almost certainly
+                // a typo, not a plan.
+                decimal floor = MinIntervalSeconds;
+                decimal v = value < floor ? floor : value > 3600m ? 3600m : value;
                 // Normalize: 4 dp is plenty, and strip decimal's trailing-zero scale so a pasted
                 // "0.1000000000000000000000000000" (or an fps round-trip artifact) displays as "0.1".
                 v = decimal.Parse(Math.Round(v, 4).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
@@ -67,6 +69,15 @@ namespace FrameWrite.Wpf.ViewModels
             get => IntervalSeconds > 0 ? Math.Round(1m / IntervalSeconds, 2) : 0;
             set { if (value > 0) IntervalSeconds = Math.Round(1m / value, 4); }
         }
+
+        // Interval-field tooltips state the live floor, which developer mode lowers (0.1s→0.01s / 10→100 fps).
+        // Kept concise for the normal case (the wordy version was flagged) and only widened under dev mode.
+        public string IntervalTooltip => _settings.DeveloperMode
+            ? "Seconds between frames (decimals OK). Developer mode: from 0.01s (100×/second) up to 3600s; out-of-range entries snap back."
+            : "Seconds between frames (decimals OK). From 0.1s (10×/second) up to 3600s (once an hour); out-of-range entries snap back.";
+        public string FpsTooltip => _settings.DeveloperMode
+            ? "Capture rate in frames per second. Developer mode maximum 100 fps (= the 0.01s interval floor); out-of-range entries snap back."
+            : "Capture rate in frames per second. Maximum 10 fps (= the 0.1s interval floor); out-of-range entries snap back.";
 
         // 0 = seconds, 1 = fps — which unit the Advanced interval field shows (persisted preference).
         public int IntervalUnitIndex

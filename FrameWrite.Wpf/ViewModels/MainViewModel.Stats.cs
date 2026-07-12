@@ -449,10 +449,19 @@ namespace FrameWrite.Wpf.ViewModels
                     // Unattended safety: stop before the drive fills (writes would start failing, and a full
                     // disk can disrupt other apps). freeMb == 0 is treated as a probe error and ignored — the
                     // threshold stop fires well before a genuine zero.
-                    if (IsCapturing && _settings.AutoStopOnLowDisk && _sessionFolder != null)
+                    if (IsCapturing && _sessionFolder != null)
                     {
                         long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
-                        if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
+                        // Emergency floor — ALWAYS enforced, even in developer mode (the anti-brick line).
+                        if (freeMb > 0 && freeMb < Constants.EmergencyDiskFloorMB)
+                        {
+                            Logger.Log("Wpf", $"Auto-stop: EMERGENCY disk floor ({freeMb} MB free < {Constants.EmergencyDiskFloorMB} MB).");
+                            StopCapture();
+                            CaptureError = $"Capture stopped — disk critically low ({freeMb} MB free). This hard floor holds even in developer mode. Free up space, then start again.";
+                            NotifyFinished();
+                        }
+                        // Configurable low-disk stop — skipped in developer mode (user opted to push past it).
+                        else if (_settings.AutoStopOnLowDisk && !_settings.DeveloperMode && freeMb > 0 && freeMb < _settings.LowDiskStopMB)
                         {
                             Logger.Log("Wpf", $"Auto-stop: low disk ({freeMb} MB free < {_settings.LowDiskStopMB} MB limit).");
                             StopCapture();
