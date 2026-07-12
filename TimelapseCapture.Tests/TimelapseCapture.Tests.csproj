@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TimelapseCapture.csproj" />
+    <ProjectReference Include="..\TimelapseCapture.Core\TimelapseCapture.Core.csproj" />
   </ItemGroup>
 
 </Project>
