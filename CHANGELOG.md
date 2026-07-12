@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **ffmpeg lifecycle hardening** — closing the app mid-encode used to leave an **invisible
+  ffmpeg still running** (and writing) after exit; a real close now asks first (an encode is
+  minutes of work) and cancelling kills the process before the app exits — proven by an
+  integration test that cancels a genuinely running ffmpeg. Also fixed: the PATH fallback in
+  the ffmpeg lookup ignored its own timeout and could block the UI thread indefinitely on a
+  hung `where` probe.
 - **Cloud-sync / antivirus resilience** (hostile-filesystem pass) — the per-frame count update
   now retries briefly (~80ms worst case) when session.json is momentarily locked by a sync
   client or AV scanner. Before: a blip on the read struck toward auto-stop with a misleading

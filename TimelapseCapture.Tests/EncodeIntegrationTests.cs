@@ -78,6 +78,26 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public async Task Cancellation_KillsTheFfmpegProcess()
+        {
+            if (Ffmpeg == null) return;
+            // A deliberately slow run (30s of synthetic video to the null muxer). Cancelling must kill
+            // the process and resolve the task promptly — this is what stops a closed app from leaving
+            // an invisible ffmpeg running.
+            using var cts = new System.Threading.CancellationTokenSource();
+            // -re: consume the input at its native (real-time) rate — without it lavfi renders the
+            // whole 30s in a few hundred ms and ffmpeg exits before the cancel fires.
+            var run = FfmpegRunner.RunFfmpegAsync(Ffmpeg,
+                "-re -f lavfi -i testsrc=duration=30:size=320x240:rate=30 -f null -", cts.Token);
+            await Task.Delay(500);   // let ffmpeg spin up
+            cts.Cancel();
+
+            var finished = await Task.WhenAny(run, Task.Delay(5000));
+            finished.Should().Be(run, "cancel must kill the ffmpeg process, not leave it running");
+            (await run).exitCode.Should().NotBe(0, "a killed run must not report success");
+        }
+
+        [Fact]
         public async Task Encodes_AllFrames_Exactly()
         {
             if (Ffmpeg == null) return;

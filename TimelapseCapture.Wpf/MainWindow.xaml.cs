@@ -237,6 +237,18 @@ namespace TimelapseCapture.Wpf
                 return;
             }
 
+            // A REAL close while an encode (or a destructive rewrite / backup — same busy flag) runs
+            // would kill it mid-file. Minutes of work deserve a check; declining keeps everything going.
+            if (DataContext is MainViewModel { IsEncoding: true } &&
+                MessageDialog.Show(
+                    "An encode or file operation is still running — closing cancels it (a partial video file may " +
+                    "be left in the session's output folder).\n\nClose anyway?",
+                    "Operation in progress", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+
             var handle = new WindowInteropHelper(this).Handle;
             foreach (int id in _registeredHotkeys) UnregisterHotKey(handle, id);
             _registeredHotkeys.Clear();

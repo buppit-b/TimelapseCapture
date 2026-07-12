@@ -277,6 +277,11 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // (ShutdownMode=OnMainWindowClose is the belt-and-braces systemic guarantee).
                 _overlay?.Close();
                 _overlay = null;
+                // Kill in-flight external work: cancelling the encode CTS fires its registered
+                // callback SYNCHRONOUSLY, which kills the spawned ffmpeg — otherwise closing
+                // mid-encode left an invisible ffmpeg running (and writing) after the app exited.
+                _encodeCts?.Cancel();
+                _ffmpegCts?.Cancel();
                 if (IsCapturing) StopCapture();
                 _engine.Dispose();
             }

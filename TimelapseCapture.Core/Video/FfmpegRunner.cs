@@ -35,7 +35,13 @@ namespace TimelapseCapture
                 {
                     if (p != null)
                     {
-                        p.WaitForExit(2000);
+                        // Honour the timeout: ReadLine on a still-running process would block this
+                        // (UI) thread indefinitely, and the ignored process would leak.
+                        if (!p.WaitForExit(2000))
+                        {
+                            try { p.Kill(); } catch { }
+                            return null;
+                        }
                         var outp = p.StandardOutput.ReadLine();
                         if (!string.IsNullOrEmpty(outp) && File.Exists(outp))
                             return outp;
