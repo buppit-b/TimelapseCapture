@@ -221,6 +221,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 SettingsManager.Save(_settings);
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(EncodeUnitIndex));
+                OnPropertyChanged(nameof(ShowEncodeFps));
+                OnPropertyChanged(nameof(ShowEncodeLength));
                 OnPropertyChanged(nameof(EncodeSummaryText));
                 RefreshStats();   // VideoLengthText recomputes for the new mode (shows the implied fps)
                 BumpRecalc();
@@ -249,6 +251,11 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => EncodeDurationMode ? "1" : "0";
             set => EncodeDurationMode = value == "1";
         }
+
+        // Which of the two mutually-exclusive inputs shows (bound via BoolToVis — the StrEq converter
+        // returns a bool, which can't drive Visibility directly, so use these instead).
+        public bool ShowEncodeFps => !EncodeDurationMode;
+        public bool ShowEncodeLength => EncodeDurationMode;
 
         public int EncodeCrf
         {

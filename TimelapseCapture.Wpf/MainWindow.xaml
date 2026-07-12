@@ -131,7 +131,11 @@
              this host's Width to the viewport bounds the layout (wrapping works, no h-scroll) while
              MinWidth preserves shrink-to-scroll: below it the h-scrollbar appears instead of crushing
              the cards. Padding replaces the old content margin so the width math stays exact. -->
-        <Border Padding="22,6,22,22" MinWidth="940"
+        <!-- MaxWidth caps the bound Width and HorizontalAlignment centres it, so at fullscreen the UI
+             stops stretching into sparse, over-wide cards and sits centred with margins instead. The
+             ViewportWidth binding still drives the layout (finite measure → wrapping works) and MinWidth
+             still forces the h-scrollbar below 940 rather than crushing the cards. -->
+        <Border Padding="22,6,22,22" MinWidth="940" MaxWidth="1400" HorizontalAlignment="Center"
                 Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
         <Grid>
             <Grid.ColumnDefinitions>
@@ -477,21 +481,21 @@
                                      ToolTip="Make the video exactly this long — the frame rate is computed from however many frames get encoded (trims included). Handy for platform time limits."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0, FallbackValue=Visible}"/>
-                        <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
-                                 local:NumericInput.AllowDecimal="False"
-                                 Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
-                                 ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
-                        <TextBlock Text="length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
-                        <TextBox Text="{Binding EncodeDurationSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
-                                 local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"
-                                 Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"
-                                 ToolTip="Exact output length in seconds (decimals allowed). Scroll to adjust."/>
-                        <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"
-                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
-                        <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                        <!-- fps mode and exact-length mode are mutually exclusive; only one input shows. -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeFps, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="False"
+                                     ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeLength, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding EncodeDurationSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"
+                                     ToolTip="Exact output length in seconds (decimals allowed). Scroll to adjust."/>
+                            <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
                         <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
                                 IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
                                 local:WheelStep.Amount="1"
