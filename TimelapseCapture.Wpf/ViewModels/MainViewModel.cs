@@ -40,6 +40,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public MainViewModel()
         {
             _settings = SettingsManager.Load();
+            NormalizeSettings(_settings);   // clamp a hand-edited/foreign settings.json at startup, like Import does
             _outputFolder = string.IsNullOrWhiteSpace(_settings.SaveFolder) ? "(not set)" : _settings.SaveFolder!;
             RefreshOutputFolderMissing();   // warn immediately if the saved folder was deleted since last run
             RefreshFfmpegStatus();

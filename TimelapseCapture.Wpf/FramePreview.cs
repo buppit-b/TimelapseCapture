@@ -13,18 +13,12 @@ namespace TimelapseCapture.Wpf
         {
             try
             {
-                string? frames = FramesFolder(sessionFolder);
-                if (frames == null) return null;
-
-                string? last = null;
-                foreach (var f in Directory.GetFiles(frames))
-                {
-                    var ext = Path.GetExtension(f).ToLowerInvariant();
-                    if ((ext == ".jpg" || ext == ".jpeg" || ext == ".png") &&
-                        (last == null || string.CompareOrdinal(f, last) > 0))
-                        last = f;
-                }
-                return last == null ? null : Decode(last, decodePixelWidth);
+                if (string.IsNullOrEmpty(sessionFolder)) return null;
+                // Reuse the engine's frame list — it sorts NUMERICALLY, so the newest frame is still
+                // the last one past 99,999 (an ordinal scan put "100000" before "99999" and would
+                // freeze the preview on frame 99999 for the rest of a very long run).
+                var files = SessionManager.GetFrameFiles(sessionFolder);
+                return files.Length == 0 ? null : Decode(files[^1], decodePixelWidth);
             }
             catch { return null; }
         }
@@ -59,7 +53,10 @@ namespace TimelapseCapture.Wpf
             bmp.UriSource = new Uri(path);
             bmp.DecodePixelWidth = decodePixelWidth;        // downscale → small + fast
             bmp.CacheOption = BitmapCacheOption.OnLoad;       // read fully, don't lock the file
-            bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+            // IgnoreImageCache: WPF caches decoded bitmaps by URI, so without this a frame rewritten
+            // in place (destructive crop / overlay bake reuse the same NNNNN.ext path) would show the
+            // STALE cached image in the preview. Force a fresh read every time.
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.IgnoreImageCache;
             bmp.EndInit();
             bmp.Freeze();
             return bmp;
