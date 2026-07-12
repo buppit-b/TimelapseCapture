@@ -30,19 +30,16 @@ when something goes wrong, and stays out of your way while you work.
 Requires the [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download), Windows 10/11.
 
 ```bash
-dotnet build TimelapseCapture.sln            # build everything (0 warnings expected)
-dotnet test  TimelapseCapture.sln            # run the test suite
-dotnet run --project TimelapseCapture.Wpf    # launch the app
+dotnet build FrameWrite.sln            # build everything (0 warnings expected)
+dotnet test  FrameWrite.sln            # run the test suite
+dotnet run --project FrameWrite.Wpf    # launch the app
 ```
 
 For a standalone executable:
 
 ```bash
-dotnet publish TimelapseCapture.Wpf -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+dotnet publish FrameWrite.Wpf -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
 ```
-
-(The solution and projects still carry the working name `TimelapseCapture`; the mechanical
-rename to FrameWrite lands with 1.0.)
 
 **Where data lives:** settings, the log, and the downloaded FFmpeg go to `%APPDATA%\FrameWrite`.
 Prefer a self-contained folder (USB stick)? Place a `settings.json` next to the exe and

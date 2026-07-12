@@ -1,7 +1,23 @@
 # Changelog
 
-All notable changes to TimelapseCapture are recorded here. Format follows
+All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
+
+## [0.9.5] — 2026-07-13 — the FrameWrite rename
+
+- **Mechanical rename to FrameWrite** — projects, folders, namespaces, the solution, the
+  single-instance mutex, and the **shipped exe (now `FrameWrite.exe`)** all go
+  `TimelapseCapture*` → `FrameWrite*`. Data dir was already `%APPDATA%\FrameWrite`, so existing
+  settings and sessions are unaffected. (The GitHub repo name is unchanged for now.)
+- **Legacy WinForms front-end removed** — the original `src/` app, superseded by the WPF rebuild
+  and kept only for reference, is gone from the solution (−9.5k lines; recoverable via the
+  `pre-framewrite-rename` tag). This also fixed a latent oddity: the test project had been
+  referencing the legacy project rather than Core; it now references Core directly.
+- **Soak #1 substantively passed** (2026-07-12): a 5.5-hour unattended run, 6798 gapless uniform
+  frames, clean recording-timer auto-stop, quiet log, and a verified end-to-end encode. Memory
+  flatness pending a heartbeat-logged run; then 1.0 is a version bump.
+- The recording-interval is now recorded accurately in `session.json` (a sub-second-capable
+  field; the picker shows it).
 
 ## [0.9.4] — 2026-07-02 — the 1.0 release candidate
 
@@ -375,7 +391,7 @@ The WPF rebuild at WinForms parity plus a large polish + feature pass. First
 tagged version on the road to a stable 1.0 daily driver.
 
 ### Added
-- **WPF/MVVM front-end** on the shared `TimelapseCapture.Core` engine (the active app).
+- **WPF/MVVM front-end** on the shared `FrameWrite.Core` engine (the active app).
 - In-app **session picker** with name · date · frame count · region size and **thumbnails**.
 - **Encode preset** (Fast/Medium/Slow) and **aspect-ratio lock** (Free/16:9/4:3/1:1/9:16)
   via a reusable dark segmented control.

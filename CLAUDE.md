@@ -1,4 +1,4 @@
-# CLAUDE.md — TimelapseCapture
+# CLAUDE.md — FrameWrite
 
 Read this first — it's the single source of truth for working in this repo.
 Treat any **specific** claim here (line numbers, signatures, status) as a
@@ -13,26 +13,20 @@ A Windows desktop app that captures screen frames on a timer and encodes them
 into timelapse videos via FFmpeg. Built for digital art and long-running, often
 unattended capture. Power-user oriented, not hand-holdy.
 
-**The app is display-named "FrameWrite"** (Spike settled on it 2026-07-10, "for now"; it was
-"Framewright" before — an external tester suggested the FrameWrite spelling and Spike agreed).
-All display branding, the data dir (`%APPDATA%\FrameWrite`), and the release zip use FrameWrite;
-the **mechanical rename** (projects/exe/namespaces still `TimelapseCapture*`) stays deferred to
-the 1.0 cut in case the name shifts again. Credits (Settings footer): created and directed by
-Spike Tickner · engineered with Claude (Anthropic) · video by FFmpeg.
+**The app is named "FrameWrite"** (Spike settled on it 2026-07-10; it was "Framewright" before).
+The **mechanical rename is DONE (2026-07-13, 0.9.5)** — projects, folders, namespaces, the
+solution, the exe (`FrameWrite.exe`), and the single-instance mutex are all `FrameWrite*`. The
+data dir is `%APPDATA%\FrameWrite`. Only the **GitHub repo** name is still `TimelapseCapture`
+(Spike renames it separately; the URL below is unchanged for now). Credits (Settings footer):
+created and directed by Spike Tickner · video by FFmpeg. *(The "engineered with Claude" line was
+removed 2026-07-12 at Spike's request — don't reinstate it.)*
 
-**The app is mid-migration from WinForms to a WPF rebuild. WPF is the active
-front-end.** The two front-ends share one engine:
+**WPF/MVVM app on a shared engine** (the legacy WinForms front-end was removed 2026-07-13):
 
-- **`TimelapseCapture.Wpf`** — the **active** app. WPF + MVVM, clean dark theme,
-  terminal/green accent. This is what we develop now.
-- **`TimelapseCapture.Core`** — UI-framework-agnostic shared library: capture
-  engine, sessions, settings, ffmpeg, system stats. Both front-ends use it.
-- **`TimelapseCapture` (root `src/`)** — the **legacy WinForms app**. Still in the
-  solution and still builds, kept for reference/parity-checking. Don't invest in
-  it; port anything missing into the WPF app instead. (It carries its own private
-  copies of the Core classes under `src/Core`, `src/Capture`, etc. — that's why
-  the two projects don't collide.)
-- **`TimelapseCapture.Tests`** — 68 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+- **`FrameWrite.Wpf`** — the app. WPF + MVVM, clean dark theme, terminal/green accent.
+- **`FrameWrite.Core`** — UI-framework-agnostic shared library: capture engine, sessions,
+  settings, ffmpeg, system stats.
+- **`FrameWrite.Tests`** — 99 tests, cover `SessionManager` (incl. `CullAndRenumber`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
@@ -41,12 +35,12 @@ front-end.** The two front-ends share one engine:
   project via `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
-- **Build:** `dotnet build TimelapseCapture.sln`
-- **Run the WPF app:** `dotnet run --project TimelapseCapture.Wpf`
-  (or launch `TimelapseCapture.Wpf/bin/Debug/net9.0-windows/TimelapseCapture.Wpf.exe`)
-- **Test:** `dotnet test TimelapseCapture.sln`
+- **Build:** `dotnet build FrameWrite.sln`
+- **Run the WPF app:** `dotnet run --project FrameWrite.Wpf`
+  (or launch `FrameWrite.Wpf/bin/Debug/net9.0-windows/FrameWrite.exe`)
+- **Test:** `dotnet test FrameWrite.sln`
 - Windows only (.NET 9, `net9.0-windows`).
-- **Version:** `0.9.4` — **the 1.0 release candidate** (SemVer; `<Version>` in both `.csproj`,
+- **Version:** `0.9.5` — **the 1.0 release candidate** (SemVer; `<Version>` in both `.csproj`,
   shown in the Settings cog). 1.0 = this RC + a passing multi-hour soak test (protocol in
   `ROADMAP.md` "1.0 gate"). See `ROADMAP.md` (also: 1.1 candidates + pre-distribution blockers)
   and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
@@ -72,8 +66,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings (the legacy `src/` project
-  suppresses its pre-nullable noise), `dotnet test` at 68/68.
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 99/99.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -111,7 +104,7 @@ Toward a stable daily-driver for long, often-unattended capture:
 
 ## Critical invariants (these are real — don't "clean them up")
 
-### 1. Capture-engine threading (`TimelapseCapture.Core/Capture/CaptureEngine.cs`)
+### 1. Capture-engine threading (`FrameWrite.Core/Capture/CaptureEngine.cs`)
 
 - Capture runs on a `System.Threading.Timer` (NOT the UI thread).
 - All shared-state access is inside `lock (_lock)`.
@@ -165,7 +158,7 @@ Toward a stable daily-driver for long, often-unattended capture:
   state — use `ValidateAndRepairSession()`, don't hand-roll a fix.
 - At most one session has `Active = true`.
 
-### 5. Encoding correctness (`TimelapseCapture.Core/Video/VideoEncoder.cs`)
+### 5. Encoding correctness (`FrameWrite.Core/Video/VideoEncoder.cs`)
 
 - Uses the ffmpeg **image2 demuxer** (`-framerate {fps} -start_number 1 -i %05d.ext
   -pix_fmt yuv420p`), NOT the concat demuxer — concat + `-r` resampling dropped
@@ -188,7 +181,7 @@ Toward a stable daily-driver for long, often-unattended capture:
 ## WPF file map
 
 ```
-TimelapseCapture.Wpf/
+FrameWrite.Wpf/
 ├── App.xaml(.cs)              palette + styles (Card, Btn*, Seg, SectionHeader, HeaderToggle,
 │                              DarkTextBox, themed ScrollBar + CheckBox, PulseFg/PulseRing,
 │                              BoolToVis/StrEq converters) · ThemeManager.Apply on startup
@@ -212,7 +205,7 @@ TimelapseCapture.Wpf/
     ├── RelayCommand.cs        ICommand (CommandManager.RequerySuggested)
     └── ViewModelBase.cs       INotifyPropertyChanged + SetProperty
 
-TimelapseCapture.Core/
+FrameWrite.Core/
 ├── Capture/  CaptureEngine, WindowEnumerator (track-window enum + GetWindowRect/SetTopmost),
 │             ActivityMonitor (smart interval), ScreenHelper, AspectRatio, OverlayConfig
 ├── Core/     SessionManager, SettingsManager (CaptureSettings), PresetManager (named setups —
@@ -307,18 +300,20 @@ custom chrome all landed).
 
 ## Handoff notes for the next thread
 
-- The app (**FrameWrite**, display-renamed; projects still `TimelapseCapture*`) is at **0.9.4,
-  the 1.0 RC**, tagged `v0.9.4`, with a large RC-refinement arc on `main` (see CHANGELOG). MIT
-  LICENSE + README are in. Spike tests each build live and gives UX feedback.
-- The working loop: build green (0 warnings) + `dotnet test` 68/68 → commit per feature → push →
+- The app (**FrameWrite** — mechanical rename done 2026-07-13) is at **0.9.5,
+  the 1.0 RC**, with a large RC-refinement arc on `main` (see CHANGELOG). Soak #1 substantively
+  PASSED (2026-07-12, 5.5h, encodes clean — see ROADMAP 1.0 gate). MIT LICENSE + README are in.
+  Spike tests each build live and gives UX feedback.
+- The working loop: build green (0 warnings) + `dotnet test` 99/99 → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
 - **1.0 posture (Spike, 2026-07-10): no deadline.** The app is professional-grade but mainly for
   personal use; development continues continuously rather than gating on the QA/soak protocol.
   Relax process where it buys development strides — but keep rigorously testing and hardening
   features, logic, and workflows as we go (empirical smoke tests, encode-with-real-ffmpeg, unit
-  coverage). The soak/QA pass happens opportunistically, not as a blocker. The eventual 1.0 cut =
-  mechanical FrameWrite rename (projects/exe/namespaces/mutex) + version bump + CHANGELOG.
+  coverage). The soak/QA pass happens opportunistically, not as a blocker. The mechanical rename
+  is DONE (0.9.5); the 1.0 cut is now just: confirm memory-flat (a heartbeat-logged run) + a clean
+  QA-checklist pass → version bump 0.9.5 → 1.0 + CHANGELOG.
 - **Packaging is solved:** `scripts/publish-release.ps1` → self-contained single-file
   `dist/FrameWrite-v{version}-win-x64.zip` (verified: publishes, launches, installed-mode data dir).
 - **Next major arc (Spike's priority): the UI elegance pass** — friend feedback says the UI is
@@ -345,7 +340,7 @@ custom chrome all landed).
 - Stop-at-target edge fixed: sub-1s targets rounded to 0 and would instant-stop — now rejected.
 
 #### WPF rebuild + full feature port (2026-06-24)
-- New WPF/MVVM front-end on the shared `TimelapseCapture.Core` engine reached
+- New WPF/MVVM front-end on the shared `FrameWrite.Core` engine reached
   WinForms parity plus polish (see feature status). Fixed along the way: encode
   frame-drop (concat→image2), sub-second interval (decimal `IntervalSecondsExact`),
   JPEG quality actually applying (quality encoder in `CaptureEngine.SaveBitmap`),

@@ -1,4 +1,4 @@
-# Roadmap & Versioning — TimelapseCapture
+# Roadmap & Versioning — FrameWrite
 
 ## Versioning
 
@@ -163,7 +163,7 @@ region capture, final continuous run **5.5 hours** at ~3.1s interval, **6798 fra
 - **The FrameWrite rename, mechanically** — display branding done and the name **settled as
   FrameWrite "for now"** (Spike, 2026-07-10; all UI strings, `%APPDATA%\FrameWrite`, the release
   zip and staged exe use it). At the 1.0 cut, rename the projects/namespaces/repo
-  (`TimelapseCapture*` → `FrameWrite*`) and the single-instance mutex name. One dedicated
+  (`FrameWrite*` → `FrameWrite*`) and the single-instance mutex name. One dedicated
   commit; verify the FindWindow title lookup and settings/log paths still line up.
 
 ### 1.1 candidates (top three, in recommended order)
@@ -298,7 +298,7 @@ toward OBS/editor territory; this app stays the reliable art-timelapse tool.
   **Header overflow idea (Spike, 2026-07-09, "no biggie"):** on narrow widths the Simple/Stay-on-top
   toggles hide to protect the window buttons — an elegant later option is collapsing them into a
   small ☰ overflow menu instead (part of the layout reshape).
-- Cross-platform: `TimelapseCapture.Core` is UI-agnostic but uses `System.Drawing`;
+- Cross-platform: `FrameWrite.Core` is UI-agnostic but uses `System.Drawing`;
   a portable imaging lib (SkiaSharp/ImageSharp) would unlock non-Windows later.
 
 ---
