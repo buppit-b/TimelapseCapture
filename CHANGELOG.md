@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **Cloud-sync / antivirus resilience** (hostile-filesystem pass) — the per-frame count update
+  now retries briefly (~80ms worst case) when session.json is momentarily locked by a sync
+  client or AV scanner. Before: a blip on the read struck toward auto-stop with a misleading
+  "session missing" message, and a silently failed WRITE made the next tick reload the old
+  count and **overwrite the frame just captured**. The failure message now names the lock
+  cause; three lock-contract tests pin the behaviour (settings + log writes were already safe).
 - **Region select/edit on mixed-DPI monitors** — both full-screen overlays are now placed in
   raw physical pixels and map every drag point through the window's real per-monitor transform
   (PointToScreen) instead of the system DPI scale. On desktops with differently-scaled monitors

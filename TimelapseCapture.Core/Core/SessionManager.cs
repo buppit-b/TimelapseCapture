@@ -160,7 +160,11 @@ namespace TimelapseCapture
         /// <summary>
         /// Save session metadata to folder.
         /// </summary>
-        public static void SaveSession(string sessionFolder, SessionInfo info)
+        public static void SaveSession(string sessionFolder, SessionInfo info) => TrySaveSession(sessionFolder, info);
+
+        /// <summary>Same as <see cref="SaveSession"/>, but reports whether the write actually landed —
+        /// the frame-count increment must know (a silently failed save would reuse a frame number).</summary>
+        public static bool TrySaveSession(string sessionFolder, SessionInfo info)
         {
             var sessionFile = Path.Combine(sessionFolder, SessionFileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
@@ -178,10 +182,12 @@ namespace TimelapseCapture
                     File.Replace(tmp, sessionFile, null);
                 else
                     File.Move(tmp, sessionFile);
+                return true;
             }
             catch (Exception ex)
             {
                 Logger.Log("Session", $"SaveSession failed for '{sessionFile}': {ex.Message}");
+                return false;
             }
         }
 
@@ -330,15 +336,31 @@ namespace TimelapseCapture
         /// Increment frame count for session. Returns the updated session, or null if session.json is
         /// missing/unreadable (so the caller can detect a vanished folder without a second read).
         /// </summary>
+        /// <summary>
+        /// Bump the frame count and return the updated session — or null when session.json is
+        /// genuinely gone, or stays unreadable/unwritable after brief retries. Cloud-sync clients
+        /// and antivirus scanners take short exclusive locks on the file: without the retries a
+        /// blip on the READ surfaced as a (misleading) capture failure, and a silently failed
+        /// SAVE made the next tick reload the old count and OVERWRITE the frame just captured.
+        /// Runs on the capture timer thread — the bounded ~80ms worst-case stall is deliberate.
+        /// </summary>
         public static SessionInfo? IncrementFrameCount(string sessionFolder)
         {
-            var info = LoadSession(sessionFolder);
-            if (info == null)
-                return null;
+            var sessionFile = Path.Combine(sessionFolder, SessionFileName);
+            for (int attempt = 0; ; attempt++)
+            {
+                if (!File.Exists(sessionFile)) return null;   // genuinely gone — retrying won't help
 
-            info.FramesCaptured++;
-            SaveSession(sessionFolder, info);
-            return info;
+                var info = LoadSession(sessionFolder);
+                if (info != null)
+                {
+                    info.FramesCaptured++;
+                    if (TrySaveSession(sessionFolder, info)) return info;
+                }
+
+                if (attempt >= 2) return null;         // three attempts, then surface the failure
+                System.Threading.Thread.Sleep(40);     // let the sync/AV lock clear
+            }
         }
 
         /// <summary>

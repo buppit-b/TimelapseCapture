@@ -329,7 +329,9 @@ namespace TimelapseCapture
                             // second full read+deserialize of session.json every frame in this hot path.)
                             var updated = SessionManager.IncrementFrameCount(_sessionFolder);
                             if (updated == null)
-                                throw new InvalidOperationException("session.json is missing — the session folder may have been moved or deleted.");
+                                throw new InvalidOperationException(
+                                    "Couldn't update session.json — the session folder may have been moved or deleted, " +
+                                    "or the file is locked by another program (cloud sync / antivirus).");
                             _session = updated;
                             newCount = (int)updated.FramesCaptured;
                             _lastCaptureTicks = Environment.TickCount64;
