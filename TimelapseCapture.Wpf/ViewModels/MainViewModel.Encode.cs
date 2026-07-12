@@ -32,7 +32,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (_session == null || _sessionFolder == null || _frameCount < 1) return;
             // Offer the Stats target as a one-click range ("clip to your target") when it's meaningful.
             // With frame-skip active, hitting the target VIDEO length needs Nx as many input frames.
-            long targetFrames = TargetKind == 0 ? (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth) : 0;
+            long targetFrames = TargetKind == TargetVideo ? (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth) : 0;
             int target = (targetFrames > 0 && targetFrames < _frameCount) ? (int)targetFrames : 0;
             var saved = SessionManager.LoadSession(_sessionFolder);
             var dlg = new TrimDialog(_sessionFolder, _frameCount, target,

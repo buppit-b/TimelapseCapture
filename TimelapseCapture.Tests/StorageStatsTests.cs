@@ -47,6 +47,42 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public void ProjectCaptureBudget_ComputesFramesAndTimeToBudget()
+        {
+            // 10 GB budget, 100 KB/frame, no frames yet, 2s interval.
+            // 10240 MB * 1024 KB/MB / 100 KB = 104,857 frames; × 2s ≈ 209,715 s.
+            var (frames, secs) = SystemMonitor.ProjectCaptureBudget(10 * 1024, 100, 0, 2.0);
+            frames.Should().Be(104857);
+            secs.Should().BeApproximately(104857 * 2.0, 1.0);
+        }
+
+        [Fact]
+        public void ProjectCaptureBudget_AccountsForFramesAlreadyOnDisk()
+        {
+            // 1 GB budget, 100 KB/frame; 5000 frames already use ~488 MB, leaving ~536 MB.
+            var (frames, _) = SystemMonitor.ProjectCaptureBudget(1024, 100, 5000, 1.0);
+            double usedMB = 100.0 * 5000 / 1024.0;
+            long expected = (long)((1024 - usedMB) * 1024.0 / 100.0);
+            frames.Should().Be(expected);
+        }
+
+        [Theory]
+        [InlineData(0, 100, 0, 1)]        // no budget
+        [InlineData(1024, 0, 0, 1)]       // unknown frame size
+        [InlineData(1024, 100, 0, 0)]     // non-positive interval
+        public void ProjectCaptureBudget_DegenerateInputs_ReturnZero(double budgetMB, double kb, int frames, double interval)
+        {
+            SystemMonitor.ProjectCaptureBudget(budgetMB, kb, frames, interval).Should().Be((0L, 0.0));
+        }
+
+        [Fact]
+        public void ProjectCaptureBudget_AlreadyOverBudget_ReturnsZero()
+        {
+            // 10000 frames at 100 KB = ~976 MB, over a 500 MB budget.
+            SystemMonitor.ProjectCaptureBudget(500, 100, 10000, 1.0).Should().Be((0L, 0.0));
+        }
+
+        [Fact]
         public void StringReadout_MatchesStructuredNumbers()
         {
             string text = SystemMonitor.GetStorageInfoString(null, 1920, 1080, "JPEG", 85,

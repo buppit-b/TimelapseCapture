@@ -77,6 +77,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             StartCommand = new RelayCommand(_ => StartCapture(), _ => _session != null && _region.HasValue && !IsCapturing && !IsEncoding);
             StopCommand = new RelayCommand(_ => StopByUser(), _ => IsCapturing);
             PauseResumeCommand = new RelayCommand(_ => PauseResume(), _ => IsCapturing);
+            ResetTimerCommand = new RelayCommand(_ => ResetTimer());
             OpenFolderCommand = new RelayCommand(_ => OpenSessionFolder(), _ => CanOpenFolder);
             EncodeCommand = new RelayCommand(async _ => await EncodeOrCancel(), _ => CanEncode || IsEncoding);
             TrimCommand = new RelayCommand(async _ => await Trim(), _ => CanEncode);
@@ -115,6 +116,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
         public ICommand PauseResumeCommand { get; }
+        public ICommand ResetTimerCommand { get; }
         public ICommand OpenFolderCommand { get; }
         public ICommand EncodeCommand { get; }
         public ICommand TrimCommand { get; }

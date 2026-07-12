@@ -603,6 +603,9 @@
                             <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Timer"
                                          IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=1}"
                                          ToolTip="Record for this much time, then stop automatically. Pause doesn't count toward the timer."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Size"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=2}"
+                                         ToolTip="Set a disk budget — capture up to this many GB, then stop. Adjust interval/quality and watch the projected recording time."/>
                         </StackPanel>
                         <!-- Outline ring flares to accent on commit (wheel / Enter / tab-away). -->
                         <Border BorderThickness="1.5" CornerRadius="4" Padding="2" HorizontalAlignment="Left" Margin="0,6,0,0"
@@ -614,18 +617,27 @@
                                 </EventTrigger>
                             </Border.Triggers>
                             <StackPanel Orientation="Horizontal">
-                                <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
-                                         ToolTip="Hours. Scroll to adjust (Shift = ×10); commits as you go."/>
-                                <TextBlock Text="h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
-                                <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
-                                         ToolTip="Minutes — values past 59 roll into hours. Scroll to adjust; commits as you go."/>
-                                <TextBlock Text="m" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
-                                <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
-                                         ToolTip="Seconds — values past 59 roll into minutes. Scroll to adjust; commits as you go."/>
-                                <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                                <!-- Video/Timer: h/m/s boxes. Size: a single GB box. -->
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowTargetDuration, Converter={StaticResource BoolToVis}}">
+                                    <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
+                                             ToolTip="Hours. Scroll to adjust (Shift = ×10); commits as you go."/>
+                                    <TextBlock Text="h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                    <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                             ToolTip="Minutes — values past 59 roll into hours. Scroll to adjust; commits as you go."/>
+                                    <TextBlock Text="m" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                    <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                             ToolTip="Seconds — values past 59 roll into minutes. Scroll to adjust; commits as you go."/>
+                                    <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowTargetSize, Converter={StaticResource BoolToVis}}">
+                                    <TextBox Text="{Binding TargetSizeGB}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
+                                             ToolTip="Disk budget in GB (decimals OK). Capture stops when the session's frames reach this. Scroll to adjust."/>
+                                    <TextBlock Text="GB" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{Binding TargetHint}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0">
@@ -639,10 +651,15 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <!-- How long you actually need to capture to reach that target video length. -->
+                        <!-- The live target readout: capture-time-to-target, timer remaining, or budget projection. -->
                         <TextBlock Text="{Binding CaptureToTargetText}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                    FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Foreground="{DynamicResource AccentBrush}"/>
+                        <!-- Timer only: discard accumulated progress and count from now (stopping alone doesn't). -->
+                        <Button Content="Reset timer" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                                HorizontalAlignment="Left" Margin="0,8,0,0" Command="{Binding ResetTimerCommand}"
+                                Visibility="{Binding TimerResetVisible, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Start the timer over from zero. Stopping capture keeps the timer's progress; only this discards it."/>
                         <CheckBox Content="Stop at target" IsChecked="{Binding StopAtTarget}"
                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
                                   Visibility="{Binding StopAtTargetVisible, Converter={StaticResource BoolToVis}}"

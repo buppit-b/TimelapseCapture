@@ -91,16 +91,9 @@ namespace TimelapseCapture.Wpf.ViewModels
         private void StopByUser()
         {
             if (!IsCapturing) return;
-            // An armed recording timer is a commitment — stopping early deserves a check (with a
-            // "don't ask again" way out, since the timer's owner may still prefer manual stops).
-            if (TargetKind == 1)
-            {
-                double remaining = _targetSeconds - RunActiveSeconds();
-                if (remaining > 0.5 && !Prompts.Confirm(_settings, "stop-active-timer",
-                        $"The recording timer still has {HumanDuration(remaining)} left — stop anyway?",
-                        "Stop recording?"))
-                    return;
-            }
+            // Stopping no longer nags about an armed recording timer: the timer accumulates ACROSS
+            // stops now, so a stop just pauses progress toward the goal (a restart continues it) —
+            // the explicit "Reset timer" button is the only thing that discards progress.
             StopCapture();
             PlayStartStopCue();
         }
@@ -112,7 +105,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             message = "";
             // Input frames needed for a _targetSeconds video — with frame-skip you need N× as many.
             long targetFrames = (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
-            if (TargetKind == 0 && _settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
+            if (TargetKind == TargetVideo && _settings.StopAtTarget && targetFrames > 0 && _frameCount >= targetFrames)
             {
                 message = $"This session already has {_frameCount} frames — at or beyond your target of {targetFrames} " +
                           $"({_targetSeconds}s @ {EncodeFps}fps), and “Stop at target” is on.\n\n" +
@@ -134,6 +127,17 @@ namespace TimelapseCapture.Wpf.ViewModels
                     message = $"This session's frames already use about {sessionMb:F0} MB — at or beyond your " +
                               $"{_settings.StopAtStorageMB} MB budget.\n\n" +
                               "Raise the budget or turn off “Stop at a storage budget”, or start a new session.";
+                    return true;
+                }
+            }
+            if (TargetKind == TargetSize && _sessionFolder != null && _frameCount > 0)
+            {
+                double sessionMb = SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) * _frameCount / 1024.0;
+                if (sessionMb >= _targetSizeMB)
+                {
+                    message = $"This session's frames already use about {sessionMb:F0} MB — at or beyond your " +
+                              $"{FormatBudget(_targetSizeMB)} size target.\n\n" +
+                              "Raise the size target (or switch target kind) to keep capturing, or start a new session.";
                     return true;
                 }
             }
@@ -318,7 +322,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // Optional unattended stop: end the run once we've reached the target number of INPUT
                 // frames — frame-skip needs N× as many to yield the target video length (matches Trim).
                 long targetFrames = (long)_targetSeconds * Math.Max(1, EncodeFps) * Math.Max(1, EncodeEveryNth);
-                if (TargetKind == 0 && _settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
+                if (TargetKind == TargetVideo && _settings.StopAtTarget && IsCapturing && targetFrames > 0 && count >= targetFrames)
                 {
                     Logger.Log("Wpf", $"Auto-stop: reached target ({count} >= {targetFrames} frames).");
                     StopCapture();

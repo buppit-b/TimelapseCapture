@@ -24,6 +24,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         // stopped and continues on the next start. EMA smooths the spiky slow-interval case AND
         // converges to the true rate (60/interval), dipping to zero during idle-skip / pause —
         // so the graph literally shows the capture's heartbeat and where Smart Interval kicked in.
+        private double _lastAvgFrameKb;                      // last sampled avg-or-estimate frame size (Size target math)
         private const int CadenceCapacity = 120;             // ~2 minutes of history at 1 sample/s
         private readonly List<double> _cadence = new();
         private double _cadenceEma = -1;                     // < 0 = uninitialised (first sample seeds it)
@@ -123,13 +124,24 @@ namespace TimelapseCapture.Wpf.ViewModels
             double interval = (double)IntervalSeconds;
             if (_targetSeconds <= 0 || interval <= 0) { CaptureToTargetText = ""; return; }
 
-            if (TargetKind == 1)
+            if (TargetKind == TargetTimer)
             {
-                // Recording timer: the readout is simply time left on the clock (active time only).
-                double remaining = Math.Max(0, _targetSeconds - RunActiveSeconds());
+                // Recording timer: time left on the clock (active time only; accumulates across stops).
+                double remaining = Math.Max(0, _targetSeconds - TimerProgressSeconds());
                 CaptureToTargetText = IsCapturing
                     ? (remaining == 0 ? "✓ timer reached" : $"≈ {HumanDurationPrecise(remaining)} left on the timer (pause doesn't count)")
                     : $"will record for {HumanDurationPrecise(_targetSeconds)}, then stop";
+                return;
+            }
+
+            if (TargetKind == TargetSize)
+            {
+                // Disk budget: how much more you can capture before the session reaches the budget.
+                var (frames, secs) = SystemMonitor.ProjectCaptureBudget(
+                    _targetSizeMB, _lastAvgFrameKb, _frameCount, (double)IntervalSeconds);
+                CaptureToTargetText = frames <= 0
+                    ? (SessionSizeMB() > 0 ? "✓ budget reached" : $"set a budget — captures up to {FormatBudget(_targetSizeMB)}")
+                    : $"≈ {HumanDuration(secs)} / {frames:N0} more frames until {FormatBudget(_targetSizeMB)}";
                 return;
             }
 
@@ -317,27 +329,46 @@ namespace TimelapseCapture.Wpf.ViewModels
                     return;   // nothing else to refresh this tick
                 }
 
-                // Recording timer: stop once this run's ACTIVE capture time reaches the target (a normal
-                // completion — notify, no error banner). Paused time never advances the clock.
-                if (IsCapturing && TargetKind == 1 && RunActiveSeconds() >= _targetSeconds)
+                // Recording timer: stop once ACTIVE capture time (accumulated across stops) reaches the
+                // target — a normal completion (notify, no error banner). Paused time never advances it.
+                if (IsCapturing && TargetKind == TargetTimer && TimerProgressSeconds() >= _targetSeconds)
                 {
-                    Logger.Log("Wpf", $"Auto-stop: recording timer reached ({RunActiveSeconds():F0}s >= {_targetSeconds}s of active capture).");
+                    Logger.Log("Wpf", $"Auto-stop: recording timer reached ({TimerProgressSeconds():F0}s >= {_targetSeconds}s of active capture).");
                     StopCapture();
                     NotifyFinished();
                     return;
                 }
 
-                int projectedFrames;   // also feeds the storage projection below, for either kind
-                if (TargetKind == 1)
+                // Size budget: stop once the session's frames reach the budget on disk.
+                if (IsCapturing && TargetKind == TargetSize && _lastAvgFrameKb > 0 && SessionSizeMB() >= _targetSizeMB)
+                {
+                    Logger.Log("Wpf", $"Auto-stop: size budget reached ({SessionSizeMB():F0}MB >= {_targetSizeMB}MB).");
+                    StopCapture();
+                    NotifyFinished();
+                    return;
+                }
+
+                int projectedFrames;   // also feeds the storage projection below, for every kind
+                if (TargetKind == TargetTimer)
                 {
                     // Timer kind: frames expected from running the timer out at the current interval.
                     projectedFrames = Math.Max(_frameCount, (int)(_targetSeconds / Math.Max(0.1, (double)IntervalSeconds)));
-                    double active = RunActiveSeconds();
-                    double pct = Math.Min(100.0, active * 100.0 / Math.Max(1, _targetSeconds));
+                    double progress = TimerProgressSeconds();
+                    double pct = Math.Min(100.0, progress * 100.0 / Math.Max(1, _targetSeconds));
                     CaptureProgress = pct;
                     ProgressText = IsCapturing
-                        ? $"{FormatTime(active)} / {FormatTime(_targetSeconds)} recorded · {pct:F0}% of the timer"
+                        ? $"{FormatTime(progress)} / {FormatTime(_targetSeconds)} recorded · {pct:F0}% of the timer"
                         : $"{_frameCount} frames · timer set for {HumanDurationPrecise(_targetSeconds)}";
+                }
+                else if (TargetKind == TargetSize)
+                {
+                    // Size kind: progress = session bytes on disk toward the budget.
+                    var (frames, _) = SystemMonitor.ProjectCaptureBudget(_targetSizeMB, _lastAvgFrameKb, _frameCount, (double)IntervalSeconds);
+                    projectedFrames = Math.Max(_frameCount, _frameCount + (int)Math.Min(int.MaxValue, frames));
+                    double used = SessionSizeMB();
+                    double pct = _targetSizeMB > 0 ? Math.Min(100.0, used * 100.0 / _targetSizeMB) : 0;
+                    CaptureProgress = pct;
+                    ProgressText = $"{FormatMB(used)} / {FormatBudget(_targetSizeMB)} · {pct:F0}% of the budget";
                 }
                 else
                 {
@@ -385,6 +416,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                         ? SystemMonitor.GetActualAverageFrameSizeKB(_sessionFolder) : 0;
                     var st = SystemMonitor.GetStorageStats(_sessionFolder, w, h,
                         _settings.Format ?? "JPEG", _settings.JpegQuality, _frameCount, projectedFrames, avgFrameKb);
+                    _lastAvgFrameKb = st.FrameSizeKB;   // actual-or-estimate — feeds the Size target math
                     StatFrameSize = st.FrameSizeIsActual ? $"{st.FrameSizeKB:F1} KB avg" : $"~{st.FrameSizeKB:F1} KB est.";
                     StatSession = st.CurrentFrames > 0 ? $"{FormatMB(st.SessionMB)} · {st.CurrentFrames:N0} frames" : "no frames yet";
                     StatAtTarget = st.RemainingFrames > 0

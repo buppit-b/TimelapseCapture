@@ -204,6 +204,24 @@ namespace TimelapseCapture
         }
 
         /// <summary>
+        /// Disk-budget projection for the "Size" capture target: how many MORE frames (and how much
+        /// more capture time at <paramref name="intervalSeconds"/>) fit before a session reaches
+        /// <paramref name="budgetMB"/>, given the current frame count and average frame size.
+        /// Pure — unit-tested. Returns (0,0) once the budget is already met, or when inputs are
+        /// degenerate (unknown frame size / non-positive interval).
+        /// </summary>
+        public static (long framesRemaining, double secondsRemaining) ProjectCaptureBudget(
+            double budgetMB, double avgFrameKB, int currentFrames, double intervalSeconds)
+        {
+            if (budgetMB <= 0 || avgFrameKB <= 0 || intervalSeconds <= 0) return (0, 0);
+            double usedMB = avgFrameKB * Math.Max(0, currentFrames) / 1024.0;
+            double remainingMB = budgetMB - usedMB;
+            if (remainingMB <= 0) return (0, 0);
+            long frames = (long)(remainingMB * 1024.0 / avgFrameKB);
+            return (frames, frames * intervalSeconds);
+        }
+
+        /// <summary>
         /// The storage picture as structured numbers — one computation feeding both the WPF stat
         /// rows and the legacy string readout, so the two can never disagree.
         /// </summary>
