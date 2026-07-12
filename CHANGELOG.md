@@ -22,8 +22,8 @@ All notable changes to FrameWrite are recorded here. Format follows
   that relaxes the safe limits for edge testing: it lowers the interval floor from 0.1s to 0.01s
   (up to 100 fps) and skips the configurable low-disk auto-stop and storage-rate warning. A
   persistent red banner shows while it's on, and a **hard 256 MB emergency disk floor still holds
-  even in developer mode** — it can never fill the drive enough to destabilise Windows. Toggle it
-  back off from Settings; leaving it re-clamps any sub-0.1s interval.
+  even in developer mode** — the one limit it can't switch off. Toggle it back off from Settings;
+  leaving it re-clamps any sub-0.1s interval.
 
 ## [0.9.4] — 2026-07-02 — the 1.0 release candidate
 
