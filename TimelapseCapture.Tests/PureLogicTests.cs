@@ -82,4 +82,48 @@ namespace TimelapseCapture.Tests
             s.Should().NotContain(":");
         }
     }
+
+    /// <summary>
+    /// FpsForDuration: the playback fps that makes a frame set last exactly N seconds —
+    /// the engine of the encode-to-duration feature.
+    /// </summary>
+    public class FpsForDurationTests
+    {
+        [Fact]
+        public void ComputesExactFps_ForWholeSession()
+        {
+            // 300 frames over 30s = exactly 10 fps.
+            VideoEncoder.FpsForDuration(300, 1, 30).Should().BeApproximately(10.0, 0.0001);
+        }
+
+        [Fact]
+        public void AccountsForFrameSkip()
+        {
+            // 300 frames, keep 1-in-3 = 100 encoded frames; over 10s = 10 fps.
+            VideoEncoder.FpsForDuration(300, 3, 10).Should().BeApproximately(10.0, 0.0001);
+        }
+
+        [Fact]
+        public void ClampsToCeiling_SoLongSessionsStayPlayable()
+        {
+            // 100k frames in 10s would want 10,000 fps → clamped to 240 (comes out longer, but plays).
+            VideoEncoder.FpsForDuration(100_000, 1, 10).Should().Be(240);
+        }
+
+        [Fact]
+        public void ClampsToFloor_ForVeryFewFramesOverLongDuration()
+        {
+            // 2 frames stretched over 10 minutes wants 0.0033 fps → clamped to the 0.1 floor.
+            VideoEncoder.FpsForDuration(2, 1, 600).Should().Be(0.1);
+        }
+
+        [Theory]
+        [InlineData(0, 1, 30)]     // no frames
+        [InlineData(300, 1, 0)]    // zero duration
+        [InlineData(300, 1, -5)]   // negative duration
+        public void FallsBackTo30_OnDegenerateInput(int frames, int everyNth, double seconds)
+        {
+            VideoEncoder.FpsForDuration(frames, everyNth, seconds).Should().Be(30);
+        }
+    }
 }

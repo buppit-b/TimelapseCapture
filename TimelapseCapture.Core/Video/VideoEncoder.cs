@@ -23,8 +23,22 @@ namespace TimelapseCapture
             public string Error { get; init; } = "";
         }
 
+        /// <summary>
+        /// The playback fps that makes <paramref name="inputFrames"/> frames (thinned by
+        /// <paramref name="everyNth"/>) last exactly <paramref name="durationSeconds"/>.
+        /// Clamped to [0.1, 240] — past ~240fps players choke, so very long sessions come out
+        /// longer than asked rather than unplayable. Pure — unit-tested.
+        /// </summary>
+        public static double FpsForDuration(int inputFrames, int everyNth, double durationSeconds)
+        {
+            if (inputFrames <= 0 || durationSeconds <= 0) return 30;
+            int n = Math.Max(1, everyNth);
+            int encoded = (inputFrames + n - 1) / n;
+            return Math.Clamp(encoded / durationSeconds, 0.1, 240);
+        }
+
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
-            int fps, string preset, int crf, CancellationToken ct = default,
+            double fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
             Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0,
             System.Drawing.Rectangle? crop = null)
@@ -63,7 +77,8 @@ namespace TimelapseCapture
             for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode with the same name
                 outputPath = Path.Combine(outputFolder, $"{baseName}_{n}.mp4");
 
-            if (fps < 1) fps = 30;
+            if (fps <= 0) fps = 30;
+            fps = Math.Clamp(fps, 0.1, 240);   // fractional fps is valid (duration mode computes it)
             crf = Math.Clamp(crf, 0, 51);
             // Allowlist the x264 preset — it's interpolated UNQUOTED into the ffmpeg args, so a value containing
             // spaces (e.g. from a crafted/imported settings.json) could otherwise inject extra ffmpeg arguments.
@@ -117,7 +132,9 @@ namespace TimelapseCapture
             string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
 
             // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
-            string args = $"-y -framerate {fps} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}{meta}" +
+            // Invariant format: a comma-decimal locale would render 24.6 as "24,6" and break the args.
+            string fpsArg = fps.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            string args = $"-y -framerate {fpsArg} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}{meta}" +
                           $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
             Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}" +
                 (everyNth > 1 ? $" everyNth={everyNth}" : ""));

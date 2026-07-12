@@ -179,7 +179,8 @@ namespace TimelapseCapture.Wpf.ViewModels
             : $"on — slows to every {IdleIntervalSeconds}s after {IdleThresholdSeconds}s idle";
 
         public string EncodeSummaryText =>
-            $"{Math.Max(1, EncodeFps)} fps · CRF {EncodeCrf} · " +
+            (EncodeDurationMode ? $"exactly {HumanDuration(EncodeDurationSeconds)}" : $"{Math.Max(1, EncodeFps)} fps") +
+            $" · CRF {EncodeCrf} · " +
             (EncodePreset == "ultrafast" ? "Fast" : EncodePreset == "veryslow" ? "Slow" : "Medium") +
             (SpeedUpEnabled && EncodeEveryNth > 1 ? $" · 1 in {EncodeEveryNth}" : "") +
             (EncodeHoldLastSeconds > 0 ? $" · hold {EncodeHoldLastSeconds}s" : "");
@@ -208,6 +209,47 @@ namespace TimelapseCapture.Wpf.ViewModels
             get => _settings.EncodeFps;
             set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed)); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
+
+        // ---- Encode-to-duration: fixed fps vs "make the video exactly N seconds" (fps computed) ----
+        public bool EncodeDurationMode
+        {
+            get => _settings.EncodeDurationMode;
+            set
+            {
+                if (_settings.EncodeDurationMode == value) return;
+                _settings.EncodeDurationMode = value;
+                SettingsManager.Save(_settings);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EncodeUnitIndex));
+                OnPropertyChanged(nameof(EncodeSummaryText));
+                RefreshStats();   // VideoLengthText recomputes for the new mode (shows the implied fps)
+                BumpRecalc();
+            }
+        }
+
+        public double EncodeDurationSeconds
+        {
+            get => _settings.EncodeDurationSeconds;
+            set
+            {
+                var v = Math.Clamp(value, 0.5, 36000);   // half a second to 10 hours
+                if (Math.Abs(_settings.EncodeDurationSeconds - v) < 0.0001) return;
+                _settings.EncodeDurationSeconds = v;
+                SettingsManager.Save(_settings);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EncodeSummaryText));
+                RefreshStats();   // VideoLengthText recomputes the implied fps for the new length
+                BumpRecalc();
+            }
+        }
+
+        // Segmented-control binding (StrEq converter): "0" = fps mode, "1" = exact-length mode.
+        public string EncodeUnitIndex
+        {
+            get => EncodeDurationMode ? "1" : "0";
+            set => EncodeDurationMode = value == "1";
+        }
+
         public int EncodeCrf
         {
             get => _settings.EncodeCrf;
@@ -316,7 +358,11 @@ namespace TimelapseCapture.Wpf.ViewModels
         public int FrameCount
         {
             get => _frameCount;
-            set { if (SetProperty(ref _frameCount, value)) OnPropertyChanged(nameof(FrameCountText)); }
+            set
+            {
+                if (!SetProperty(ref _frameCount, value)) return;
+                OnPropertyChanged(nameof(FrameCountText));
+            }
         }
         public string FrameCountText => $"{_frameCount} frames";
 

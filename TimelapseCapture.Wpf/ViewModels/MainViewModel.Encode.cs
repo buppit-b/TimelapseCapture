@@ -241,7 +241,12 @@ namespace TimelapseCapture.Wpf.ViewModels
                 int inputFrames = maxFrames > 0 ? maxFrames : Math.Max(1, _frameCount - startFrame + 1);
                 int totalFrames = Math.Max(1, (inputFrames + nth - 1) / nth);   // output frames after skip
                 var crop = SessionManager.LoadSession(_sessionFolder)?.EncodeCrop;   // per-session crop (read fresh)
-                result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, EncodeFps, EncodePreset, EncodeCrf,
+                // Duration mode: fps computed from WHATEVER is being encoded (full session or a trim
+                // range), so "make it exactly 45s" holds for both.
+                double fps = EncodeDurationMode
+                    ? VideoEncoder.FpsForDuration(inputFrames, nth, EncodeDurationSeconds)
+                    : EncodeFps;
+                result = await VideoEncoder.EncodeAsync(ffmpeg, _sessionFolder, fps, EncodePreset, EncodeCrf,
                     _encodeCts.Token, startFrame, maxFrames, ResolveOutputName(),
                     onFrameProgress: n => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
                     {

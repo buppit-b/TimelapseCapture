@@ -277,8 +277,20 @@ namespace TimelapseCapture.Wpf.ViewModels
 
                 int everyNth = Math.Max(1, EncodeEveryNth);
                 int encodedFrames = (_frameCount + everyNth - 1) / everyNth;
-                double vidLen = EncodeFps > 0 ? encodedFrames / (double)EncodeFps : 0;
-                VideoLengthText = $"≈ {vidLen:F1}s @ {EncodeFps}fps" + (everyNth > 1 ? $" · 1 in {everyNth}" : "");
+                if (EncodeDurationMode && _frameCount > 0)
+                {
+                    // Exact-length mode: the length IS the setting; show the fps it currently implies.
+                    double dFps = VideoEncoder.FpsForDuration(_frameCount, everyNth, EncodeDurationSeconds);
+                    double actual = encodedFrames / dFps;
+                    VideoLengthText = actual > EncodeDurationSeconds + 0.5
+                        ? $"≈ {HumanDuration(actual)} (240 fps ceiling)"
+                        : $"= {HumanDuration(EncodeDurationSeconds)} @ {dFps:0.##}fps";
+                }
+                else
+                {
+                    double vidLen = EncodeFps > 0 ? encodedFrames / (double)EncodeFps : 0;
+                    VideoLengthText = $"≈ {vidLen:F1}s @ {EncodeFps}fps" + (everyNth > 1 ? $" · 1 in {everyNth}" : "");
+                }
 
                 // The storage/disk/memory probe reads frame files — throttle it to ~every 2s.
                 if (_statsTick % 2 == 0 || string.IsNullOrEmpty(StatFrameSize))

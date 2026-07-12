@@ -467,11 +467,30 @@
                         </TextBlock>
                     <StackPanel Visibility="{Binding EncodePanelExpanded, Converter={StaticResource BoolToVis}}">
                     <StackPanel Margin="0,10,0,0" IsEnabled="{Binding NotCapturing}">
+                    <!-- Speed vs exact length: mirror of the interval's sec⇄fps toggle (same value, two views). -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encunit" Content="fps"
+                                     IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                                     ToolTip="Fixed playback frame rate — the video's length follows the frame count."/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encunit" Content="exact length"
+                                     IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                     ToolTip="Make the video exactly this long — the frame rate is computed from however many frames get encoded (trims included). Handy for platform time limits."/>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0, FallbackValue=Visible}"/>
                         <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
                                  local:NumericInput.AllowDecimal="False"
+                                 Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
                                  ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
+                        <TextBlock Text="length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
+                        <TextBox Text="{Binding EncodeDurationSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                                 local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"
+                                 Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                 ToolTip="Exact output length in seconds (decimals allowed). Scroll to adjust."/>
+                        <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"
+                                   Visibility="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
                         <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0,8,0"/>
                         <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
                                 IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"

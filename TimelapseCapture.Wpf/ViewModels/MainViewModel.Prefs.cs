@@ -145,6 +145,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                     OnPropertyChanged(nameof(SpeedUpEnabled));
                     OnPropertyChanged(nameof(SpeedUpN));
                     OnPropertyChanged(nameof(EncodeSummaryText));
+                    RefreshStats();   // encoded-frame count changed → video length / implied fps update now, not next tick
+                    BumpRecalc();
                 }
             }
         }

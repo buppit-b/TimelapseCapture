@@ -9,6 +9,12 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **Encode to an exact length** — the encode panel gains an fps ⇄ "exact length" toggle: pick a
+  target like 60s and FrameWrite computes the playback fps from however many frames actually
+  encode (a trim range counts too), so the finished video lands on the length you asked for —
+  handy for platform time limits. Very long sessions clamp to 240 fps (they come out a bit
+  longer rather than unplayable), and the video-length line shows the fps it worked out. Proven
+  end-to-end against real ffmpeg.
 - **ffmpeg lifecycle hardening** — closing the app mid-encode used to leave an **invisible
   ffmpeg still running** (and writing) after exit; a real close now asks first (an encode is
   minutes of work) and cancelling kills the process before the app exits — proven by an

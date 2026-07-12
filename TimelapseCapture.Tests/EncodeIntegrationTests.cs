@@ -117,6 +117,29 @@ namespace TimelapseCapture.Tests
         }
 
         [Fact]
+        public async Task EncodeToDuration_ProducesTheRequestedLength()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_dur_");
+            try
+            {
+                // 90 frames aimed at exactly 3 seconds → 30 fps → 90 output frames.
+                WriteFrames(session, 90, "jpg");
+                double fps = VideoEncoder.FpsForDuration(90, 1, 3.0);
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, fps, "ultrafast", 23);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(90);
+
+                // The container duration should land on ~3s (allow codec/container rounding slack).
+                double.TryParse(Probe(r.OutputPath!, "format=duration"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+                    out double seconds).Should().BeTrue();
+                seconds.Should().BeApproximately(3.0, 0.3, "encode-to-duration must hit the requested length");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task FrameSkip_KeepsOneInN()
         {
             if (Ffmpeg == null) return;

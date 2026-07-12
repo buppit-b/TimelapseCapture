@@ -160,9 +160,13 @@ it runs when Spike has the hours, while development continues.)*
    start/stop** (audio feedback when the window's hidden — the finish sound exists, but not a
    start/stop cue).
 2. **Finish-line encode options** — **hold the final frame** ✅ **shipped (0.9.4)** (ffmpeg `tpad`,
-   an encode-card field, smoke-tested). **Frame-skip encode** ✅ **shipped (0.9.4)**. Remaining:
-   **encode to a target duration** ("make it exactly 60s" — fps computed from frame count; social
-   platforms have ceilings; ~small, reuses the frame-count math).
+   an encode-card field, smoke-tested). **Frame-skip encode** ✅ **shipped (0.9.4)**.
+   **Encode to a target duration** ✅ **shipped (2026-07-12)** — an fps⇄"exact length" toggle in
+   the encode panel (mirrors the interval's sec⇄fps toggle); `VideoEncoder.FpsForDuration`
+   computes a fractional fps from however many frames actually encode (trim range included),
+   clamped to [0.1, 240] so very long sessions come out longer rather than unplayable. Unit-tested
+   (skip-aware, both clamps, degenerate fallbacks) + a real-ffmpeg probe that the output lands on
+   the requested length.
    **Crop at encode** ✅ **shipped (0.9.4)** — Crop… beside Trim/Cull: drag a rect on the latest
    frame (numeric X/Y/W/H too); non-destructive by default (per-session `EncodeCrop`, ffmpeg `crop`
    filter, clamped + even-dims at encode) with the consented destructive "crop frames on disk"

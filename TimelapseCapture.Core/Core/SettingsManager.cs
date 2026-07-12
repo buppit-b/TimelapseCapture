@@ -88,6 +88,10 @@ namespace TimelapseCapture
         // fold away (collapsed by default; a summary line keeps the values glanceable).
         public bool EncodePanelExpanded { get; set; }
         public bool SmartPanelExpanded { get; set; }
+        // Encode-to-duration: instead of a fixed playback fps, target an exact output length —
+        // the fps is computed from however many frames are being encoded (works for trims too).
+        public bool EncodeDurationMode { get; set; }
+        public double EncodeDurationSeconds { get; set; } = 30;
     }
 
 
