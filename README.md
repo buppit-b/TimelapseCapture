@@ -59,5 +59,4 @@ app offers a one-click download of [BtbN's FFmpeg build](https://github.com/BtbN
 
 FrameWrite is [MIT-licensed](LICENSE).
 
-Created and directed by **Spike Tickner** · engineered with **Claude** (Anthropic) · video by
-**FFmpeg**.
+Created by **Spike Tickner** · video by **FFmpeg**.
