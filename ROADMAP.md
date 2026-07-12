@@ -133,6 +133,20 @@ catch. **1.0 is the RC + a passing soak + a clean checklist pass.**
 *(2026-07-10: no longer a schedule gate — see the posture note at the top. The protocol stands;
 it runs when Spike has the hours, while development continues.)*
 
+**✅ Soak #1 run 2026-07-12 (SOAK_Session_20260712_155508) — substantively PASSED.** 1920×1080
+region capture, final continuous run **5.5 hours** at ~3.1s interval, **6798 frames**, clean
+**recording-timer auto-stop** (19830s goal hit exactly). Verified after the fact:
+- frame count matches session.json exactly (no frozen count); numbering gapless 1→6798;
+- inter-frame cadence rock-steady at 3.03s avg, **zero gaps >10s across the 5.5h run** (the two
+  early gaps were Spike's own interval tests — incl. the **0.1s floor**, which ran + stopped clean);
+- every frame **1920×1080** (uniform); `debug.log` quiet — no errors/failures/black frames/exceptions;
+- **encodes clean end-to-end**: 6798 frames in → 6798 out, valid 226.6s / 511 MB mp4 (real ffmpeg).
+- *Not closed:* **memory-flatness** couldn't be verified retroactively (the soak build predated the
+  heartbeat logging). The clean 5.5h continuous run is strong indirect evidence (a real bitmap leak
+  at ~6400×8 MB frames would have slowed/crashed it), but a short heartbeat-logged run closes it
+  rigorously. *Minor nit:* session.json `IntervalSeconds` holds the creation-time value (1), not the
+  actual run interval (3.1) — cosmetic metadata, encode uses `VideoFps`.
+
 ### Pre-distribution blockers (must happen before shipping 1.0 to anyone else)
 - **Settings/log/ffmpeg location** — ✅ done (2026-07-03): `AppPaths.DataDir` self-selects once at
   startup — portable (next to the exe) when a settings.json already sits there (dev builds, USB
