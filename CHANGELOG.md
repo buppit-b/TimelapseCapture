@@ -9,6 +9,15 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **Region select/edit on mixed-DPI monitors** — both full-screen overlays are now placed in
+  raw physical pixels and map every drag point through the window's real per-monitor transform
+  (PointToScreen) instead of the system DPI scale. On desktops with differently-scaled monitors
+  the overlay used to under/over-cover the far screen and selections could land offset — the
+  same class of bug the outline had. The live dims label now shows exact physical pixels.
+  *(Needs a multi-monitor hands-on verify, like the outline fix.)*
+- **MainViewModel split into 11 partial classes** by concern (core/State/Target/Stats/Session/
+  Prefs/Hotkeys/SettingsOps/Region/Capture/Encode) — a pure mechanical move; navigation and
+  future feature placement get dramatically easier.
 - **Hardening round 2** (long-run + hostile-input sweep) — frame files now sort **numerically**:
   past frame 99,999 the names grow a sixth digit and the old string sort put "100000" before
   "99999", which would scramble preview/trim/**cull** (destructive!) on very long runs; ffmpeg

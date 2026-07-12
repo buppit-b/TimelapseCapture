@@ -8,15 +8,14 @@ namespace TimelapseCapture.Wpf
 {
     /// <summary>
     /// Full-screen drag-to-select overlay. Returns the chosen region in PHYSICAL pixels (the
-    /// coordinate space the capture engine uses). Covers the whole virtual screen so a region can
-    /// be drawn on any monitor; DIP↔pixel conversion uses the system DPI scale.
+    /// coordinate space the capture engine uses). Covers the whole virtual screen (placed in raw
+    /// pixels via SetWindowPos); DIP→pixel mapping goes through PointToScreen, which applies the
+    /// window's REAL per-monitor transform — no hand-rolled DPI math to drift on mixed-DPI setups.
     /// </summary>
     public partial class RegionSelectOverlay : Window
     {
         private Point _start;
         private bool _dragging;
-        private readonly double _scale;
-        private readonly System.Drawing.Rectangle _vs;
         private readonly int _ratioW;
         private readonly int _ratioH;
 
@@ -32,14 +31,15 @@ namespace TimelapseCapture.Wpf
             _ratioW = ratioW;
             _ratioH = ratioH;
 
-            _scale = ScreenHelper.SystemDpiScale();
-            _vs = ScreenHelper.VirtualScreenBounds();
-
-            // Cover the whole virtual screen, in device-independent units.
-            Left = _vs.X / _scale;
-            Top = _vs.Y / _scale;
-            Width = _vs.Width / _scale;
-            Height = _vs.Height / _scale;
+            // First approximation in DIPs (avoids a flash at 0,0); the exact physical placement
+            // happens in SourceInitialized below.
+            double scale = ScreenHelper.SystemDpiScale();
+            var vs = ScreenHelper.VirtualScreenBounds();
+            Left = vs.X / scale;
+            Top = vs.Y / scale;
+            Width = vs.Width / scale;
+            Height = vs.Height / scale;
+            SourceInitialized += (s, e) => OverlayPlacement.CoverVirtualScreen(this);
 
             KeyDown += (s, e) => { if (e.Key == Key.Escape) Cancel(); };
 
@@ -48,6 +48,18 @@ namespace TimelapseCapture.Wpf
             // drag didn't start — the "region didn't take the first time" report. Activating on load
             // (and again once rendered) makes the very first click begin the selection.
             Loaded += (s, e) => { Activate(); Focus(); };
+        }
+
+        // The final DIP box, mapped to physical pixels through the window's own transform.
+        private System.Drawing.Rectangle PhysicalRect(double x, double y, double w, double h)
+        {
+            var p1 = canvas.PointToScreen(new Point(x, y));            // device pixels, absolute
+            var p2 = canvas.PointToScreen(new Point(x + w, y + h));
+            int px = (int)Math.Round(Math.Min(p1.X, p2.X));
+            int py = (int)Math.Round(Math.Min(p1.Y, p2.Y));
+            int pw = (int)Math.Round(Math.Abs(p2.X - p1.X));
+            int ph = (int)Math.Round(Math.Abs(p2.Y - p1.Y));
+            return new System.Drawing.Rectangle(px, py, pw, ph);
         }
 
         protected override void OnContentRendered(EventArgs e)
@@ -80,7 +92,8 @@ namespace TimelapseCapture.Wpf
             selRect.Width = w;
             selRect.Height = h;
 
-            dimText.Text = $"{(int)(w * _scale)} × {(int)(h * _scale)}";
+            var live = PhysicalRect(x, y, w, h);
+            dimText.Text = $"{live.Width} × {live.Height}";
             Canvas.SetLeft(dimBox, x);
             Canvas.SetTop(dimBox, Math.Max(0, y - 28));
         }
@@ -99,15 +112,11 @@ namespace TimelapseCapture.Wpf
 
             if (w < 5 || h < 5) { Cancel(); return; }
 
-            // DIPs (relative to the overlay) -> physical pixels in virtual-screen space.
-            int px = _vs.X + (int)Math.Round(x * _scale);
-            int py = _vs.Y + (int)Math.Round(y * _scale);
-            int pw = (int)Math.Round(w * _scale);
-            int ph = (int)Math.Round(h * _scale);
-            pw -= pw % 2; // even dimensions required by the H.264 encoder
-            ph -= ph % 2;
+            var phys = PhysicalRect(x, y, w, h);
+            int pw = phys.Width - phys.Width % 2;   // even dimensions required by the H.264 encoder
+            int ph = phys.Height - phys.Height % 2;
 
-            SelectedRegion = new System.Drawing.Rectangle(px, py, Math.Max(2, pw), Math.Max(2, ph));
+            SelectedRegion = new System.Drawing.Rectangle(phys.X, phys.Y, Math.Max(2, pw), Math.Max(2, ph));
             DialogResult = true;
             Close();
         }

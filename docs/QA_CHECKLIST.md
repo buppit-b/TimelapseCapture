@@ -27,6 +27,9 @@ reasoned to be risky.
 - [ ] Track a window on a second / different-DPI monitor; drag it across monitors
 - [ ] Region outline sits EXACTLY on the region on a second / differently-scaled monitor —
       fix implemented (SetWindowPos physical-px positioning), needs multi-monitor verify ⚠
+- [ ] Drag-SELECT and EDIT a region on a second / differently-scaled monitor — the selection
+      lands exactly where drawn and the dims label matches the saved size. Fix implemented
+      2026-07-12 (physical placement + PointToScreen mapping), needs multi-monitor verify ⚠
 - [ ] Tracked app closes to TRAY (e.g. Discord/Telegram ✕) → treated as hidden: stop or hold ⚠
 - [ ] Move the tracked window to another VIRTUAL DESKTOP → treated as hidden, not wrong pixels ⚠
 - [ ] Picker lists neither cloaked windows (other desktops) nor this app's own windows ⚠

@@ -18,8 +18,7 @@ namespace TimelapseCapture.Wpf
     {
         private enum Mode { None, Move, NW, N, NE, E, SE, S, SW, W }
 
-        private readonly double _scale;
-        private readonly System.Drawing.Rectangle _vs;
+        private readonly System.Drawing.Rectangle _initialRegion;   // physical px; seeded into DIPs on Loaded
         private readonly int _ratioW;            // 0 = free (no constraint)
         private readonly int _ratioH;
         private double _cw, _ch;                 // canvas size in DIPs
@@ -38,36 +37,63 @@ namespace TimelapseCapture.Wpf
         {
             InitializeComponent();
 
+            _initialRegion = region;
             _ratioW = ratioW;
             _ratioH = ratioH;
             hintText.Text = (ratioW > 0 && ratioH > 0)
                 ? $"Drag to move · corners keep {ratioW}:{ratioH} (Shift frees) · edges resize freely · Enter applies · Esc cancels"
                 : "Drag to move · drag handles to resize · Enter applies · Esc cancels";
 
-            _scale = ScreenHelper.SystemDpiScale();
-            _vs = ScreenHelper.VirtualScreenBounds();
-
-            Left = _vs.X / _scale;
-            Top = _vs.Y / _scale;
-            Width = _cw = _vs.Width / _scale;
-            Height = _ch = _vs.Height / _scale;
-
-            // Seed edges from the incoming physical region, converted to canvas DIPs.
-            L = (region.X - _vs.X) / _scale;
-            T = (region.Y - _vs.Y) / _scale;
-            R = L + region.Width / _scale;
-            B = T + region.Height / _scale;
+            // First approximation in DIPs; SetWindowPos then places the window in exact physical
+            // pixels (mixed-DPI safe), and Loaded seeds the region through the REAL transform.
+            double scale = ScreenHelper.SystemDpiScale();
+            var vs = ScreenHelper.VirtualScreenBounds();
+            Left = vs.X / scale;
+            Top = vs.Y / scale;
+            Width = vs.Width / scale;
+            Height = vs.Height / scale;
+            SourceInitialized += (s, e) => OverlayPlacement.CoverVirtualScreen(this);
 
             _handles[Mode.NW] = hNW; _handles[Mode.N] = hN; _handles[Mode.NE] = hNE;
             _handles[Mode.E] = hE; _handles[Mode.SE] = hSE; _handles[Mode.S] = hS;
             _handles[Mode.SW] = hSW; _handles[Mode.W] = hW;
 
-            Loaded += (s, e) => Layout();
+            Loaded += (s, e) =>
+            {
+                // The window is placed and has its transform now — measure and seed through it,
+                // not through hand-rolled DPI math (which drifts on mixed-DPI desktops).
+                _cw = canvas.ActualWidth;
+                _ch = canvas.ActualHeight;
+                var tl = canvas.PointFromScreen(new Point(_initialRegion.X, _initialRegion.Y));
+                var br = canvas.PointFromScreen(new Point(_initialRegion.Right, _initialRegion.Bottom));
+                L = Math.Min(tl.X, br.X);
+                T = Math.Min(tl.Y, br.Y);
+                R = Math.Max(tl.X, br.X);
+                B = Math.Max(tl.Y, br.Y);
+                // Keep the seeded box workable even if the saved region pokes past the desktop.
+                L = Math.Max(0, Math.Min(L, _cw - MinSize));
+                T = Math.Max(0, Math.Min(T, _ch - MinSize));
+                R = Math.Min(_cw, Math.Max(R, L + MinSize));
+                B = Math.Min(_ch, Math.Max(B, T + MinSize));
+                Layout();
+            };
             KeyDown += (s, e) =>
             {
                 if (e.Key == Key.Escape) Cancel();
                 else if (e.Key == Key.Enter) Apply();
             };
+        }
+
+        // The current DIP box, mapped to physical pixels through the window's own transform.
+        private System.Drawing.Rectangle PhysicalRect()
+        {
+            var p1 = canvas.PointToScreen(new Point(L, T));
+            var p2 = canvas.PointToScreen(new Point(R, B));
+            int px = (int)Math.Round(Math.Min(p1.X, p2.X));
+            int py = (int)Math.Round(Math.Min(p1.Y, p2.Y));
+            int pw = (int)Math.Round(Math.Abs(p2.X - p1.X));
+            int ph = (int)Math.Round(Math.Abs(p2.Y - p1.Y));
+            return new System.Drawing.Rectangle(px, py, pw, ph);
         }
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -148,7 +174,8 @@ namespace TimelapseCapture.Wpf
             double w = R - L, h = B - T;
 
             Place(outline, L, T, w, h);
-            dimText.Text = $"{(int)Math.Round(w * _scale)} × {(int)Math.Round(h * _scale)}";
+            var live = PhysicalRect();
+            dimText.Text = $"{live.Width} × {live.Height}";
 
             // Dim mask around the region.
             Place(dimTop, 0, 0, _cw, T);
@@ -183,14 +210,11 @@ namespace TimelapseCapture.Wpf
 
         private void Apply()
         {
-            int px = _vs.X + (int)Math.Round(L * _scale);
-            int py = _vs.Y + (int)Math.Round(T * _scale);
-            int pw = (int)Math.Round((R - L) * _scale);
-            int ph = (int)Math.Round((B - T) * _scale);
-            pw -= pw % 2; // even dimensions required by the H.264 encoder
-            ph -= ph % 2;
+            var phys = PhysicalRect();
+            int pw = phys.Width - phys.Width % 2;   // even dimensions required by the H.264 encoder
+            int ph = phys.Height - phys.Height % 2;
 
-            SelectedRegion = new System.Drawing.Rectangle(px, py, Math.Max(2, pw), Math.Max(2, ph));
+            SelectedRegion = new System.Drawing.Rectangle(phys.X, phys.Y, Math.Max(2, pw), Math.Max(2, ph));
             DialogResult = true;
             Close();
         }
