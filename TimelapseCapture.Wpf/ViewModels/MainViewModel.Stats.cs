@@ -19,6 +19,63 @@ namespace TimelapseCapture.Wpf.ViewModels
     /// </summary>
     public partial class MainViewModel
     {
+        // ---- Capture cadence sparkline: EMA-smoothed frames/min over recent time ----
+        // Sampled once per 1s stats tick while capturing; the trace freezes (stays visible) when
+        // stopped and continues on the next start. EMA smooths the spiky slow-interval case AND
+        // converges to the true rate (60/interval), dipping to zero during idle-skip / pause —
+        // so the graph literally shows the capture's heartbeat and where Smart Interval kicked in.
+        private const int CadenceCapacity = 120;             // ~2 minutes of history at 1 sample/s
+        private readonly List<double> _cadence = new();
+        private double _cadenceEma = -1;                     // < 0 = uninitialised (first sample seeds it)
+        private int _lastCadenceFrame;
+        private DateTime _lastCadenceStamp;
+
+        /// <summary>Recent frames-per-minute samples for the sparkline (fresh array each read — cheap at 120).</summary>
+        public double[] CadenceSamples => _cadence.ToArray();
+        public bool HasCadence => _cadence.Count > 1;
+
+        private string _cadenceText = "";
+        public string CadenceText { get => _cadenceText; set => SetProperty(ref _cadenceText, value); }
+
+        /// <summary>Prime the cadence datum without clearing the trace — called at each capture start so a
+        /// stop→wait→start gap isn't billed as one giant instantaneous rate.</summary>
+        private void PrimeCadence()
+        {
+            _lastCadenceFrame = _frameCount;
+            _lastCadenceStamp = DateTime.Now;
+        }
+
+        /// <summary>Clear the trace entirely — a new/loaded session has a different frame history.</summary>
+        private void ResetCadence()
+        {
+            _cadence.Clear();
+            _cadenceEma = -1;
+            _lastCadenceFrame = _frameCount;
+            _lastCadenceStamp = DateTime.Now;
+            CadenceText = "";
+            OnPropertyChanged(nameof(CadenceSamples));
+            OnPropertyChanged(nameof(HasCadence));
+        }
+
+        private void SampleCadence()
+        {
+            var now = DateTime.Now;
+            double secs = (now - _lastCadenceStamp).TotalSeconds;
+            if (secs <= 0.05) return;   // guard against a double-tick producing a divide-by-tiny spike
+            _lastCadenceStamp = now;
+            int delta = Math.Max(0, _frameCount - _lastCadenceFrame);
+            _lastCadenceFrame = _frameCount;
+
+            double instant = delta * 60.0 / secs;   // frames per minute over the last tick
+            _cadenceEma = _cadenceEma < 0 ? instant : 0.3 * instant + 0.7 * _cadenceEma;
+            _cadence.Add(_cadenceEma);
+            if (_cadence.Count > CadenceCapacity) _cadence.RemoveAt(0);
+
+            CadenceText = $"≈ {_cadenceEma:0} frames/min";
+            OnPropertyChanged(nameof(CadenceSamples));
+            OnPropertyChanged(nameof(HasCadence));
+        }
+
         // Structured stat rows (icon · label · value in the XAML) — replaced the old emoji text blobs.
         private string _statFrameSize = "";
         public string StatFrameSize { get => _statFrameSize; set => SetProperty(ref _statFrameSize, value); }
@@ -234,6 +291,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 double totalCaptureSeconds = _accumulatedSeconds + current;
                 TotalElapsedText = FormatTime(totalCaptureSeconds);
                 UpdateCaptureToTarget();   // live time-to-target readout
+                if (IsCapturing) SampleCadence();   // feed the cadence sparkline (frozen trace while stopped)
 
                 // Opt-in max-duration cap: stop once accumulated capture time reaches the limit (a normal
                 // completion — notify, but no red error banner).

@@ -204,6 +204,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                 _settings.TrackResizeMode, scaleOutputTo: scaleTo);
             _captureStart = DateTime.Now;
             _timerRunBase = _accumulatedSeconds;   // the rec-timer counts THIS run's active time from here
+            PrimeCadence();                        // don't bill the stop→start gap as one giant rate spike
             SmartStatus = _settings.SmartIntervalEnabled ? "Active" : "";
         }
 

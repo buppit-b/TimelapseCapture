@@ -9,6 +9,11 @@ Everything on the 1.0 feature line is in. 1.0 = this RC + a clean multi-hour soa
 *(2026-07-10: soak no longer gates development — it runs when Spike has the hours)*.
 
 ### RC refinements (2026-07-08 → 12)
+- **Capture cadence sparkline** — a small live line graph at the top of Stats shows frames/min
+  over the last couple of minutes: the capture's heartbeat. It peaks while you're working and
+  dips into valleys where Smart Interval slowed or skipped, so a glance confirms an unattended
+  run is actually capturing at the expected rate. Dependency-free (drawn on a Canvas), EMA-
+  smoothed so it stays readable at any interval, freezes when stopped and resumes on restart.
 - **Encode to an exact length** — the encode panel gains an fps ⇄ "exact length" toggle: pick a
   target like 60s and FrameWrite computes the playback fps from however many frames actually
   encode (a trim range counts too), so the finished video lands on the length you asked for —

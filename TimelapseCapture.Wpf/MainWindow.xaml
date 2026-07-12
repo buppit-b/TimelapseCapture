@@ -660,6 +660,20 @@
                             </EventTrigger>
                         </TextBlock.Triggers>
                     </TextBlock>
+                    <!-- Capture cadence: live frames/min. The heartbeat — peaks while you work, valleys
+                         where Smart Interval idled/skipped. Only shows once there's a trace. -->
+                    <StackPanel Margin="0,0,0,10" Visibility="{Binding HasCadence, Converter={StaticResource BoolToVis}}">
+                        <Grid Margin="0,0,0,3">
+                            <TextBlock Text="Cadence" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding CadenceText}" FontFamily="Consolas" FontSize="11"
+                                       Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Border Background="#0A0A0A" CornerRadius="4" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1" Height="42" Padding="2"
+                                ToolTip="Frames captured per minute over the last couple of minutes — dips show idle/skipped stretches (Smart Interval).">
+                            <local:Sparkline Values="{Binding CadenceSamples}"/>
+                        </Border>
+                    </StackPanel>
                     <!-- Structured stats: icon · label · value. Video length + disk rate are the anchors;
                          the detail rows are advanced-only, so Simple mode keeps a calm panel. -->
                     <Grid Margin="0,0,0,6" ToolTip="Length of the video these frames make at the current encode fps.">

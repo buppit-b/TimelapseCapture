@@ -83,6 +83,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _accumulatedSeconds = 0;
             _timerRunBase = 0;                 // fresh session — the run clock starts from nothing
             ResetTarget();
+            ResetCadence();                    // clear the sparkline trace — different frame history
             PreviewImage = null;
             ClearCaptureError();
             RegionText = "Not selected";
@@ -166,6 +167,7 @@ namespace TimelapseCapture.Wpf.ViewModels
             _accumulatedSeconds = session.TotalCaptureSeconds; // restore cumulative capture time
             _timerRunBase = _accumulatedSeconds;   // run clock reads 00:00 until capture starts here
             ResetTarget();   // target isn't per-session — reset, don't carry over
+            ResetCadence();  // clear the sparkline trace — this session has its own frame history
             SessionName = session.Name ?? "Session";
             if (_region.HasValue)
             {
