@@ -1,0 +1,236 @@
+<Window x:Class="FrameWrite.Wpf.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FrameWrite.Wpf"
+        Title="Settings" Width="500" SizeToContent="Height"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}">
+    <!-- Title pinned top, footer pinned bottom, sections scroll in between — the dialog can never
+         clip its own buttons again no matter how many settings sections grow or how short the screen. -->
+    <DockPanel Margin="18">
+        <TextBlock DockPanel.Dock="Top" Text="SETTINGS" Style="{StaticResource CardTitle}"/>
+
+        <StackPanel DockPanel.Dock="Bottom">
+            <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
+            <TextBlock x:Name="creditsText" Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
+                       ToolTip="FrameWrite is MIT-licensed (LICENSE in the repository). FFmpeg is a separate program — the one-click download fetches BtbN's GPL build, which keeps its own licence."/>
+            <!-- Two columns + a WrapPanel so the utility buttons can never overlap Close (they wrap instead). -->
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <WrapPanel Grid.Column="0" Margin="0,0,10,0">
+                    <Button Content="Export&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ExportSettingsCommand}"
+                            Margin="0,0,8,4" ToolTip="Save all preferences to a file."/>
+                    <Button Content="Import&#8230;" Style="{StaticResource BtnBase}" Command="{Binding ImportSettingsCommand}"
+                            Margin="0,0,8,4" ToolTip="Load preferences from a file."/>
+                    <Button Content="Open log" Style="{StaticResource BtnBase}" Command="{Binding OpenLogCommand}" Margin="0,0,8,4"
+                            ToolTip="Open the diagnostics log — useful if something went wrong."/>
+                    <Button Content="Setup wizard&#8230;" Style="{StaticResource BtnBase}" Command="{Binding OpenWizardCommand}" Margin="0,0,8,4"
+                            ToolTip="Re-run the guided first-time setup (folder, capture area, speed)."/>
+                    <Button Content="Restore defaults" Style="{StaticResource BtnBase}" Command="{Binding RestoreDefaultsCommand}" Margin="0,0,8,4"
+                            ToolTip="Reset everything to a safe default state (keeps your output folder and FFmpeg location). Use this if something gets misconfigured."/>
+                    <Button x:Name="resetPromptsBtn" Content="Ask everything again" Style="{StaticResource BtnBase}" Click="OnResetPrompts" Margin="0,0,8,4"
+                            ToolTip="Bring back every confirmation you've dismissed with “Don't ask me again”."/>
+                </WrapPanel>
+                <Button Grid.Column="1" Content="Close" Style="{StaticResource BtnPrimary}" VerticalAlignment="Bottom"
+                        MinWidth="84" IsCancel="True"/>
+            </Grid>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-10,0" Padding="0,0,10,0">
+            <StackPanel>
+
+        <!-- Presets -->
+        <ToggleButton x:Name="secPresets" Style="{StaticResource SectionHeader}" Content="PRESETS" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secPresets, Converter={StaticResource BoolToVis}}">
+            <StackPanel Orientation="Horizontal">
+                <ComboBox Style="{StaticResource DarkCombo}" Width="240" VerticalAlignment="Center"
+                          ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"
+                          ToolTip="Saved capture/encode/look setups. Choose one, then Apply."/>
+                <Button Content="Apply" Style="{StaticResource BtnPrimary}" Command="{Binding ApplyPresetCommand}"
+                        Margin="8,0,0,0" Padding="14,6" IsEnabled="{Binding NotCapturing}"
+                        ToolTip="Apply the selected preset to your current settings (blocked while capturing)."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="Save as&#8230;" Style="{StaticResource BtnBase}" Command="{Binding SavePresetCommand}"
+                        Margin="0,0,8,0" ToolTip="Save the current settings as a new preset (or overwrite an existing one)."/>
+                <Button Content="Rename&#8230;" Style="{StaticResource BtnBase}" Command="{Binding RenamePresetCommand}" Margin="0,0,8,0"/>
+                <Button Content="Delete" Style="{StaticResource BtnBase}" Command="{Binding DeletePresetCommand}"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,2"
+                       Text="Presets save your capture/encode/look setup — not your output folder or safety limits. (Export/Import below moves ALL settings between machines.)"/>
+        </StackPanel>
+
+        <!-- Appearance -->
+        <ToggleButton x:Name="secAppearance" Style="{StaticResource SectionHeader}" Content="APPEARANCE" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secAppearance, Converter={StaticResource BoolToVis}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Theme" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Terminal"
+                             IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Terminal}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Ocean"
+                             IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Ocean}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Ember"
+                             IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Ember}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Synth"
+                             IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Synth}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="theme" Content="Light"
+                             IsChecked="{Binding Theme, Converter={StaticResource StrEq}, ConverterParameter=Light}"/>
+            </StackPanel>
+            <CheckBox Content="Hide this window while selecting a capture region" IsChecked="{Binding HideWindowDuringRegionSelect}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="When picking a region, hide the app first so it doesn't cover what you're trying to select. It reappears when you're done. On by default."/>
+            <CheckBox Content="Minimize to the system tray" IsChecked="{Binding MinimizeToTray}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
+                      ToolTip="Minimizing hides the window into the tray (bottom-right of the taskbar) instead of the taskbar. The tray icon shows recording status — double-click it to bring the app back. On by default."/>
+            <CheckBox Content="Close to the tray instead of exiting" IsChecked="{Binding CloseToTray}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
+                      ToolTip="When on, the window's ✕ button hides the app to the tray (capture keeps running) instead of quitting. Use the tray icon's Exit to actually quit. Off by default."/>
+        </StackPanel>
+
+        <!-- Window tracking -->
+        <ToggleButton x:Name="secTracking" Style="{StaticResource SectionHeader}" Content="WINDOW TRACKING" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secTracking, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Keep waiting if the tracked window is minimized" IsChecked="{Binding PauseOnTrackedMinimize}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="When tracking a window: off (default) = stop capturing if it's minimized; on = pause and resume automatically when you restore it."/>
+            <CheckBox Content="Keep the tracked window on top while capturing" IsChecked="{Binding KeepTrackedWindowOnTop}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"
+                      ToolTip="Force the tracked window above all others while capturing so nothing can cover it. Released when capture stops. Skipped for fullscreen-sized windows (a fullscreen window pinned on top would block alt-tab)."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="On resize" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="64"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Lock size"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                             ToolTip="Capture a fixed box at the window's top-left — if the window grows, the extra is cropped (default)."/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Fit"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                             ToolTip="Scale the whole window into the frame, preserving aspect (letterbox) — follows resizing/maximising with nothing cut off."/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="resize" Content="Stretch"
+                             IsChecked="{Binding TrackResizeMode, Converter={StaticResource StrEq}, ConverterParameter=2}"
+                             ToolTip="Scale the whole window to fill the frame, ignoring aspect (may distort)."/>
+            </StackPanel>
+            <TextBlock Text="Frame size is still fixed (set when you press Track); this only changes how a resized window maps into it. Applies on the next start."
+                       Style="{StaticResource Muted}" FontSize="10" Margin="64,4,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- Capture safety -->
+        <ToggleButton x:Name="secSafety" Style="{StaticResource SectionHeader}" Content="CAPTURE SAFETY" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secSafety, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Stop capturing when disk space runs low" IsChecked="{Binding AutoStopOnLowDisk}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="Automatically stop a run before the drive fills up — a full disk fails frame writes and can disrupt other apps. Watches the disk your active session writes to (shown in Stats). Recommended on for long unattended captures."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding AutoStopOnLowDisk, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Free-space threshold in megabytes."/>
+                <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <CheckBox Content="Stop after a maximum duration" IsChecked="{Binding MaxDurationEnabled}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Automatically stop a run after this much accumulated capture time — a hard cap for unattended runs."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding MaxDurationEnabled, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop after" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding MaxDurationMinutes}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Minutes of accumulated capture time (e.g. 480 = 8 hours)."/>
+                <TextBlock Text="minutes" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <CheckBox Content="Stop at a storage budget" IsChecked="{Binding StopAtStorageEnabled}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Automatically stop once this session's captured frames reach a size — cap the disk a long run can use."/>
+            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
+                        Visibility="{Binding StopAtStorageEnabled, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Stop at" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding StopAtStorageMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                         Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
+                         ToolTip="Megabytes of captured frames in this session (e.g. 2000 = 2 GB). Checked every ~2s against the session's measured average frame size."/>
+                <TextBlock Text="MB of frames" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <CheckBox Content="Notify (sound + taskbar flash) when a capture or encode finishes"
+                      IsChecked="{Binding NotifyOnFinish}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                      ToolTip="Play a sound and flash the taskbar when a capture auto-stops (target / disk / duration) or an encode completes."/>
+            <CheckBox Content="Play a sound when capture starts and stops"
+                      IsChecked="{Binding SoundOnStartStop}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
+                      ToolTip="An audio cue on start and stop — handy when you toggle capture by hotkey with the window hidden in the tray. Off by default."/>
+        </StackPanel>
+
+        <!-- Encoding -->
+        <ToggleButton x:Name="secEncoding" Style="{StaticResource SectionHeader}" Content="ENCODING" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secEncoding, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Open the output folder when encoding finishes" IsChecked="{Binding OpenFolderAfterEncode}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="Automatically open the video's folder after a successful encode, without asking."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="File name" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="64"/>
+                <TextBox Text="{Binding OutputNameTemplate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"
+                         Width="250"
+                         ToolTip="Base name for encoded and trimmed videos (no extension). Duplicates get _2, _3…"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="64,4,0,0" TextWrapping="Wrap"
+                       Text="Tokens: {session} {date} {time} {datetime}  ·  .mp4 is added automatically"/>
+        </StackPanel>
+
+        <!-- Hotkey -->
+        <ToggleButton x:Name="secHotkey" Style="{StaticResource SectionHeader}" Content="HOTKEYS" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secHotkey, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Enable global hotkeys" IsChecked="{Binding HotkeysEnabled}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="Register system-wide hotkeys that work without focusing this window. Each action below is rebindable."/>
+            <StackPanel Margin="22,8,0,0" Visibility="{Binding HotkeysEnabled, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Start / Stop" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Toggle capture from anywhere."/>
+                    <TextBox x:Name="hkStartStop" Tag="startstop" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="startstop" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Pause / Resume" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Pause or resume the current capture from anywhere."/>
+                    <TextBox x:Name="hkPause" Tag="pause" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="pause" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Select region" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="96"
+                               ToolTip="Open the region picker from anywhere — works while the app is minimized or in the tray."/>
+                    <TextBox x:Name="hkRegion" Tag="regionselect" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                             Style="{StaticResource DarkTextBox}" Width="170" PreviewKeyDown="OnHotkeyKeyDown"/>
+                    <Button Content="Clear" Tag="regionselect" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                            Margin="6,0,0,0" Click="OnHotkeyClear" ToolTip="Unbind this action."/>
+                </StackPanel>
+                <TextBlock x:Name="hotkeyConflictText" Foreground="{DynamicResource DangerBrush}" FontSize="10"
+                           Margin="96,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                <!-- OS-level registration problems (combo owned by another app) — set by the main window. -->
+                <TextBlock Text="{Binding HotkeyWarning}" Foreground="{DynamicResource DangerBrush}" FontSize="10"
+                           Margin="96,6,0,0" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HotkeyWarning}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="Click a box, then press your combination (must include Ctrl, Shift, Alt or Win)."
+                           Style="{StaticResource Muted}" FontSize="10" Margin="96,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+        </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

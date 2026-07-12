@@ -1,0 +1,858 @@
+<Window x:Class="FrameWrite.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:FrameWrite.Wpf.ViewModels"
+        xmlns:local="clr-namespace:FrameWrite.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="FrameWrite" Width="1040" Height="920" MinHeight="320" MinWidth="560"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="CenterScreen" WindowStyle="None"
+        AllowDrop="True" Drop="OnWindowDrop"
+        Topmost="{Binding AlwaysOnTop}"
+        TextOptions.TextFormattingMode="Display"
+        FontFamily="Segoe UI">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="6" CornerRadius="0"
+                            GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Custom title bar (draggable via the WindowChrome caption; controls are hit-test-visible in chrome) -->
+        <Grid Grid.Row="0" Background="{DynamicResource BgBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0" ClipToBounds="True">
+                <TextBlock Text="&#128247;" FontSize="17" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <!-- Hide the title text before it would overlap the right-hand controls on a narrow window. -->
+                <TextBlock Text="FrameWrite" Style="{StaticResource H1}" FontSize="15" VerticalAlignment="Center"
+                           Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                        Converter={StaticResource MinWidthToVis}, ConverterParameter=760}"/>
+                <!-- Capture-state pill: red REC (actively grabbing), amber IDLE/PAUSED (smart inactivity
+                     or paused). The dot pulses only while actively recording. -->
+                <Border x:Name="statePill" Margin="14,0,0,0" CornerRadius="10" Padding="9,3"
+                        BorderThickness="1" VerticalAlignment="Center"
+                        Background="#22E5534B" BorderBrush="{DynamicResource DangerBrush}"
+                        Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <!-- Amber when idle/paused. -->
+                                <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                    <Setter Property="Background" Value="#22E3B341"/>
+                                    <Setter Property="BorderBrush" Value="#E3B341"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{DynamicResource DangerBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                            <Setter Property="Fill" Value="#E3B341"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard Name="recPulse">
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                         From="1" To="0.2" Duration="0:0:0.7"
+                                                                         AutoReverse="True" RepeatBehavior="Forever"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="recPulse"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding RecLabel}" FontFamily="Consolas" FontWeight="Bold" FontSize="12"
+                                   Margin="6,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCaptureIdleOrPaused}" Value="True">
+                                            <Setter Property="Foreground" Value="#E3B341"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+                <!-- Smart-interval activity detail, right beside the pill (e.g. "Idle — skipping frames"). -->
+                <TextBlock Text="{Binding CaptureStatusDetail}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                           FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- The two toggles hide on narrow windows so the min/max/close buttons can NEVER be
+                     pushed off-screen (they're preferences, still reachable; window controls aren't). -->
+                <ToggleButton Style="{StaticResource HeaderToggle}" Content="Simple" IsChecked="{Binding SimpleMode}"
+                              VerticalAlignment="Center" Margin="0,0,14,0"
+                              Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                           Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
+                              ToolTip="Simple mode: a speed slider and just the essentials. Turn off for full control."/>
+                <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top"
+                              IsChecked="{Binding AlwaysOnTop}" VerticalAlignment="Center" Margin="0,0,14,0"
+                              Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                           Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
+                              ToolTip="Keep the FrameWrite window above all other windows."/>
+                <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
+                <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"
+                        Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
+                <Button Style="{StaticResource WindowBtn}" Content="&#xE921;" Click="OnMinimize" ToolTip="Minimize"/>
+                <Button x:Name="maxButton" Style="{StaticResource WindowBtn}" Content="&#xE922;" Click="OnMaxRestore" ToolTip="Maximize"/>
+                <Button Style="{StaticResource WindowCloseBtn}" Content="&#xE8BB;" Click="OnClose" ToolTip="Close"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Content (scrolls when the window is shrunk below its natural size) -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <!-- ROOT CAUSE of "text never wraps": a ScrollViewer with horizontal scrolling measures its
+             child at INFINITE width, so star columns and TextWrapping silently never engage. Binding
+             this host's Width to the viewport bounds the layout (wrapping works, no h-scroll) while
+             MinWidth preserves shrink-to-scroll: below it the h-scrollbar appears instead of crushing
+             the cards. Padding replaces the old content margin so the width math stays exact. -->
+        <!-- MaxWidth caps the bound Width and HorizontalAlignment centres it, so at fullscreen the UI
+             stops stretching into sparse, over-wide cards and sits centred with margins instead. The
+             ViewportWidth binding still drives the layout (finite measure → wrapping works) and MinWidth
+             still forces the h-scrollbar below 940 rather than crushing the cards. -->
+        <Border Padding="22,6,22,22" MinWidth="940" MaxWidth="1400" HorizontalAlignment="Center"
+                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!-- Right column grows with the window (was a fixed 300px — the encoder card squished). -->
+                <ColumnDefinition Width="1.8*"/>
+                <ColumnDefinition Width="*" MinWidth="300" MaxWidth="460"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left column -->
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+
+                <!-- Output -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource CardTitle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding OutputFolder}" FontFamily="Consolas"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Button Grid.Column="1" Content="Choose&#8230;" Style="{StaticResource BtnBase}"
+                                    Command="{Binding ChooseFolderCommand}" Margin="10,0,0,0"/>
+                        </Grid>
+                        <TextBlock Text="&#9888; This folder no longer exists on disk — click Choose… to pick one."
+                                   Foreground="{DynamicResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding OutputFolderMissing, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{Binding CapturesRootHint}" Style="{StaticResource Muted}" FontSize="10"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding HasSaveFolderSet, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Session -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="SESSION" Style="{StaticResource CardTitle}"/>
+                        <!-- THE session identity — one home, next to the verbs that act on it. It doubles
+                             as the loaded-state cue ("No active session" when none) and the rename control.
+                             (It was in the title bar once; too easy to miss there — Spike's call.) -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource BtnBase}" HorizontalAlignment="Left" Padding="10,4"
+                                    Command="{Binding RenameSessionCommand}"
+                                    ToolTip="{Binding SessionName, StringFormat='{}{0} — click to rename'}">
+                                <TextBlock Text="{Binding SessionName}" TextTrimming="CharacterEllipsis"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                            </Button>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="New Session" Style="{StaticResource BtnPrimaryPulse}"
+                                    Command="{Binding NewSessionCommand}"/>
+                            <Button Content="Load" Style="{StaticResource BtnBase}"
+                                    Command="{Binding LoadSessionCommand}" Margin="8,0,0,0"/>
+                            <Button Content="&#128194;  Open Folder" Style="{StaticResource BtnBase}"
+                                    Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"
+                                    ToolTip="Open the session folder in Explorer"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,14,0,0">
+                            <!-- Grid (not a horizontal StackPanel): a StackPanel measures the text with
+                                 infinite width, so long region descriptions pushed the whole layout wide.
+                                 The star column constrains it and the text WRAPS instead. -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Region" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RegionText}" FontFamily="Consolas" FontSize="12"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                           Margin="12,0,0,0" TextWrapping="Wrap"/>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Select Region" Style="{StaticResource BtnRegion}"
+                                        Command="{Binding SelectRegionCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Full Screen" Style="{StaticResource BtnRegion}"
+                                        Command="{Binding FullScreenCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Track Window" Style="{StaticResource BtnRegion}"
+                                        Command="{Binding TrackWindowCommand}" Margin="0,0,8,0"
+                                        ToolTip="Capture a specific window and follow it as it moves (size locked at its current size)."/>
+                                <Button Content="Edit" Style="{StaticResource BtnBase}"
+                                        Command="{Binding EditRegionCommand}" Margin="0,0,8,0"
+                                        ToolTip="Adjust the current region on screen — drag to move, drag the handles to resize."/>
+                                <Button Content="{Binding ShowButtonText}" Style="{StaticResource BtnOverlay}"
+                                        Command="{Binding ShowOverlayCommand}"
+                                        ToolTip="Toggle an on-screen outline of the capture region."/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                    ToolTip="Lock the next region selection to this shape. Free = drag any size.">
+                            <TextBlock Text="Ratio" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="Free"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="16:9"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="4:3"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=2}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="1:1"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=3}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="9:16"
+                                         IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=5}"/>
+                            <ToggleButton Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
+                                          IsChecked="{Binding RatioFlipped}" VerticalAlignment="Center"
+                                          ToolTip="Rotate the current selection 90° (swap its width and height about its centre — watch the outline) and flip the locked ratio for the next drag. Not remembered between runs."/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Capture control -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="CAPTURE" Style="{StaticResource CardTitle}"/>
+                        <!-- Simple mode: a speed slider with a plain-language outcome hint -->
+                        <StackPanel Margin="0,0,0,12" Visibility="{Binding SimpleMode, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Speed" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                            <Slider Minimum="0" Maximum="{Binding SpeedMaxNotch}" Value="{Binding SpeedNotch}" IsSnapToTickEnabled="True"
+                                    TickFrequency="1" TickPlacement="BottomRight" SmallChange="1" LargeChange="1"
+                                    local:WheelStep.Amount="1" IsEnabled="{Binding NotCapturing}"/>
+                            <TextBlock Text="{Binding SpeedHintNamed}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                                       FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <!-- Advanced: the raw interval field, in seconds or fps (same value, two views) -->
+                        <StackPanel Margin="0,0,0,12"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                         local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
+                                         Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
+                                         ToolTip="Seconds between frames (decimals OK). From 0.1s (10×/second) up to 3600s (once an hour); out-of-range entries snap back."/>
+                                <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                         local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
+                                         Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
+                                         ToolTip="Capture rate in frames per second. Maximum 10 fps (= the 0.1s interval floor); out-of-range entries snap back."/>
+                                <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="sec" Margin="10,0,0,0"
+                                             IsChecked="{Binding IntervalUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                                             ToolTip="Edit the interval as seconds between frames."/>
+                                <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="fps"
+                                             IsChecked="{Binding IntervalUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                             ToolTip="Edit the interval as a capture rate (frames per second)."/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                                       FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Frames" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBlock Text="JPEG Q" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding JpegQuality}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="False"
+                                     ToolTip="JPEG frame quality 1–100 (higher = better, larger). Ignored when capturing PNG."/>
+                            <CheckBox Content="PNG" IsChecked="{Binding UsePng}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="14,0,0,0"
+                                      ToolTip="Capture frames as PNG (lossless, larger) instead of JPEG. Frame quality is the ceiling for the video — for maximum fidelity use PNG with a low CRF."/>
+                        </StackPanel>
+                        <!-- Options that change what lands in the frame — surfaced here, not buried in Settings. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                    Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                            <CheckBox Content="Capture cursor" IsChecked="{Binding CaptureCursor}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                      ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
+                            <CheckBox Content="Hide this window from captures" IsChecked="{Binding HideFromCapture}"
+                                      Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="18,0,0,0"
+                                      ToolTip="Exclude the FrameWrite window from screen captures so it never appears in frames (Win10 2004+)."/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- The GO strip: the app's primary action on its own stage, at the end of the left
+                     column's workflow (session → area → speed → GO). Visible in Simple mode. Kept
+                     card-quiet on purpose — the lighter fill and the bigger Start carry the hierarchy
+                     without fighting the rest of the window for attention (Spike's call). -->
+                <Border Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="18,14" Margin="0,0,0,14">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="&#9654;  Start" Style="{StaticResource BtnSuccess}"
+                                    Command="{Binding StartCommand}" Margin="0,0,10,0"
+                                    FontSize="15" Padding="24,9" ToolTip="{Binding StartHotkeyTooltip}"/>
+                            <Button Grid.Column="1" Content="&#9209;  Stop" Style="{StaticResource BtnStop}"
+                                    Command="{Binding StopCommand}" Margin="0,0,10,0" Padding="16,9"
+                                    ToolTip="{Binding StopHotkeyTooltip}"/>
+                            <Button Grid.Column="2" Content="{Binding PauseResumeText}" Style="{StaticResource BtnBase}"
+                                    Command="{Binding PauseResumeCommand}" Padding="12,9"
+                                    Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="Pause / resume the current capture (keeps the run going)."/>
+                            <TextBlock Grid.Column="3" Text="{Binding FrameCountText}" FontFamily="Consolas" FontSize="19"
+                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                        <Border Background="#22E5534B" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="4"
+                                Padding="9,6" Margin="0,10,0,0" ToolTip="{Binding CaptureErrorDetail}"
+                                Visibility="{Binding HasCaptureError, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding CaptureError}" Foreground="{DynamicResource DangerBrush}"
+                                           FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="&#10005;" Command="{Binding DismissCaptureErrorCommand}"
+                                        Style="{StaticResource BtnBase}" FontSize="11" Padding="7,2" Margin="8,0,0,0"
+                                        VerticalAlignment="Top" ToolTip="Dismiss"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="SMART INTERVAL (BETA)"
+                                      IsChecked="{Binding SmartPanelExpanded}"
+                                      ToolTip="Adapt the capture rate to your activity — slow down or skip while you're away. Click to tune."/>
+                        <!-- Collapsed: the configuration in one glanceable line. -->
+                        <TextBlock Text="{Binding SmartSummaryText}" FontFamily="Consolas"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SmartPanelExpanded}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Visibility="{Binding SmartPanelExpanded, Converter={StaticResource BoolToVis}}">
+                        <StackPanel IsEnabled="{Binding NotCapturing}" Margin="0,8,0,0">
+                        <CheckBox Content="Enable smart capture (adapt to activity)" IsChecked="{Binding SmartEnabled}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                  ToolTip="Capture at your main Interval while you're active; when there's no input, slow to the idle rate (or skip frames)."/>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Idle rate (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
+                            <TextBox Grid.Column="1" Text="{Binding IdleIntervalSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="True"
+                                     ToolTip="Slower capture interval used while idle (clamped to never be faster than your main interval)."/>
+                            <TextBlock Grid.Column="2" Text="Idle after (s)" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="16,0,8,0"
+                                       ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
+                            <TextBox Grid.Column="3" Text="{Binding IdleThresholdSeconds}" Style="{StaticResource DarkTextBox}" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="False"
+                                     ToolTip="Seconds with no mouse/keyboard input before you're treated as idle (then capture slows to the main interval, or skips)."/>
+                        </Grid>
+                        <CheckBox Content="Skip frames while idle (otherwise slow down)" IsChecked="{Binding SkipIdleFrames}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
+                                  ToolTip="When idle, skip capturing entirely instead of capturing at the slower main interval — saves space during long idle stretches."/>
+                        </StackPanel>
+                        </StackPanel>
+                        <!-- Live Active/Idle status stays visible even when the tuning is folded away. -->
+                        <TextBlock Text="{Binding SmartStatus}" FontFamily="Consolas" FontSize="12"
+                                   Foreground="{DynamicResource AccentBrush}" Margin="0,10,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SmartStatus}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Right column: encoder + stats + preview -->
+            <StackPanel Grid.Column="1">
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="ENCODER" Style="{StaticResource CardTitle}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="FFmpeg" Style="{StaticResource Muted}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding FfmpegStatus}" Style="{StaticResource Body}" TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Change&#8230;" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,2"
+                                Click="OnFfmpegChange" Visibility="{Binding FfmpegChangeVisible, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Point at a different ffmpeg (re-download or browse to one)."/>
+                    </Grid>
+                    <!-- Setup controls fold away once ffmpeg is Ready — reachable again via Change… -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                Visibility="{Binding FfmpegControlsVisible, Converter={StaticResource BoolToVis}}">
+                        <Button Content="Download" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding DownloadFfmpegCommand}" Margin="0,0,6,0"/>
+                        <Button Content="Browse&#8230;" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding BrowseFfmpegCommand}" Margin="0,0,6,0"/>
+                        <Button Content="Cancel" Style="{StaticResource BtnBase}" FontSize="12" Padding="10,4"
+                                Command="{Binding CancelDownloadCommand}"
+                                Visibility="{Binding IsFfmpegBusy, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,14,0,0"
+                            Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
+                    <!-- Encode tuning folds away (persisted); the summary line keeps the values glanceable. -->
+                    <StackPanel Margin="0,10,0,0" Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="ENCODE SETTINGS"
+                                      IsChecked="{Binding EncodePanelExpanded}"
+                                      ToolTip="Frame rate, quality (CRF), encoder preset, speed-up and end-hold. Click to tune."/>
+                        <TextBlock Text="{Binding EncodeSummaryText}" FontFamily="Consolas"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding EncodePanelExpanded}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    <StackPanel Visibility="{Binding EncodePanelExpanded, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Margin="0,10,0,0" IsEnabled="{Binding NotCapturing}">
+                    <!-- Speed vs exact length: mirror of the interval's sec⇄fps toggle (same value, two views). -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encunit" Content="fps"
+                                     IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                                     ToolTip="Fixed playback frame rate — the video's length follows the frame count."/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encunit" Content="exact length"
+                                     IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                     ToolTip="Make the video exactly this long — the frame rate is computed from however many frames get encoded (trims included). Handy for platform time limits."/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <!-- fps mode and exact-length mode are mutually exclusive; only one input shows. -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeFps, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="False"
+                                     ToolTip="Playback frame rate of the output video — higher plays smoother/faster."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeLength, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding EncodeDurationSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"
+                                     ToolTip="Exact output length in seconds (decimals allowed). Scroll to adjust."/>
+                            <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                        <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
+                                IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
+                                local:WheelStep.Amount="1"
+                                ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                        <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                 local:NumericInput.AllowDecimal="False"
+                                 ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                    </StackPanel>
+                    <!-- The resulting video length, right where you set the fps — no hunting in Stats. -->
+                    <TextBlock Text="{Binding VideoLengthText}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                               FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}">
+                        <CheckBox Content="Speed-up (skip frames at encode)" IsChecked="{Binding SpeedUpEnabled}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"
+                                  ToolTip="Make the timelapse play faster by encoding only a subset of the frames. Non-destructive — applies to Encode and Trim; the frames on disk are untouched."/>
+                        <StackPanel Orientation="Horizontal" Margin="22,6,0,0"
+                                    Visibility="{Binding SpeedUpEnabled, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="keep 1 frame in every" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding SpeedUpN}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                                     ToolTip="2 = twice as fast with half the frames; 3 = three times as fast with a third. Minimum 2 (1 would mean no speed-up — untick instead)."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    ToolTip="Hold the LAST frame this long at the end so the finished result lingers before the video loops/ends. 0 = off.">
+                            <TextBlock Text="Hold last frame" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding EncodeHoldLastSeconds}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"/>
+                            <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
+                        <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=ultrafast}"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Medium"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Slow"
+                                     IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
+                    </StackPanel>
+                    </StackPanel>
+                    </StackPanel>
+                    <!-- Stacked action rows: buttons keep their natural height regardless of how the status
+                         text wraps (side-by-side, wrapping status stretched the row and the buttons with it). -->
+                    <Button Content="{Binding EncodeButtonText}" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding EncodeCommand}" HorizontalAlignment="Stretch" Margin="0,12,0,0"/>
+                    <Grid Margin="0,8,0,0" Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Trim&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding TrimCommand}" HorizontalAlignment="Stretch"
+                                ToolTip="Encode only a selected range of the captured frames."/>
+                        <Button Grid.Column="2" Content="Cull&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding CullCommand}" HorizontalAlignment="Stretch"
+                                ToolTip="Delete fumble frames and renumber the rest before encoding."/>
+                        <Button Grid.Column="4" Content="Crop&#8230;" Style="{StaticResource BtnBase}"
+                                Command="{Binding CropCommand}" HorizontalAlignment="Stretch"
+                                ToolTip="Encode only an area of the frames — drag it on a preview. Non-destructive (frames on disk stay full size), with a power-user option to crop the files themselves."/>
+                    </Grid>
+                    <TextBlock Text="{Binding CropInfoText}" FontFamily="Consolas"
+                               FontSize="10" Margin="0,6,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CropInfoText}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ProgressBar Value="{Binding EncodeProgress}" Minimum="0" Maximum="100" Height="5"
+                                 Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
+                                 BorderThickness="0" Margin="0,10,0,0"
+                                 Visibility="{Binding IsEncoding, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="{Binding EncodeStatus}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                               FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
+                    <StackPanel Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- "Target" flashes green on commit (own brush so PulseFg animates only this label). -->
+                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
+                                <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
+                                <TextBlock.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                    </EventTrigger>
+                                </TextBlock.Triggers>
+                            </TextBlock>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Video length"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=0}"
+                                         ToolTip="Aim for a video of this length — progress and storage projections count frames toward it."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Timer"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=1}"
+                                         ToolTip="Record for this much time, then stop automatically. Pause doesn't count toward the timer."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Size"
+                                         IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=2}"
+                                         ToolTip="Set a disk budget — capture up to this many GB, then stop. Adjust interval/quality and watch the projected recording time."/>
+                        </StackPanel>
+                        <!-- Outline ring flares to accent on commit (wheel / Enter / tab-away). -->
+                        <Border BorderThickness="1.5" CornerRadius="4" Padding="2" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
+                            <Border.BorderBrush><SolidColorBrush Color="Transparent"/></Border.BorderBrush>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                    <BeginStoryboard Storyboard="{StaticResource PulseRing}"/>
+                                </EventTrigger>
+                            </Border.Triggers>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Video/Timer: h/m/s boxes. Size: a single GB box. -->
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowTargetDuration, Converter={StaticResource BoolToVis}}">
+                                    <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
+                                             ToolTip="Hours. Scroll to adjust (Shift = ×10); commits as you go."/>
+                                    <TextBlock Text="h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                    <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                             ToolTip="Minutes — values past 59 roll into hours. Scroll to adjust; commits as you go."/>
+                                    <TextBlock Text="m" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
+                                    <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
+                                             ToolTip="Seconds — values past 59 roll into minutes. Scroll to adjust; commits as you go."/>
+                                    <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowTargetSize, Converter={StaticResource BoolToVis}}">
+                                    <TextBox Text="{Binding TargetSizeGB}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
+                                             local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
+                                             ToolTip="Disk budget in GB (decimals OK). Capture stops when the session's frames reach this. Scroll to adjust."/>
+                                    <TextBlock Text="GB" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding TargetHint}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TargetHintError}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- The live target readout: capture-time-to-target, timer remaining, or budget projection. -->
+                        <TextBlock Text="{Binding CaptureToTargetText}" Style="{StaticResource Muted}" FontFamily="Consolas"
+                                   FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                        <!-- Timer only: discard accumulated progress and count from now (stopping alone doesn't). -->
+                        <Button Content="Reset timer" Style="{StaticResource BtnBase}" FontSize="11" Padding="8,3"
+                                HorizontalAlignment="Left" Margin="0,8,0,0" Command="{Binding ResetTimerCommand}"
+                                Visibility="{Binding TimerResetVisible, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Start the timer over from zero. Stopping capture keeps the timer's progress; only this discards it."/>
+                        <CheckBox Content="Stop at target" IsChecked="{Binding StopAtTarget}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Margin="0,8,0,0"
+                                  Visibility="{Binding StopAtTargetVisible, Converter={StaticResource BoolToVis}}"
+                                  ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps). A Timer target always stops by itself."/>
+                    </StackPanel>
+                    <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
+                                 Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
+                                 BorderThickness="0" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding ProgressText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                               Margin="0,0,0,10" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                        <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                    <!-- Capture cadence: live frames/min. The heartbeat — peaks while you work, valleys
+                         where Smart Interval idled/skipped. Only shows once there's a trace. -->
+                    <StackPanel Margin="0,0,0,10" Visibility="{Binding HasCadence, Converter={StaticResource BoolToVis}}">
+                        <Grid Margin="0,0,0,3">
+                            <TextBlock Text="Cadence" Style="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding CadenceText}" FontFamily="Consolas" FontSize="11"
+                                       Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Border Background="#0A0A0A" CornerRadius="4" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1" Height="42" Padding="2"
+                                ToolTip="Frames captured per minute over the last couple of minutes — dips show idle/skipped stretches (Smart Interval).">
+                            <local:Sparkline Values="{Binding CadenceSamples}"/>
+                        </Border>
+                    </StackPanel>
+                    <!-- Structured stats: icon · label · value. Video length + disk rate are the anchors;
+                         the detail rows are advanced-only, so Simple mode keeps a calm panel. -->
+                    <Grid Margin="0,0,0,6" ToolTip="Length of the video these frames make at the current encode fps.">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE714;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Video"/>
+                        <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" Text="{Binding VideoLengthText}"
+                                   Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                            <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
+                            <TextBlock.Triggers>
+                                <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                    <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                </EventTrigger>
+                            </TextBlock.Triggers>
+                        </TextBlock>
+                    </Grid>
+                    <Grid Margin="0,0,0,6" ToolTip="How fast capturing eats the drive at the current settings — red when it would fill it within ~2 hours.">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE896;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Disk rate"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StorageRateText}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StorageRateWarn}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <StackPanel Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid Margin="0,0,0,6" ToolTip="Average size of one captured frame on disk (estimated until frames exist).">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE722;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Frame"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatFrameSize}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6" ToolTip="What this session's frames use on disk right now.">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE8B7;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="On disk"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatSession}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6" ToolTip="Extra storage the remaining frames need, and the session's total size once the target is reached.">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="84"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource StatIcon}" Text="&#xE74E;"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="At target"/>
+                            <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Text="{Binding StatAtTarget}"
+                                       Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                                <TextBlock.Foreground><SolidColorBrush Color="#E6EDE6"/></TextBlock.Foreground>
+                                <TextBlock.Triggers>
+                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                        <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
+                                    </EventTrigger>
+                                </TextBlock.Triggers>
+                            </TextBlock>
+                        </Grid>
+                    </StackPanel>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xEDA2;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Free space"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatFreeSpace}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StatLowSpace}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                            <Setter Property="ToolTip" Value="Reaching the target may not fit in the remaining space on this drive."/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <Grid Margin="0,0,0,6" ToolTip="Memory the app is using."
+                          Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE950;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Memory"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding StatMemory}"/>
+                    </Grid>
+                    <Grid Margin="0,0,0,4" ToolTip="Elapsed time of the current capture run.">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE916;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Run"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding ElapsedText}"/>
+                    </Grid>
+                    <Grid ToolTip="Total capture time across all start/stop runs this session."
+                          Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="84"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource StatIcon}" Text="&#xE823;"/>
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Total"/>
+                        <TextBlock Grid.Column="2" Style="{StaticResource StatValue}" Text="{Binding TotalElapsedText}"/>
+                    </Grid>
+                    <TextBlock Text="Disk use is for the raw frames, not the final video — CRF sets the video size."
+                               Style="{StaticResource Muted}" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
+            </Border>
+
+                <!-- Preview (collapsed by default — click the header to show the latest frame) -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="PREVIEW" IsChecked="{Binding PreviewExpanded}"
+                                      ToolTip="Show a thumbnail of the most recent captured frame. Collapsed by default to keep the window compact."/>
+                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1" Height="150" ClipToBounds="True" Margin="0,8,0,0"
+                                Visibility="{Binding PreviewExpanded, Converter={StaticResource BoolToVis}}">
+                            <Grid Cursor="Hand" MouseLeftButtonUp="OnPreviewClick" Background="Transparent"
+                                  ToolTip="Open the frame viewer — zoom into any frame and scrub through the session.">
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
+                                <TextBlock Text="No frames captured yet" Style="{StaticResource Muted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding NoPreview, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+        </Border>
+        </ScrollViewer>
+    </Grid>
+</Window>

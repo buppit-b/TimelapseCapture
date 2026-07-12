@@ -15,22 +15,23 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 # Version from the WPF project file.
-$csproj = Join-Path $root "TimelapseCapture.Wpf\TimelapseCapture.Wpf.csproj"
+$csproj = Join-Path $root "FrameWrite.Wpf\FrameWrite.Wpf.csproj"
 $version = ([xml](Get-Content $csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 if (-not $version) { throw "Couldn't read <Version> from $csproj" }
 Write-Host "Publishing FrameWrite v$version (win-x64, self-contained, single file)..."
 
 # Publish: one exe, natives embedded, compressed.
-dotnet publish "TimelapseCapture.Wpf" -c Release -r win-x64 --self-contained true `
+dotnet publish "FrameWrite.Wpf" -c Release -r win-x64 --self-contained true `
     /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true `
     /p:EnableCompressionInSingleFile=true -o "dist\publish" --nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 # Stage the zip contents: the exe + docs. (The publish folder may contain a .pdb — skip it.)
+# The published exe is FrameWrite.exe directly now (AssemblyName=FrameWrite) — no rename needed.
 $stage = "dist\stage"
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage -Confirm:$false }
 New-Item -ItemType Directory -Force $stage | Out-Null
-Copy-Item "dist\publish\TimelapseCapture.Wpf.exe" (Join-Path $stage "FrameWrite.exe")
+Copy-Item "dist\publish\FrameWrite.exe" (Join-Path $stage "FrameWrite.exe")
 Copy-Item "README.md", "LICENSE" $stage
 
 $zip = "dist\FrameWrite-v$version-win-x64.zip"

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <!-- Enables System.Windows.Forms.NotifyIcon for the tray icon. Part of the Windows Desktop SDK
+         (same as WPF) — NOT an external NuGet dependency. The tray class aliases the WinForms
+         namespace to avoid Application/MessageBox ambiguity with WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WFO0003: the WinForms analyzer wants DPI config moved out of app.manifest — but this is a
+         WPF app (WinForms is only linked for the tray NotifyIcon) and WPF takes PerMonitorV2 from
+         the manifest. The suggestion doesn't apply; keep the publish at 0 warnings. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <RootNamespace>FrameWrite.Wpf</RootNamespace>
+    <!-- The shipped exe is FrameWrite.exe (namespaces stay FrameWrite.Wpf via RootNamespace). -->
+    <AssemblyName>FrameWrite</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>FrameWrite</Product>
+    <Version>0.9.5</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FrameWrite.Core\FrameWrite.Core.csproj" />
+  </ItemGroup>
+
+</Project>
