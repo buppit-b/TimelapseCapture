@@ -13,6 +13,7 @@ namespace TimelapseCapture.Wpf
         private readonly string _folder;
         private readonly int _count;
         private readonly HashSet<int> _marked = new();
+        private readonly System.Drawing.Size _frameDims;   // uniform across the session
 
         public IReadOnlyCollection<int> MarkedForDeletion => _marked;
 
@@ -21,6 +22,7 @@ namespace TimelapseCapture.Wpf
             InitializeComponent();
             _folder = sessionFolder;
             _count = Math.Max(1, frameCount);
+            _frameDims = SessionManager.GetFrameSize(sessionFolder);   // all frames share the canonical size
 
             // Restore previously placed marks (persisted in session.json), dropping any that no
             // longer point at an existing frame.
@@ -108,9 +110,25 @@ namespace TimelapseCapture.Wpf
         {
             preview.Source = FramePreview.LoadAt(_folder, n, 540);
             posText.Text = $"Frame {n} of {_count}";
+            metaText.Text = DescribeFrame(n);
             bool marked = _marked.Contains(n);
             markedBadge.Visibility = marked ? Visibility.Visible : Visibility.Collapsed;
             markBtn.Content = marked ? "Unmark" : "Mark for deletion";
+        }
+
+        // dimensions (session-uniform) · file size · capture time (the file's own write time).
+        private string DescribeFrame(int n)
+        {
+            try
+            {
+                string? path = FramePreview.PathFor(_folder, n);
+                if (path == null) return "";
+                var fi = new System.IO.FileInfo(path);
+                string dims = _frameDims.Width > 0 ? $"{_frameDims.Width}×{_frameDims.Height}  ·  " : "";
+                string size = fi.Length >= 1024 * 1024 ? $"{fi.Length / (1024.0 * 1024):F1} MB" : $"{fi.Length / 1024.0:F0} KB";
+                return $"{dims}{size}  ·  {fi.LastWriteTime:yyyy-MM-dd HH:mm:ss}";
+            }
+            catch { return ""; }
         }
 
         private void OnToggleMark(object sender, RoutedEventArgs e)

@@ -48,6 +48,10 @@
                           ToolTip="Forward 10 frames (hold to repeat)."/>
         </Grid>
 
+        <!-- Metadata for the current frame (dimensions · file size · capture time). -->
+        <TextBlock x:Name="metaText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10"
+                   HorizontalAlignment="Center" Margin="0,4,0,0"/>
+
         <TextBlock Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10" Margin="0,6,0,0" TextWrapping="Wrap"
                    Text="Keys:  &#8592;/&#8594; step 1  ·  Shift+&#8592;/&#8594; step 10  ·  Space/M mark  ·  Shift+Space mark range  ·  Ctrl+Space unmark range  (ranges run from the last mark action to here)"/>
 

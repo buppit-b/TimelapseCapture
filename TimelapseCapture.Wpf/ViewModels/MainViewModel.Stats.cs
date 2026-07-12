@@ -319,6 +319,23 @@ namespace TimelapseCapture.Wpf.ViewModels
                 UpdateCaptureToTarget();   // live time-to-target readout
                 if (IsCapturing) SampleCadence();   // feed the cadence sparkline (frozen trace while stopped)
 
+                // Soak-diagnostic heartbeat: once every ~5 min of capture, log the vitals a long
+                // unattended run is judged on (memory flat? cadence steady? disk draining?). Quiet
+                // otherwise, so the log stays readable — this is the trail if a soak reveals drift.
+                if (IsCapturing && _statsTick % 300 == 0)
+                {
+                    try
+                    {
+                        long freeMb = _sessionFolder != null ? SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder) : 0;
+                        Logger.Log("Heartbeat",
+                            $"frames={_frameCount} run={FormatTime(RunActiveSeconds())} " +
+                            $"mem={SystemMonitor.GetProcessMemoryMB():F0}MB freeDisk={freeMb}MB " +
+                            $"cadence={(_cadenceEma < 0 ? 0 : _cadenceEma):F0}/min " +
+                            $"smart={( _settings.SmartIntervalEnabled ? SmartStatus : "off")}");
+                    }
+                    catch { /* diagnostics must never break the tick */ }
+                }
+
                 // Opt-in max-duration cap: stop once accumulated capture time reaches the limit (a normal
                 // completion — notify, but no red error banner).
                 if (IsCapturing && !_isPaused && _settings.MaxDurationEnabled && totalCaptureSeconds >= _settings.MaxDurationMinutes * 60.0)

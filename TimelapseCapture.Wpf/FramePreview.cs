@@ -39,6 +39,19 @@ namespace TimelapseCapture.Wpf
             catch { return null; }
         }
 
+        /// <summary>Absolute path to frame <paramref name="frameNumber"/> (any supported extension), or null.</summary>
+        public static string? PathFor(string? sessionFolder, int frameNumber)
+        {
+            string? frames = FramesFolder(sessionFolder);
+            if (frames == null) return null;
+            foreach (var ext in new[] { "jpg", "png", "jpeg", "bmp" })
+            {
+                string p = Path.Combine(frames, $"{frameNumber:D5}.{ext}");
+                if (File.Exists(p)) return p;
+            }
+            return null;
+        }
+
         private static string? FramesFolder(string? sessionFolder)
         {
             if (string.IsNullOrEmpty(sessionFolder)) return null;
