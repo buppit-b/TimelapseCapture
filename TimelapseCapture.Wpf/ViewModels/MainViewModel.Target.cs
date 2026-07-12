@@ -104,7 +104,7 @@ namespace TimelapseCapture.Wpf.ViewModels
         {
             TargetHintError = false;
             TargetHint = _targetKind == 1
-                ? $"= record for {HumanDuration(_targetSeconds)}, then stop"
+                ? $"= record for {HumanDurationPrecise(_targetSeconds)}, then stop"
                 : $"= a {HumanDuration(_targetSeconds)} video";
         }
 

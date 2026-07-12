@@ -48,7 +48,9 @@ namespace TimelapseCapture
         public bool StopAtTarget { get; set; }               // auto-stop capture when the frame count reaches the target
         public int TrackResizeMode { get; set; }             // tracked-window resize: 0 lock size, 1 scale-to-fit, 2 stretch
         public bool AutoStopOnLowDisk { get; set; } = true;  // unattended safety: stop before the drive fills
-        public int LowDiskStopMB { get; set; } = 500;        // free-space threshold (MB) for the low-disk auto-stop
+        public int LowDiskStopMB { get; set; } = 2000;       // free-space floor (MB) for low-disk auto-stop —
+                                                             // 2 GB, not 500 MB: a near-full drive (esp. the
+                                                             // system drive) misbehaves well before empty
         public bool MaxDurationEnabled { get; set; }         // opt-in: stop after a maximum capture duration
         public int MaxDurationMinutes { get; set; } = 480;   // the cap (minutes of accumulated capture time)
         public bool StopAtStorageEnabled { get; set; }       // opt-in: stop once the session's frames reach a size

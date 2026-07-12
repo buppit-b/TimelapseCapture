@@ -128,8 +128,8 @@ namespace TimelapseCapture.Wpf.ViewModels
                 // Recording timer: the readout is simply time left on the clock (active time only).
                 double remaining = Math.Max(0, _targetSeconds - RunActiveSeconds());
                 CaptureToTargetText = IsCapturing
-                    ? (remaining == 0 ? "✓ timer reached" : $"≈ {HumanDuration(remaining)} left on the timer (pause doesn't count)")
-                    : $"will record for {HumanDuration(_targetSeconds)}, then stop";
+                    ? (remaining == 0 ? "✓ timer reached" : $"≈ {HumanDurationPrecise(remaining)} left on the timer (pause doesn't count)")
+                    : $"will record for {HumanDurationPrecise(_targetSeconds)}, then stop";
                 return;
             }
 
@@ -186,6 +186,20 @@ namespace TimelapseCapture.Wpf.ViewModels
             if (t.TotalHours >= 1) return t.Minutes == 0 ? $"{(int)t.TotalHours}h" : $"{(int)t.TotalHours}h {t.Minutes}m";
             if (t.TotalMinutes >= 1) return t.Seconds == 0 ? $"{t.Minutes}m" : $"{t.Minutes}m {t.Seconds}s";
             return $"{t.Seconds}s";
+        }
+
+        // The recording timer echoes an EXACT h/m/s the user set, so it must never drop a nonzero
+        // seconds component the way HumanDuration does in its hours branch (fine for fuzzy planning
+        // readouts, wrong for a precise timer — the "record for 1h 30s" showed as "1h" bug).
+        private static string HumanDurationPrecise(double seconds)
+        {
+            int total = (int)Math.Round(Math.Max(0, seconds));
+            int h = total / 3600, m = total % 3600 / 60, s = total % 60;
+            var parts = new List<string>();
+            if (h > 0) parts.Add($"{h}h");
+            if (m > 0) parts.Add($"{m}m");
+            if (s > 0 || parts.Count == 0) parts.Add($"{s}s");
+            return string.Join(" ", parts);
         }
 
         // Bumped when the user changes an input (target / fps) that recalculates the stats — the
@@ -323,7 +337,7 @@ namespace TimelapseCapture.Wpf.ViewModels
                     CaptureProgress = pct;
                     ProgressText = IsCapturing
                         ? $"{FormatTime(active)} / {FormatTime(_targetSeconds)} recorded · {pct:F0}% of the timer"
-                        : $"{_frameCount} frames · timer set for {HumanDuration(_targetSeconds)}";
+                        : $"{_frameCount} frames · timer set for {HumanDurationPrecise(_targetSeconds)}";
                 }
                 else
                 {
