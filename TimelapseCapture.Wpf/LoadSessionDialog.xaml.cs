@@ -86,7 +86,10 @@ namespace TimelapseCapture.Wpf
             SizeText = s.CaptureRegion.HasValue
                 ? $"{s.CaptureRegion.Value.Width}×{s.CaptureRegion.Value.Height}"
                 : "no region";
-            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}";
+            // Prefer the recorded actual interval (sub-second capable); fall back to the rounded int.
+            double iv = s.IntervalSecondsActual > 0 ? s.IntervalSecondsActual : s.IntervalSeconds;
+            string ivText = iv > 0 ? $"{iv:0.###}s" : "";
+            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}" + (ivText.Length > 0 ? $"   ·   {ivText}" : "");
         }
     }
 }

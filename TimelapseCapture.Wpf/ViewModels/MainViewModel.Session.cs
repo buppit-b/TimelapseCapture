@@ -259,6 +259,9 @@ namespace TimelapseCapture.Wpf.ViewModels
                 var s = SessionManager.LoadSession(_sessionFolder);
                 if (s == null) return;
                 s.Active = active;
+                // Stamp the ACTUAL interval when a run begins (active=true): session.json's int
+                // IntervalSeconds is a rounded creation-time value that can't show 0.1s / 3.1s.
+                if (active) s.IntervalSecondsActual = (double)IntervalSeconds;
                 SessionManager.SaveSession(_sessionFolder, s);
                 _session = s;
             }

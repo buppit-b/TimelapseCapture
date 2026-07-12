@@ -14,6 +14,10 @@ namespace TimelapseCapture
     {
         public string? Name { get; set; }
         public int IntervalSeconds { get; set; }
+        // The ACTUAL capture interval last used (sub-second capable) — IntervalSeconds is a rounded
+        // int set at creation and can't show 0.1s / 3.1s. 0 = not recorded (fall back to IntervalSeconds).
+        // Additive; older session.json files simply lack it. Stamped when a capture starts.
+        public double IntervalSecondsActual { get; set; }
         public int VideoFps { get; set; } = 30;
         public DateTime StartTime { get; set; }
         public bool Active { get; set; } = true;
