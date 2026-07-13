@@ -215,6 +215,18 @@ namespace FrameWrite.Wpf
             => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         private void OnClose(object sender, RoutedEventArgs e) => Close();
 
+        /// <summary>Restore the window to its default size and re-centre it on the current screen — a quick
+        /// escape hatch after it's been shrunk/dragged awkwardly. Called from Settings.</summary>
+        public void ResetWindowSize()
+        {
+            WindowState = WindowState.Normal;
+            Width = 1040;
+            Height = 920;
+            var wa = SystemParameters.WorkArea;
+            Left = wa.Left + (wa.Width - Width) / 2;
+            Top = wa.Top + (wa.Height - Height) / 2;
+        }
+
         protected override void OnStateChanged(EventArgs e)
         {
             base.OnStateChanged(e);
