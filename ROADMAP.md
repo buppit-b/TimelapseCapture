@@ -268,9 +268,26 @@ lock for easy centered squares) · {elapsed}/{frame} overlay tokens
 from a second launch to the running instance via WM_COPYDATA (today the single-instance guard
 drops it; drag-and-drop onto the window covers the case meanwhile).
 
+### Real-time "Record" mode — under consideration (Spike, 2026-07-13)
+Sub-0.1s capture shipped as a normal cautioned capability (0.01s / 100 fps floor, amber video-rate
+hint + live measured-fps readout). That reopened the question of a genuine **real-time video
+recorder** as a *second mode* beside timelapse. **Spike's gate:** it only earns a place if it
+competes on efficiency — smooth, honest fps at real-time rates. The current frames-to-disk engine
+**cannot** do that (per-frame image encode + disk IO caps sustained throughput well below the
+100 fps ceiling); a Record mode needs a **different pipeline**: GPU-side frame grab (DXGI Desktop
+Duplication / WGC — the same capture layer already planned for occluded-window tracking) piped
+straight into a hardware encoder → one `.mp4`, no intermediate frames. Lower cost than it sounds
+because FrameWrite already bundles/drives ffmpeg (which can screen-capture directly via `ddagrab`/
+`gdigrab`). Open question Spike raised: **is capture actually accurate to the requested fps?** —
+the new live "actual ≈ N fps" readout is there to measure it empirically before committing.
+Keep timelapse (frames-to-disk) untouched; this is additive. Decision still pending real-world
+efficiency evidence.
+
 ### Explicitly out of scope (identity discipline)
-Webcam/facecam, audio, a general video editor, cloud sync, sub-0.1s capture — those pull
-toward OBS/editor territory; this app stays the reliable art-timelapse tool.
+Webcam/facecam, audio, a general video editor, cloud sync — those pull toward OBS/editor territory;
+this app stays the reliable art-timelapse tool. *(Sub-0.1s capture is no longer excluded — it
+shipped 2026-07-13 as a cautioned capability; a real-time Record mode is under consideration, see
+above.)*
 
 ### Design debt — the one rework worth a focused, tested session
 - **Frame-count / session-state ownership** *(flagged 2026-07-05; the pause data-loss bug came from
