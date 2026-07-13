@@ -34,6 +34,7 @@
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E6EDE6"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#7D8C7D"/>
             <SolidColorBrush x:Key="AccentBrush" Color="#3FB950"/>
+            <SolidColorBrush x:Key="Accent2Brush" Color="#E3B341"/>
             <SolidColorBrush x:Key="SuccessBrush" Color="#3FB950"/>
             <SolidColorBrush x:Key="DangerBrush" Color="#E5534B"/>
 
@@ -54,8 +55,10 @@
                 <Setter Property="Margin" Value="0,2,0,12"/>
             </Style>
 
+            <!-- Section headers use the CONTRASTING secondary accent (Accent2) — labels get their own hue
+                 so the primary accent can mean action/live. Part of the elegance pass (Spike, 2026-07-13). -->
             <Style x:Key="CardTitle" TargetType="TextBlock">
-                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}"/>
                 <Setter Property="FontFamily" Value="Consolas"/>
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="FontWeight" Value="Bold"/>
@@ -418,9 +421,9 @@
                         <ControlTemplate TargetType="ToggleButton">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <TextBlock x:Name="gly" Text="&#x25BE;" FontSize="10" VerticalAlignment="Center"
-                                           Margin="0,0,6,0" Foreground="{DynamicResource AccentBrush}"/>
+                                           Margin="0,0,6,0" Foreground="{DynamicResource Accent2Brush}"/>
                                 <TextBlock Text="{TemplateBinding Content}" FontFamily="Consolas" FontWeight="Bold"
-                                           FontSize="11" Foreground="{DynamicResource AccentBrush}"/>
+                                           FontSize="11" Foreground="{DynamicResource Accent2Brush}"/>
                             </StackPanel>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="False">
