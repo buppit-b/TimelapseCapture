@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:FrameWrite.Wpf.ViewModels"
         xmlns:local="clr-namespace:FrameWrite.Wpf"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="FrameWrite — UI Preview" Width="1040" Height="920" MinHeight="320" MinWidth="560"
+        Title="FrameWrite" Width="1040" Height="920" MinHeight="320" MinWidth="560"
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterScreen" WindowStyle="None"
         AllowDrop="True" Drop="OnWindowDrop"

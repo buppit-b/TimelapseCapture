@@ -31,12 +31,10 @@ namespace FrameWrite.Wpf
             // Single instance: two copies would race on settings.json (each holds an in-memory snapshot
             // and rewrites the whole file on any change — last writer silently reverts the other's
             // choices, e.g. a newly picked output folder) and could double-capture into one session.
-            // SCAFFOLDING (ui-elegance fork, do not merge): distinct mutex + title so this preview can run
-            // ALONGSIDE the shipped 1.0 build for side-by-side comparison. Revert to "FrameWrite.Wpf..." / "FrameWrite" at merge.
-            _instanceMutex = new Mutex(initiallyOwned: true, @"Local\FrameWrite.UiPreview.SingleInstance", out bool isFirst);
+            _instanceMutex = new Mutex(initiallyOwned: true, @"Local\FrameWrite.Wpf.SingleInstance", out bool isFirst);
             if (!isFirst)
             {
-                IntPtr existing = FindWindow(null, "FrameWrite — UI Preview");
+                IntPtr existing = FindWindow(null, "FrameWrite");
                 if (existing != IntPtr.Zero)
                 {
                     ShowWindow(existing, SW_RESTORE);
