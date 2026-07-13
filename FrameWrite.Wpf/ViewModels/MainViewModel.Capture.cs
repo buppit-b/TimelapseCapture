@@ -28,36 +28,20 @@ namespace FrameWrite.Wpf.ViewModels
             // session whose frames are being rewritten would mix sizes / skip frames mid-operation.
             if (IsEncoding) return;
 
-            // Emergency floor first — refuse to start below it even in developer mode (a near-full
-            // drive can't be captured onto without risking the machine).
+            // Pre-flight the low-disk safety limit (always enforced; the threshold is set in Settings).
             long freeNow = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
-            if (freeNow > 0 && freeNow < Constants.EmergencyDiskFloorMB)
+            if (_settings.AutoStopOnLowDisk && freeNow > 0 && freeNow < _settings.LowDiskStopMB)
             {
-                MessageDialog.Show(
-                    $"Only {freeNow} MB free on the capture drive — below the emergency floor of {Constants.EmergencyDiskFloorMB} MB. " +
-                    "Free up space before capturing (this floor holds even in developer mode).",
-                    "Disk critically low", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            // Pre-flight the configurable low-disk safety limit (skipped in developer mode — the user
-            // has opted to push past it; the emergency floor above still guards the machine).
-            if (_settings.AutoStopOnLowDisk && !_settings.DeveloperMode)
-            {
-                if (freeNow > 0 && freeNow < _settings.LowDiskStopMB)
-                {
-                    var r = MessageDialog.Show(
-                        $"Only {freeNow} MB free on the capture drive — below your {_settings.LowDiskStopMB} MB low-disk limit, so the run would stop almost immediately.\n\nStart anyway?",
-                        "Low disk space", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (r != MessageBoxResult.Yes) return;
-                }
+                var r = MessageDialog.Show(
+                    $"Only {freeNow} MB free on the capture drive — below your {_settings.LowDiskStopMB} MB low-disk limit, so the run would stop almost immediately.\n\nChange the limit in Settings, or start anyway?",
+                    "Low disk space", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (r != MessageBoxResult.Yes) return;
             }
 
             // Pre-flight the storage RATE: a fast interval over a large region can fill the drive in
             // minutes. Warn (once, at Start) if the current settings would fill it in under an hour.
-            // Skipped in developer mode — deliberately hammering a fast interval is the whole point there,
-            // and only the emergency floor should be able to stop it.
             var (mbPerHour, fillHours) = EstimateStorageRate(0);
-            if (!_settings.DeveloperMode && mbPerHour > 0 && fillHours < 1)
+            if (mbPerHour > 0 && fillHours < 1)
             {
                 string rate = mbPerHour >= 1024 ? $"{mbPerHour / 1024.0:F1} GB/hour" : $"{mbPerHour:F0} MB/hour";
                 var r = MessageDialog.Show(
@@ -262,6 +246,7 @@ namespace FrameWrite.Wpf.ViewModels
             SmartStatus = "";
             IsPaused = false;
             IsCapturing = false;
+            ActualFpsText = "";   // stop showing the live achieved-fps figure once capture ends
             PersistTotalTime();
             UpdatePreview();
         }

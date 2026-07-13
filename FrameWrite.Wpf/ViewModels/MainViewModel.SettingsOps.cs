@@ -271,7 +271,7 @@ namespace FrameWrite.Wpf.ViewModels
             s.JpegQuality = Math.Clamp(s.JpegQuality, 1, 100);
             s.OverlayPosition = Math.Clamp(s.OverlayPosition, 0, 3);
             s.TrackResizeMode = Math.Clamp(s.TrackResizeMode, 0, 2);
-            s.LowDiskStopMB = Math.Max(1, s.LowDiskStopMB);
+            s.LowDiskStopMB = Math.Max(Constants.EmergencyDiskFloorMB, s.LowDiskStopMB);
             s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);

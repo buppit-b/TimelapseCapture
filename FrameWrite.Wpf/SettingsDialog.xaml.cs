@@ -38,12 +38,6 @@ namespace FrameWrite.Wpf
             hkRegion.Text = vm.GetHotkeyDisplay(MainViewModel.HotkeyRegionSelect);
         }
 
-        // Hidden gesture: click the version line 5× to unlock developer mode (VM handles the count + confirm).
-        private void OnVersionClick(object sender, MouseButtonEventArgs e)
-        {
-            (DataContext as MainViewModel)?.RegisterVersionClickForDevUnlock();
-        }
-
         // Clear every persisted "don't ask me again" choice; the button reports the outcome inline.
         private void OnResetPrompts(object sender, RoutedEventArgs e)
         {

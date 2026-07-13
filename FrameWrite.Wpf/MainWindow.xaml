@@ -22,7 +22,6 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="44"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -125,20 +124,8 @@
             </StackPanel>
         </Grid>
 
-        <!-- Developer-mode strip: always visible while dev mode is on, so relaxed safety is never forgotten. -->
-        <Border Grid.Row="1" Background="#33E5534B" BorderBrush="{DynamicResource DangerBrush}"
-                BorderThickness="0,1,0,1" Padding="18,4"
-                Visibility="{Binding DeveloperMode, Converter={StaticResource BoolToVis}}">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="&#9888;" Foreground="{DynamicResource DangerBrush}" FontSize="12" VerticalAlignment="Center"/>
-                <TextBlock Text="DEVELOPER MODE — interval floor 0.01s, low-disk auto-stop disabled. 256 MB emergency floor still enforced."
-                           Foreground="{DynamicResource DangerBrush}" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
-                           VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
-        </Border>
-
         <!-- Content (scrolls when the window is shrunk below its natural size) -->
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <!-- ROOT CAUSE of "text never wraps": a ScrollViewer with horizontal scrolling measures its
              child at INFINITE width, so star columns and TextWrapping silently never engage. Binding
              this host's Width to the viewport bounds the layout (wrapping works, no h-scroll) while
@@ -296,6 +283,16 @@
                             </StackPanel>
                             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                        FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            <!-- Video-rate caution: below 0.1s the capture crosses into screen-recorder territory.
+                                 Amber, subtle — allowed, just flagged (like the storage-rate warning). Shows the
+                                 measured fps while running so requested-vs-actual is visible. -->
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
+                                        Visibility="{Binding IsVideoRate, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="&#9650; Video-rate — higher CPU and disk use." Foreground="#E3B341"
+                                           FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ActualFpsText}" Foreground="#E3B341" FontFamily="Consolas"
+                                           FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}"
                                     Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">

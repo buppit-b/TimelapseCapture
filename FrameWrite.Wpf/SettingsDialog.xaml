@@ -13,23 +13,9 @@
         <TextBlock DockPanel.Dock="Top" Text="SETTINGS" Style="{StaticResource CardTitle}"/>
 
         <StackPanel DockPanel.Dock="Bottom">
-            <!-- Click the version 5× to unlock developer mode (a hidden power-user gesture). -->
-            <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"
-                       Cursor="Hand" MouseLeftButtonUp="OnVersionClick"/>
+            <TextBlock x:Name="versionText" Style="{StaticResource Muted}" FontSize="11" Margin="0,16,0,0"/>
             <TextBlock x:Name="creditsText" Style="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
                        ToolTip="FrameWrite is MIT-licensed (LICENSE in the repository). FFmpeg is a separate program — the one-click download fetches BtbN's GPL build, which keeps its own licence."/>
-            <!-- Developer mode: revealed once unlocked; the toggle lets the user turn it back off. -->
-            <Border Margin="0,10,0,0" Padding="10,7" CornerRadius="6" Background="#22E5534B"
-                    BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
-                    Visibility="{Binding DevModeUnlocked, Converter={StaticResource BoolToVis}}">
-                <StackPanel>
-                    <CheckBox Content="Developer mode" IsChecked="{Binding DeveloperMode}"
-                              Foreground="{DynamicResource DangerBrush}" FontWeight="SemiBold"
-                              ToolTip="Lowers the interval floor to 0.01s and disables the low-disk auto-stop. 256 MB emergency floor remains. Untick to restore defaults."/>
-                    <TextBlock Text="Interval floor 0.01s · low-disk auto-stop disabled · 256 MB emergency floor still enforced. High disk usage."
-                               Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="24,3,0,0"/>
-                </StackPanel>
-            </Border>
             <!-- Two columns + a WrapPanel so the utility buttons can never overlap Close (they wrap instead). -->
             <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>

@@ -25,52 +25,12 @@ namespace FrameWrite.Wpf.ViewModels
             set { if (_settings.Theme != value) { _settings.Theme = value; SettingsManager.Save(_settings); ThemeManager.Apply(value); OnPropertyChanged(); } }
         }
 
-        // ---- Developer mode: hidden power-user unlock (bypasses the SAFE interval floor + the
-        // configurable low-disk auto-stop). The emergency disk floor still applies — see Capture. ----
-        public bool DeveloperMode
-        {
-            get => _settings.DeveloperMode;
-            set
-            {
-                if (_settings.DeveloperMode == value) return;
-                _settings.DeveloperMode = value;
-                SettingsManager.Save(_settings);
-                Logger.Log("Wpf", $"Developer mode {(value ? "ENABLED — safety limits relaxed" : "disabled")}.");
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(DevModeUnlocked));
-                OnPropertyChanged(nameof(IntervalTooltip));
-                OnPropertyChanged(nameof(FpsTooltip));
-                // Re-clamp the interval to the now-active floor (leaving dev mode with a 0.05s interval
-                // set must snap it back up to 0.1s).
-                if (!value && IntervalSeconds < 0.1m) IntervalSeconds = 0.1m;
-                OnPropertyChanged(nameof(IntervalSeconds));
-            }
-        }
-        /// <summary>Once unlocked, Settings reveals the toggle (so the user can turn it back off).</summary>
-        public bool DevModeUnlocked => _settings.DeveloperMode;
-
-        /// <summary>The lowest interval the user may set: 0.1s normally, 0.01s (100 fps) in developer mode.</summary>
-        public decimal MinIntervalSeconds => _settings.DeveloperMode ? 0.01m : 0.1m;
-
-        // Gesture: clicking the Settings version label 5× unlocks dev mode (with a scary confirm).
-        private int _versionClicks;
-        /// <summary>Returns true once the gesture crosses the threshold and the user confirms.</summary>
-        public bool RegisterVersionClickForDevUnlock()
-        {
-            if (_settings.DeveloperMode) return false;   // already on
-            if (++_versionClicks < 5) return false;
-            _versionClicks = 0;
-            var r = MessageDialog.Show(
-                "Unlock developer mode?\n\n" +
-                "• Interval floor lowered to 0.01s (from 0.1s)\n" +
-                "• Low-disk auto-stop disabled\n" +
-                "• 256 MB emergency disk floor still enforced\n\n" +
-                "High disk usage; frames may drop at fast intervals.",
-                "Developer mode", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (r != MessageBoxResult.Yes) return false;
-            DeveloperMode = true;
-            return true;
-        }
+        /// <summary>
+        /// The lowest interval the user may set: 0.01s (100 fps). Below 0.1s is video-recording
+        /// territory (see <see cref="IsVideoRate"/>) — allowed, but resource-intensive and flagged.
+        /// 0.01s is also the engine's real floor (10 ms timer), so it's the last honest number.
+        /// </summary>
+        public const decimal MinIntervalSeconds = 0.01m;
 
         public event Action? WindowAffinityChanged;
         public bool HideFromCapture
@@ -165,8 +125,9 @@ namespace FrameWrite.Wpf.ViewModels
         }
         public int LowDiskStopMB
         {
+            // Never below the emergency floor: disk safety can be tuned down but never to nothing.
             get => _settings.LowDiskStopMB;
-            set { var v = Math.Max(1, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Max(Constants.EmergencyDiskFloorMB, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
         // Opt-in: stop after a maximum accumulated capture duration (a hard wall-clock cap for unattended runs).

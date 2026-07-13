@@ -38,6 +38,11 @@ namespace FrameWrite.Wpf.ViewModels
         private string _cadenceText = "";
         public string CadenceText { get => _cadenceText; set => SetProperty(ref _cadenceText, value); }
 
+        // Live achieved frame rate (measured, not requested) — surfaced at video rate so the user can see
+        // whether a fast interval is actually being met. Empty unless capturing faster than 1 fps.
+        private string _actualFpsText = "";
+        public string ActualFpsText { get => _actualFpsText; set => SetProperty(ref _actualFpsText, value); }
+
         /// <summary>Prime the cadence datum without clearing the trace — called at each capture start so a
         /// stop→wait→start gap isn't billed as one giant instantaneous rate.</summary>
         private void PrimeCadence()
@@ -54,6 +59,7 @@ namespace FrameWrite.Wpf.ViewModels
             _lastCadenceFrame = _frameCount;
             _lastCadenceStamp = DateTime.Now;
             CadenceText = "";
+            ActualFpsText = "";
             OnPropertyChanged(nameof(CadenceSamples));
             OnPropertyChanged(nameof(HasCadence));
         }
@@ -73,6 +79,9 @@ namespace FrameWrite.Wpf.ViewModels
             if (_cadence.Count > CadenceCapacity) _cadence.RemoveAt(0);
 
             CadenceText = $"≈ {_cadenceEma:0} frames/min";
+            // At video rate, report the achieved fps so requested-vs-actual is visible (answers "is it
+            // keeping up?"). _cadenceEma is frames/min, so ÷60 = fps.
+            ActualFpsText = IntervalSeconds < 1m ? $"actual ≈ {_cadenceEma / 60.0:0.#} fps" : "";
             OnPropertyChanged(nameof(CadenceSamples));
             OnPropertyChanged(nameof(HasCadence));
         }
@@ -449,23 +458,14 @@ namespace FrameWrite.Wpf.ViewModels
                     // Unattended safety: stop before the drive fills (writes would start failing, and a full
                     // disk can disrupt other apps). freeMb == 0 is treated as a probe error and ignored — the
                     // threshold stop fires well before a genuine zero.
-                    if (IsCapturing && _sessionFolder != null)
+                    if (IsCapturing && _settings.AutoStopOnLowDisk && _sessionFolder != null)
                     {
                         long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
-                        // Emergency floor — ALWAYS enforced, even in developer mode (the anti-brick line).
-                        if (freeMb > 0 && freeMb < Constants.EmergencyDiskFloorMB)
-                        {
-                            Logger.Log("Wpf", $"Auto-stop: EMERGENCY disk floor ({freeMb} MB free < {Constants.EmergencyDiskFloorMB} MB).");
-                            StopCapture();
-                            CaptureError = $"Capture stopped — disk critically low ({freeMb} MB free). This hard floor holds even in developer mode. Free up space, then start again.";
-                            NotifyFinished();
-                        }
-                        // Configurable low-disk stop — skipped in developer mode (user opted to push past it).
-                        else if (_settings.AutoStopOnLowDisk && !_settings.DeveloperMode && freeMb > 0 && freeMb < _settings.LowDiskStopMB)
+                        if (freeMb > 0 && freeMb < _settings.LowDiskStopMB)
                         {
                             Logger.Log("Wpf", $"Auto-stop: low disk ({freeMb} MB free < {_settings.LowDiskStopMB} MB limit).");
                             StopCapture();
-                            CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space, then start again.";
+                            CaptureError = $"Capture stopped — low disk space ({freeMb} MB free, limit {_settings.LowDiskStopMB} MB). Free up space or change the limit in Settings, then start again.";
                             NotifyFinished();
                         }
                     }

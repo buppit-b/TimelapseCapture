@@ -149,9 +149,9 @@ namespace FrameWrite
                 _captureCursor = captureCursor;
                 _overlay = overlay;
 
-                // 10ms absolute floor (avoids a pathological 0/1ms busy-timer). The USER-facing floor
-                // is the VM's: 0.1s normally, 0.01s in developer mode. Sub-100ms just means overlapping
-                // ticks get dropped (the engine already handles that) — "push to detriment", not a crash.
+                // 10ms absolute floor (avoids a pathological 0/1ms busy-timer) — this is also the real
+                // ceiling: ~100 Hz scheduling, and actual throughput is lower still (capture+encode+write
+                // per frame, overlapping ticks dropped). The USER-facing floor is the VM's 0.01s.
                 _baseIntervalMs = Math.Max(10, (int)(intervalSeconds * 1000));
                 _smartEnabled = smartEnabled;
                 _idleIntervalMs = Math.Max(10, (int)(idleIntervalSeconds * 1000));

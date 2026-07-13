@@ -48,9 +48,11 @@ namespace FrameWrite
         public bool StopAtTarget { get; set; }               // auto-stop capture when the frame count reaches the target
         public int TrackResizeMode { get; set; }             // tracked-window resize: 0 lock size, 1 scale-to-fit, 2 stretch
         public bool AutoStopOnLowDisk { get; set; } = true;  // unattended safety: stop before the drive fills
-        public int LowDiskStopMB { get; set; } = 2000;       // free-space floor (MB) for low-disk auto-stop —
-                                                             // 2 GB, not 500 MB: a near-full drive (esp. the
-                                                             // system drive) misbehaves well before empty
+        public int LowDiskStopMB { get; set; } = 8192;       // free-space floor (MB) for low-disk auto-stop —
+                                                             // 8 GB default: a near-full drive (esp. the system
+                                                             // drive) misbehaves well before empty. Clamped to a
+                                                             // minimum of Constants.EmergencyDiskFloorMB so disk
+                                                             // safety can never be configured down to nothing.
         public bool MaxDurationEnabled { get; set; }         // opt-in: stop after a maximum capture duration
         public int MaxDurationMinutes { get; set; } = 480;   // the cap (minutes of accumulated capture time)
         public bool StopAtStorageEnabled { get; set; }       // opt-in: stop once the session's frames reach a size
@@ -94,11 +96,6 @@ namespace FrameWrite
         // the fps is computed from however many frames are being encoded (works for trims too).
         public bool EncodeDurationMode { get; set; }
         public double EncodeDurationSeconds { get; set; } = 30;
-        // Developer mode (hidden — unlocked by clicking the Settings version 5×): lets a power user
-        // push past the safe interval floor and skips the configurable low-disk auto-stop. The
-        // absolute EMERGENCY disk floor (Constants.EmergencyDiskFloorMB) still applies — dev mode
-        // pushes the CAPTURE to its limits, but never lets the drive fill to a machine-killing zero.
-        public bool DeveloperMode { get; set; }
     }
 
 
