@@ -114,6 +114,27 @@
                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
                                            Converter={StaticResource MinWidthToVis}, ConverterParameter=660}"
                               ToolTip="Keep the FrameWrite window above all other windows."/>
+                <!-- Below 660px the two toggles above collapse into this overflow menu instead of vanishing,
+                     so they stay reachable while the window controls are protected. -->
+                <ToggleButton x:Name="overflowBtn" Style="{StaticResource HeaderToggle}" Content="&#xE712;"
+                              FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" Margin="0,0,14,0"
+                              Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window},
+                                           Converter={StaticResource MaxWidthToVis}, ConverterParameter=660}"
+                              ToolTip="More: Simple mode, Stay on top"/>
+                <Popup IsOpen="{Binding IsChecked, ElementName=overflowBtn}" PlacementTarget="{Binding ElementName=overflowBtn}"
+                       Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,4,0,0">
+                        <StackPanel MinWidth="120">
+                            <ToggleButton Style="{StaticResource HeaderToggle}" Content="Simple" IsChecked="{Binding SimpleMode}"
+                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4"
+                                          ToolTip="Simple mode: a speed slider and just the essentials. Turn off for full control."/>
+                            <ToggleButton Style="{StaticResource HeaderToggle}" Content="Stay on top" IsChecked="{Binding AlwaysOnTop}"
+                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                          ToolTip="Keep the FrameWrite window above all other windows."/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
                 <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
                         Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"

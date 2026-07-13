@@ -11,6 +11,7 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <local:StringEqualsConverter x:Key="StrEq"/>
             <local:MinWidthToVisibilityConverter x:Key="MinWidthToVis"/>
+            <local:MaxWidthToVisibilityConverter x:Key="MaxWidthToVis"/>
 
             <!-- Brief accent flash for a value that just recalculated (target/fps change). -->
             <!-- FillBehavior=Stop: rapid re-triggers (wheel-scrolling a target box pulses per notch)

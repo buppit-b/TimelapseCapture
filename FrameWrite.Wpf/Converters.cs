@@ -39,4 +39,18 @@ namespace FrameWrite.Wpf
 
         public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
     }
+
+    // Inverse of MinWidthToVisibility: visible only BELOW the threshold. Drives the header overflow
+    // button that holds the toggles when the window is too narrow to show them inline.
+    public sealed class MaxWidthToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            double width = value is double d ? d : 0;
+            double threshold = double.TryParse(parameter?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var t) ? t : 0;
+            return width < threshold ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+    }
 }
