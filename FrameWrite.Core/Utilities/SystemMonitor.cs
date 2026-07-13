@@ -85,14 +85,35 @@ namespace FrameWrite
         /// Returns estimate in MB.
         /// </summary>
         public static double EstimateSessionStorageMB(
-            int width, 
-            int height, 
-            string format, 
-            int jpegQuality, 
+            int width,
+            int height,
+            string format,
+            int jpegQuality,
             int frameCount)
         {
             double frameSizeKB = EstimateFrameSizeKB(width, height, format, jpegQuality);
             return (frameSizeKB * frameCount) / 1024.0;
+        }
+
+        /// <summary>
+        /// Storage-consumption RATE in MB/hour for a given frame size and interval. Pure math (units:
+        /// KB/frame × frames/hour ÷ 1024 → MB/hour). 0 for a non-positive frame size or interval.
+        /// Powers the live rate readout and the "fills the drive in ~X" pre-flight warning.
+        /// </summary>
+        public static double StorageMbPerHour(double frameKb, double intervalSeconds)
+        {
+            if (frameKb <= 0 || intervalSeconds <= 0) return 0;
+            return frameKb * (3600.0 / intervalSeconds) / 1024.0;
+        }
+
+        /// <summary>
+        /// Hours to fill a drive with <paramref name="freeMb"/> free at <paramref name="mbPerHour"/>.
+        /// PositiveInfinity when either input is non-positive (nothing to fill / no consumption).
+        /// </summary>
+        public static double HoursToFillDrive(double freeMb, double mbPerHour)
+        {
+            if (freeMb <= 0 || mbPerHour <= 0) return double.PositiveInfinity;
+            return freeMb / mbPerHour;
         }
 
         /// <summary>

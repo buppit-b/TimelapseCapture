@@ -92,5 +92,46 @@ namespace FrameWrite.Tests
             text.Should().Contain($"{10 * 100 / 1024.0:F1} MB (10 frames)");
             text.Should().Contain($"+{90 * 100 / 1024.0:F1} MB (90 more frames)");
         }
+
+        // Storage-consumption rate feeding the "fills the drive in ~X" pre-flight warning — units matter.
+        [Fact]
+        public void StorageMbPerHour_ComputesRate()
+        {
+            // 100 KB/frame, 1s interval = 3600 frames/hour = 360000 KB/hour ÷ 1024 ≈ 351.6 MB/hour.
+            SystemMonitor.StorageMbPerHour(100, 1.0).Should().BeApproximately(100 * 3600.0 / 1024.0, 0.001);
+        }
+
+        [Fact]
+        public void StorageMbPerHour_ScalesWithFasterInterval()
+        {
+            // Ten times the rate at a tenth of the interval (video-rate territory).
+            var slow = SystemMonitor.StorageMbPerHour(100, 1.0);
+            var fast = SystemMonitor.StorageMbPerHour(100, 0.1);
+            fast.Should().BeApproximately(slow * 10, 0.01);
+        }
+
+        [Theory]
+        [InlineData(0, 1.0)]    // no frame size
+        [InlineData(100, 0)]    // non-positive interval
+        [InlineData(100, -2)]
+        public void StorageMbPerHour_DegenerateInputs_ReturnZero(double frameKb, double interval)
+        {
+            SystemMonitor.StorageMbPerHour(frameKb, interval).Should().Be(0);
+        }
+
+        [Fact]
+        public void HoursToFillDrive_DividesFreeByRate()
+        {
+            // 10000 MB free at 1000 MB/hour = 10 hours.
+            SystemMonitor.HoursToFillDrive(10000, 1000).Should().BeApproximately(10, 0.0001);
+        }
+
+        [Theory]
+        [InlineData(0, 1000)]     // no free space (unknown) → never "fills"
+        [InlineData(10000, 0)]    // no consumption → never fills
+        public void HoursToFillDrive_DegenerateInputs_ReturnInfinity(double freeMb, double mbPerHour)
+        {
+            double.IsPositiveInfinity(SystemMonitor.HoursToFillDrive(freeMb, mbPerHour)).Should().BeTrue();
+        }
     }
 }

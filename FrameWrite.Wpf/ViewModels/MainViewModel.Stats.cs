@@ -173,10 +173,10 @@ namespace FrameWrite.Wpf.ViewModels
             double frameKb = avgFrameKb > 0 ? avgFrameKb
                 : (w > 0 && h > 0 ? SystemMonitor.EstimateFrameSizeKB(w, h, _settings.Format ?? "JPEG", _settings.JpegQuality) : 0);
             double interval = (double)IntervalSeconds;
-            if (frameKb <= 0 || interval <= 0) return (0, double.PositiveInfinity);
-            double mbPerHour = frameKb * (3600.0 / interval) / 1024.0;
+            double mbPerHour = SystemMonitor.StorageMbPerHour(frameKb, interval);
+            if (mbPerHour <= 0) return (0, double.PositiveInfinity);
             long freeMb = _sessionFolder != null ? SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder) : 0;
-            double fillHours = (freeMb > 0 && mbPerHour > 0) ? freeMb / mbPerHour : double.PositiveInfinity;
+            double fillHours = SystemMonitor.HoursToFillDrive(freeMb, mbPerHour);
             return (mbPerHour, fillHours);
         }
 
