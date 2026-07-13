@@ -193,4 +193,48 @@ namespace FrameWrite.Tests
             IntervalMath.Normalize(0.05m, 0.01m).Should().Be(0.05m);
         }
     }
+
+    /// <summary>
+    /// Human-readable duration formatting (HumanFormat). Locks in both the fuzzy planning form and
+    /// the precise timer form — the difference is the "record for 1h 30s → 1h" bug the precise form fixes.
+    /// </summary>
+    public class HumanFormatTests
+    {
+        [Theory]
+        [InlineData(30, "30s")]
+        [InlineData(60, "1m")]
+        [InlineData(90, "1m 30s")]
+        [InlineData(3600, "1h")]
+        [InlineData(5400, "1h 30m")]
+        [InlineData(0, "0s")]
+        public void Duration_CompactPlanningForm(double seconds, string expected)
+        {
+            HumanFormat.Duration(seconds).Should().Be(expected);
+        }
+
+        [Fact]
+        public void Duration_DropsStraySeconds_InHoursBranch_ByDesign()
+        {
+            // Fuzzy: 1h 0m 30s reads as "1h" for planning readouts (the precise form differs — below).
+            HumanFormat.Duration(3630).Should().Be("1h");
+        }
+
+        [Theory]
+        [InlineData(30, "30s")]
+        [InlineData(90, "1m 30s")]
+        [InlineData(3600, "1h")]
+        [InlineData(3630, "1h 30s")]   // the bug fix: never collapse "1h 30s" to "1h"
+        [InlineData(3661, "1h 1m 1s")]
+        [InlineData(0, "0s")]
+        public void DurationPrecise_NeverDropsANonzeroPart(double seconds, string expected)
+        {
+            HumanFormat.DurationPrecise(seconds).Should().Be(expected);
+        }
+
+        [Fact]
+        public void DurationPrecise_ClampsNegativeToZero()
+        {
+            HumanFormat.DurationPrecise(-42).Should().Be("0s");
+        }
+    }
 }

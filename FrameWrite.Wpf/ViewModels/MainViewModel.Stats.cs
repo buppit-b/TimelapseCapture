@@ -191,28 +191,11 @@ namespace FrameWrite.Wpf.ViewModels
                 : $"≈ {rate}";
         }
 
-        // Compact human duration for planning ("2h 30m", "45m", "30s") — clearer than hh:mm:ss here.
-        private static string HumanDuration(double seconds)
-        {
-            var t = TimeSpan.FromSeconds(Math.Round(seconds));
-            if (t.TotalHours >= 1) return t.Minutes == 0 ? $"{(int)t.TotalHours}h" : $"{(int)t.TotalHours}h {t.Minutes}m";
-            if (t.TotalMinutes >= 1) return t.Seconds == 0 ? $"{t.Minutes}m" : $"{t.Minutes}m {t.Seconds}s";
-            return $"{t.Seconds}s";
-        }
-
-        // The recording timer echoes an EXACT h/m/s the user set, so it must never drop a nonzero
-        // seconds component the way HumanDuration does in its hours branch (fine for fuzzy planning
-        // readouts, wrong for a precise timer — the "record for 1h 30s" showed as "1h" bug).
-        private static string HumanDurationPrecise(double seconds)
-        {
-            int total = (int)Math.Round(Math.Max(0, seconds));
-            int h = total / 3600, m = total % 3600 / 60, s = total % 60;
-            var parts = new List<string>();
-            if (h > 0) parts.Add($"{h}h");
-            if (m > 0) parts.Add($"{m}m");
-            if (s > 0 || parts.Count == 0) parts.Add($"{s}s");
-            return string.Join(" ", parts);
-        }
+        // Thin delegators to the tested Core helpers (FrameWrite.HumanFormat) — the logic lives there
+        // so it's unit-covered (incl. the "1h 30s" precise-vs-fuzzy distinction). Kept as local names
+        // so the many call sites read cleanly.
+        private static string HumanDuration(double seconds) => HumanFormat.Duration(seconds);
+        private static string HumanDurationPrecise(double seconds) => HumanFormat.DurationPrecise(seconds);
 
         // Bumped when the user changes an input (target / fps) that recalculates the stats — the
         // affected on-screen values flash briefly so you can see what got recomputed.

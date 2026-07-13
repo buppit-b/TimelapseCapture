@@ -26,14 +26,14 @@ removed 2026-07-12 at Spike's request — don't reinstate it.)*
 - **`FrameWrite.Wpf`** — the app. WPF + MVVM, clean dark theme, terminal/green accent.
 - **`FrameWrite.Core`** — UI-framework-agnostic shared library: capture engine, sessions,
   settings, ffmpeg, system stats.
-- **`FrameWrite.Tests`** — 117 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+- **`FrameWrite.Tests`** — 131 tests, cover `SessionManager` (incl. `CullAndRenumber`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
   dead handle), the window-tracking scale-rect math (`CaptureEngine.ComputeScaledDest`), the
-  output-name sanitiser (`VideoEncoder.SanitizeFileName`), and the interval⇄fps round-trip +
-  normalization (`IntervalMath`). Core exposes internals to the test
-  project via `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
+  output-name sanitiser (`VideoEncoder.SanitizeFileName`), the interval⇄fps round-trip +
+  normalization (`IntervalMath`), and duration formatting (`HumanFormat`). Core exposes internals
+  to the test project via `InternalsVisibleTo` — extract pure logic to `internal static` and cover it.
 
 - Repo: https://github.com/buppit-b/TimelapseCapture (default branch `main`)
 - **Build:** `dotnet build FrameWrite.sln`
@@ -67,7 +67,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 117/117.
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 131/131.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -305,7 +305,7 @@ custom chrome all landed).
   the 1.0 RC**, with a large RC-refinement arc on `main` (see CHANGELOG). Soak #1 substantively
   PASSED (2026-07-12, 5.5h, encodes clean — see ROADMAP 1.0 gate). MIT LICENSE + README are in.
   Spike tests each build live and gives UX feedback.
-- The working loop: build green (0 warnings) + `dotnet test` 117/117 → commit per feature → push →
+- The working loop: build green (0 warnings) + `dotnet test` 131/131 → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
 - **1.0 posture (Spike, 2026-07-10): no deadline.** The app is professional-grade but mainly for
