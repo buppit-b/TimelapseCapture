@@ -226,12 +226,8 @@ namespace FrameWrite
                     string status = isActive ? "Active" : (_skipIdleFrames ? "Idle — skipping frames" : "Idle — slowed");
                     if (status != _lastSmartStatus) { _lastSmartStatus = status; smartStatus = status; }
 
-                    if (isActive)
-                        capture = true;                                  // working rate == poll rate → every tick
-                    else if (_skipIdleFrames)
-                        capture = false;                                 // skip frames while idle
-                    else                                                 // slowed: capture only once the idle rate elapses
-                        capture = (Environment.TickCount64 - _lastCaptureTicks) >= Math.Max(_baseIntervalMs, _idleIntervalMs);
+                    capture = ShouldCaptureWhileSmart(isActive, _skipIdleFrames,
+                        Environment.TickCount64 - _lastCaptureTicks, _baseIntervalMs, _idleIntervalMs);
                 }
 
                 if (capture)
@@ -446,6 +442,20 @@ namespace FrameWrite
                 return dest;
             }
             catch { dest.Dispose(); throw; }   // don't leak the frame bitmap if scaling throws
+        }
+
+        /// <summary>
+        /// Whether a smart-interval tick should capture. The timer always polls at the WORKING rate, so:
+        /// active → capture every tick; idle + skip → never; idle + slowed → only once the idle rate has
+        /// elapsed since the last capture (idle rate is clamped to never be faster than the working rate,
+        /// hence the max). Pure — unit-tested to lock the semantics that were once inverted.
+        /// </summary>
+        internal static bool ShouldCaptureWhileSmart(bool isActive, bool skipIdleFrames,
+            long msSinceLastCapture, int baseIntervalMs, int idleIntervalMs)
+        {
+            if (isActive) return true;
+            if (skipIdleFrames) return false;
+            return msSinceLastCapture >= Math.Max(baseIntervalMs, idleIntervalMs);
         }
 
         /// <summary>

@@ -44,6 +44,49 @@ namespace FrameWrite.Tests
         }
     }
 
+    /// <summary>
+    /// Smart-interval capture decision (CaptureEngine.ShouldCaptureWhileSmart). Locks the semantics
+    /// that were once inverted: the main interval is the ACTIVE rate; idle SLOWS (or skips).
+    /// </summary>
+    public class SmartCaptureDecisionTests
+    {
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Active_AlwaysCaptures_RegardlessOfSkip(bool skip)
+        {
+            // Active → working rate == poll rate → capture every tick.
+            CaptureEngine.ShouldCaptureWhileSmart(isActive: true, skipIdleFrames: skip,
+                msSinceLastCapture: 0, baseIntervalMs: 1000, idleIntervalMs: 5000).Should().BeTrue();
+        }
+
+        [Fact]
+        public void IdleAndSkip_NeverCaptures()
+        {
+            CaptureEngine.ShouldCaptureWhileSmart(false, skipIdleFrames: true,
+                msSinceLastCapture: 999999, baseIntervalMs: 1000, idleIntervalMs: 5000).Should().BeFalse();
+        }
+
+        [Fact]
+        public void IdleAndSlowed_CapturesOnlyOnceIdleRateElapses()
+        {
+            // Idle rate 5s: 4s in → wait; 5s in → capture.
+            CaptureEngine.ShouldCaptureWhileSmart(false, false, 4000, 1000, 5000).Should().BeFalse();
+            CaptureEngine.ShouldCaptureWhileSmart(false, false, 5000, 1000, 5000).Should().BeTrue();
+        }
+
+        [Fact]
+        public void IdleSlowed_UsesTheSlowerOfWorkingAndIdle_SoIdleNeverCapturesFasterThanWorking()
+        {
+            // Even if idle rate were set faster than working (500 < 1000), the working rate floors it —
+            // this is the guard against the old bug where a fast main interval captured MORE while idle.
+            CaptureEngine.ShouldCaptureWhileSmart(false, false, 700, baseIntervalMs: 1000, idleIntervalMs: 500)
+                .Should().BeFalse();
+            CaptureEngine.ShouldCaptureWhileSmart(false, false, 1000, baseIntervalMs: 1000, idleIntervalMs: 500)
+                .Should().BeTrue();
+        }
+    }
+
     // Output-filename sanitiser that feeds the (quoted) ffmpeg command (VideoEncoder.SanitizeFileName).
     public class SanitizeFileNameTests
     {
