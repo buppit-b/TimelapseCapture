@@ -26,7 +26,7 @@ removed 2026-07-12 at Spike's request — don't reinstate it.)*
 - **`FrameWrite.Wpf`** — the app. WPF + MVVM, clean dark theme, terminal/green accent.
 - **`FrameWrite.Core`** — UI-framework-agnostic shared library: capture engine, sessions,
   settings, ffmpeg, system stats.
-- **`FrameWrite.Tests`** — 146 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+- **`FrameWrite.Tests`** — 153 tests, cover `SessionManager` (incl. `CullAndRenumber`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
@@ -67,7 +67,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 146/146.
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 153/153.
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -155,8 +155,12 @@ Toward a stable daily-driver for long, often-unattended capture:
 ### 4. Sessions
 
 - Session files are user data. **Never delete automatically.**
-- `FramesCaptured > 0 && CaptureRegion == null` is a known recoverable corruption
-  state — use `ValidateAndRepairSession()`, don't hand-roll a fix.
+- `FramesCaptured > 0 && CaptureRegion == null` (or a saved region that no longer fits) is a known
+  recoverable state. Recovery lives in `MainViewModel.LoadSession` (Session.cs): restore the region,
+  force even dims (H.264), relocate it if off-screen, and if it's unusable while frames exist, prompt
+  "select any area; it'll be scaled to match this session's frames" (don't hand-roll a different fix).
+  `SessionManager.ValidateSessionSettings` is the separate uniformity guard (region/format/quality
+  can't change once frames exist) — covered by `ValidateSessionSettingsTests`.
 - At most one session has `Active = true`.
 
 ### 5. Encoding correctness (`FrameWrite.Core/Video/VideoEncoder.cs`)
@@ -305,7 +309,7 @@ custom chrome all landed).
   the 1.0 RC**, with a large RC-refinement arc on `main` (see CHANGELOG). Soak #1 substantively
   PASSED (2026-07-12, 5.5h, encodes clean — see ROADMAP 1.0 gate). MIT LICENSE + README are in.
   Spike tests each build live and gives UX feedback.
-- The working loop: build green (0 warnings) + `dotnet test` 146/146 → commit per feature → push →
+- The working loop: build green (0 warnings) + `dotnet test` 153/153 → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
 - **1.0 posture (Spike, 2026-07-10): no deadline.** The app is professional-grade but mainly for

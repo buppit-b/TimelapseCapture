@@ -305,4 +305,54 @@ namespace FrameWrite.Tests
         public void EmptyMonitorNeverCovers() =>
             WindowEnumerator.CoversArea(new Rectangle(0, 0, 100, 100), Rectangle.Empty, 0.98).Should().BeFalse();
     }
+
+    /// <summary>
+    /// SessionManager.ValidateSessionSettings — the guard that keeps a session's frames uniform (same
+    /// WxH + format + JPEG quality) so the image2 encode works. Once a session has frames, region /
+    /// format / quality can't change under it; an empty session is unconstrained.
+    /// </summary>
+    public class ValidateSessionSettingsTests
+    {
+        static SessionInfo Session(long frames, Rectangle? region, string? format, int quality) =>
+            new() { FramesCaptured = frames, CaptureRegion = region, ImageFormat = format, JpegQuality = quality };
+
+        static readonly Rectangle R = new(0, 0, 800, 600);
+        static readonly Rectangle Other = new(0, 0, 1920, 1080);
+
+        [Fact]
+        public void EmptySession_IsAlwaysValid()
+        {
+            // No frames yet → any region/format/quality is fine (nothing to conflict with).
+            SessionManager.ValidateSessionSettings(Session(0, null, null, 90), R, "JPEG", 85).Should().BeTrue();
+            SessionManager.ValidateSessionSettings(Session(0, Other, "PNG", 90), R, "JPEG", 85).Should().BeTrue();
+        }
+
+        [Fact]
+        public void MatchingRegionFormatQuality_IsValid() =>
+            SessionManager.ValidateSessionSettings(Session(10, R, "JPEG", 85), R, "JPEG", 85).Should().BeTrue();
+
+        [Fact]
+        public void RegionChange_WithFrames_IsRejected() =>
+            // Changing the region mid-session breaks frame uniformity (image2 needs identical WxH).
+            SessionManager.ValidateSessionSettings(Session(10, R, "JPEG", 85), Other, "JPEG", 85).Should().BeFalse();
+
+        [Fact]
+        public void FormatChange_WithFrames_IsRejected() =>
+            SessionManager.ValidateSessionSettings(Session(10, R, "JPEG", 85), R, "PNG", 85).Should().BeFalse();
+
+        [Fact]
+        public void JpegQualityChange_WithFrames_IsRejected() =>
+            SessionManager.ValidateSessionSettings(Session(10, R, "JPEG", 85), R, "JPEG", 70).Should().BeFalse();
+
+        [Fact]
+        public void PngIgnoresQuality() =>
+            // Quality only matters for JPEG — a PNG session isn't invalidated by a different quality number.
+            SessionManager.ValidateSessionSettings(Session(10, R, "PNG", 90), R, "PNG", 30).Should().BeTrue();
+
+        [Fact]
+        public void NullRegionWithFrames_SkipsRegionCheck_TheKnownRecoverableState() =>
+            // FramesCaptured>0 && CaptureRegion==null is the documented corruption state — the region
+            // check is skipped (HasValue false), so validation passes on format alone; repair is on load.
+            SessionManager.ValidateSessionSettings(Session(10, null, "JPEG", 85), R, "JPEG", 85).Should().BeTrue();
+    }
 }
