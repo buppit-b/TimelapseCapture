@@ -28,9 +28,10 @@ namespace FrameWrite.Wpf.ViewModels
             // session whose frames are being rewritten would mix sizes / skip frames mid-operation.
             if (IsEncoding) return;
 
-            // Pre-flight the low-disk safety limit (always enforced; the threshold is set in Settings).
+            // Pre-flight the low-disk safety limit (always enforced — can't be turned off; the threshold
+            // is set in Settings, floored at Constants.EmergencyDiskFloorMB).
             long freeNow = SystemMonitor.GetAvailableDiskSpaceMB(_sessionFolder);
-            if (_settings.AutoStopOnLowDisk && freeNow > 0 && freeNow < _settings.LowDiskStopMB)
+            if (freeNow > 0 && freeNow < _settings.LowDiskStopMB)
             {
                 var r = MessageDialog.Show(
                     $"Only {freeNow} MB free on the capture drive — below your {_settings.LowDiskStopMB} MB low-disk limit, so the run would stop almost immediately.\n\nChange the limit in Settings, or start anyway?",
@@ -246,7 +247,6 @@ namespace FrameWrite.Wpf.ViewModels
             SmartStatus = "";
             IsPaused = false;
             IsCapturing = false;
-            ActualFpsText = "";   // stop showing the live achieved-fps figure once capture ends
             PersistTotalTime();
             UpdatePreview();
         }

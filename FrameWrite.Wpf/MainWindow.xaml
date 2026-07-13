@@ -242,8 +242,8 @@
                             <RadioButton Style="{StaticResource Seg}" GroupName="ratio" Content="9:16"
                                          IsChecked="{Binding AspectRatioIndex, Converter={StaticResource StrEq}, ConverterParameter=5}"/>
                             <ToggleButton Style="{StaticResource HeaderToggle}" Content="&#8646;" FontSize="13" Margin="10,0,0,0"
-                                          IsChecked="{Binding RatioFlipped}" VerticalAlignment="Center"
-                                          ToolTip="Rotate the current selection 90° (swap its width and height about its centre — watch the outline) and flip the locked ratio for the next drag. Not remembered between runs."/>
+                                          IsChecked="{Binding RatioFlipped}" VerticalAlignment="Center" IsEnabled="{Binding CanFlipRatio}"
+                                          ToolTip="Swap the locked ratio's orientation (e.g. 16:9 ↔ 9:16) and rotate the current selection 90° to match. Needs a locked ratio — disabled on Free. Not remembered between runs."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -284,15 +284,10 @@
                             <TextBlock Text="{Binding SpeedHint}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                        FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                             <!-- Video-rate caution: below 0.1s the capture crosses into screen-recorder territory.
-                                 Amber, subtle — allowed, just flagged (like the storage-rate warning). Shows the
-                                 measured fps while running so requested-vs-actual is visible. -->
-                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
-                                        Visibility="{Binding IsVideoRate, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="&#9650; Video-rate — higher CPU and disk use." Foreground="#E3B341"
-                                           FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ActualFpsText}" Foreground="#E3B341" FontFamily="Consolas"
-                                           FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                            </StackPanel>
+                                 Amber, subtle — allowed, just flagged (like the storage-rate warning). -->
+                            <TextBlock Text="&#9650; Video-rate — higher CPU and disk use." Foreground="#E3B341"
+                                       FontFamily="Consolas" FontSize="11" Margin="0,5,0,0"
+                                       Visibility="{Binding IsVideoRate, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0" IsEnabled="{Binding NotCapturing}"
                                     Visibility="{Binding AdvancedVisible, Converter={StaticResource BoolToVis}}">

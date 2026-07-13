@@ -120,17 +120,16 @@
         <!-- Capture safety -->
         <ToggleButton x:Name="secSafety" Style="{StaticResource SectionHeader}" Content="CAPTURE SAFETY" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secSafety, Converter={StaticResource BoolToVis}}">
-            <CheckBox Content="Stop capturing when disk space runs low" IsChecked="{Binding AutoStopOnLowDisk}"
-                      Foreground="{DynamicResource TextPrimaryBrush}"
-                      ToolTip="Automatically stop a run before the drive fills up — a full disk fails frame writes and can disrupt other apps. Watches the disk your active session writes to (shown in Stats). Recommended on for long unattended captures."/>
-            <StackPanel Orientation="Horizontal" Margin="22,8,0,0"
-                        Visibility="{Binding AutoStopOnLowDisk, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Stop capturing when disk space runs low" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                 <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
                          Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
-                         ToolTip="Free-space threshold in megabytes."/>
+                         ToolTip="Free-space threshold in megabytes. Always enforced — a full disk fails frame writes and can disrupt other apps. Can be lowered for testing but not below 256 MB."/>
                 <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
             </StackPanel>
+            <TextBlock Text="Always on (min 256 MB) — watches the disk your active session writes to."
+                       Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0"/>
 
             <CheckBox Content="Stop after a maximum duration" IsChecked="{Binding MaxDurationEnabled}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"

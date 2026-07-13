@@ -92,7 +92,10 @@ namespace FrameWrite.Wpf
                 posText.Text = $"frame {n} / {_files.Length}";
                 infoText.Text = $"{bi.PixelWidth}×{bi.PixelHeight} · {bytes.Length / 1024.0:F1} KB · " +
                                 $"{File.GetLastWriteTime(file):yyyy-MM-dd HH:mm:ss}";
-                if (firstLoad) Fit();
+                // Defer the first fit to Loaded priority: at this point the viewport often isn't measured
+                // yet (ActualWidth 0), so an immediate Fit() would no-op and leave the frame pinned
+                // top-left. Running after layout guarantees it centres. (OnViewportSized also re-fits.)
+                if (firstLoad) Dispatcher.BeginInvoke(new Action(Fit), System.Windows.Threading.DispatcherPriority.Loaded);
             }
             catch (Exception ex)
             {

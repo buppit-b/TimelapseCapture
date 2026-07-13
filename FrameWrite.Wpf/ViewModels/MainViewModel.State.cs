@@ -35,7 +35,9 @@ namespace FrameWrite.Wpf.ViewModels
                 decimal v = value < floor ? floor : value > 3600m ? 3600m : value;
                 // Normalize: 4 dp is plenty, and strip decimal's trailing-zero scale so a pasted
                 // "0.1000000000000000000000000000" (or an fps round-trip artifact) displays as "0.1".
-                v = decimal.Parse(Math.Round(v, 4).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
+                // 6 dp, not 4: an fps like 60 → interval 1/60 = 0.016667, and 4 dp (0.0167) round-trips
+                // back to 59.88. 6 dp keeps round-number fps (60/30/24…) landing exactly on themselves.
+                v = decimal.Parse(Math.Round(v, 6).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture),
                     System.Globalization.CultureInfo.InvariantCulture);
                 if (_settings.IntervalSecondsExact != v)
                 {
@@ -67,7 +69,7 @@ namespace FrameWrite.Wpf.ViewModels
         public decimal CaptureFps
         {
             get => IntervalSeconds > 0 ? Math.Round(1m / IntervalSeconds, 2) : 0;
-            set { if (value > 0) IntervalSeconds = Math.Round(1m / value, 4); }
+            set { if (value > 0) IntervalSeconds = Math.Round(1m / value, 6); }
         }
 
         // Interval-field tooltips — dry, and note the video-rate threshold rather than pretending 0.1s is a wall.
@@ -337,9 +339,14 @@ namespace FrameWrite.Wpf.ViewModels
             {
                 var all = AspectRatio.CommonRatios;
                 var v = (value < 0 || value >= all.Length) ? 0 : value;
-                if (_settings.AspectRatioIndex != v) { _settings.AspectRatioIndex = v; SettingsManager.Save(_settings); OnPropertyChanged(); }
+                if (_settings.AspectRatioIndex != v) { _settings.AspectRatioIndex = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(CanFlipRatio)); }
             }
         }
+
+        /// <summary>Flip only means something with a locked ratio — on Free there's no orientation to swap,
+        /// so the control is disabled (clicking it otherwise just rotates the region and warns, which reads
+        /// as "no-op that nags"). Index 0 = Free.</summary>
+        public bool CanFlipRatio => AspectRatioIndex != 0;
 
         public bool UsePng
         {

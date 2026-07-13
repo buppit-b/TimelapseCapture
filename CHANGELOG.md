@@ -20,11 +20,17 @@ All notable changes to FrameWrite are recorded here. Format follows
   field; the picker shows it).
 - **Sub-0.1s intervals are available normally**, down to a 0.01s (100 fps) floor — the engine's
   real ceiling. Below 0.1s the interval field shows a subtle amber "video-rate" caution (higher
-  CPU and disk use), and while capturing it reports the **measured** fps beside it, so you can see
-  whether a fast rate is actually being met. No mode to unlock — it's just a cautioned capability.
-- **Disk-space safety is always enforced** and its default floor is raised **2 GB → 8 GB**. The
-  low-disk stop message now points to the threshold in Settings, and the threshold can't be set
-  below 256 MB (disk safety can be tuned down, never to nothing).
+  CPU and disk use). No mode to unlock — it's just a cautioned capability.
+- **Disk-space safety is always on** (the on/off toggle is gone) — a full drive fails frame writes
+  and can disrupt other apps, so there's no reason to allow it off. Default floor raised **2 GB →
+  8 GB**; the threshold is still tunable in Settings but never below 256 MB; the stop message points
+  there.
+- **fps entry round-trips cleanly** — typing 60 fps stayed 60 fps (was drifting to 59.88 from a
+  4-dp interval rounding); intervals now keep 6 dp so round-number rates land exactly.
+- **Flip-ratio (⇆) is disabled on Free** — with no locked ratio there's nothing to flip, so it no
+  longer rotates the region and raises a change warning for a seemingly no-op click.
+- **Loupe opens centred** — the frame inspector fitted top-left when the viewport wasn't measured
+  yet on open; the initial fit now runs after layout.
 - *(The short-lived hidden "developer mode" was retired: once sub-0.1s became a normal cautioned
   capability and the disk floor stayed always-on, it no longer changed any behaviour.)*
 
