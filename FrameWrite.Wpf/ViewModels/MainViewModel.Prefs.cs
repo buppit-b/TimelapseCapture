@@ -117,15 +117,10 @@ namespace FrameWrite.Wpf.ViewModels
             set { if (_settings.TrackResizeMode != value) { _settings.TrackResizeMode = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
-        // Unattended safety: stop a run before the drive fills (a full disk fails writes + can disrupt other apps).
-        public bool AutoStopOnLowDisk
-        {
-            get => _settings.AutoStopOnLowDisk;
-            set { if (_settings.AutoStopOnLowDisk != value) { _settings.AutoStopOnLowDisk = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
-        }
+        // Unattended safety: stop a run before the drive fills (a full disk fails writes + can disrupt
+        // other apps). Always on now — the only knob is the threshold, floored at the emergency minimum.
         public int LowDiskStopMB
         {
-            // Never below the emergency floor: disk safety can be tuned down but never to nothing.
             get => _settings.LowDiskStopMB;
             set { var v = Math.Max(Constants.EmergencyDiskFloorMB, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
