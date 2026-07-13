@@ -131,7 +131,7 @@
                 Visibility="{Binding DeveloperMode, Converter={StaticResource BoolToVis}}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="&#9888;" Foreground="{DynamicResource DangerBrush}" FontSize="12" VerticalAlignment="Center"/>
-                <TextBlock Text="DEVELOPER MODE — safety limits relaxed (sub-0.1s intervals, no low-disk auto-stop). Emergency disk floor still active."
+                <TextBlock Text="DEVELOPER MODE — interval floor 0.01s, low-disk auto-stop disabled. 256 MB emergency floor still enforced."
                            Foreground="{DynamicResource DangerBrush}" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
                            VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
             </StackPanel>

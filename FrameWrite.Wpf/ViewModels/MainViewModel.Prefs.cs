@@ -62,9 +62,10 @@ namespace FrameWrite.Wpf.ViewModels
             _versionClicks = 0;
             var r = MessageDialog.Show(
                 "Unlock developer mode?\n\n" +
-                "It relaxes the safe capture limits — sub-0.1s intervals and no low-disk auto-stop — " +
-                "for testing the app to its edges. Frames may drop and files can grow fast.\n\n" +
-                "A hard emergency disk floor still applies; everything else is on you.",
+                "• Interval floor lowered to 0.01s (from 0.1s)\n" +
+                "• Low-disk auto-stop disabled\n" +
+                "• 256 MB emergency disk floor still enforced\n\n" +
+                "High disk usage; frames may drop at fast intervals.",
                 "Developer mode", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (r != MessageBoxResult.Yes) return false;
             DeveloperMode = true;
