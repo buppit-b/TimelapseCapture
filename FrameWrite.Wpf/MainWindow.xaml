@@ -672,7 +672,7 @@
                     </StackPanel>
                     <!-- Hairline divider: separates the TARGET setup above from the LIVE readouts below,
                          so the panel reads as two calm sections instead of one dense wall (UI pass). -->
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Opacity="0.7" Margin="0,2,0,12"/>
+                    <Border Style="{StaticResource Divider}"/>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
                                  Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
                                  BorderThickness="0" Margin="0,0,0,4"/>
