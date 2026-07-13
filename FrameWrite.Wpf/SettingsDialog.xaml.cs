@@ -38,6 +38,10 @@ namespace FrameWrite.Wpf
             hkRegion.Text = vm.GetHotkeyDisplay(MainViewModel.HotkeyRegionSelect);
         }
 
+        // Restore the main window to its default size + centre (a quick escape hatch after resizing).
+        private void OnResetWindowSize(object sender, RoutedEventArgs e)
+            => (Application.Current.MainWindow as MainWindow)?.ResetWindowSize();
+
         // Clear every persisted "don't ask me again" choice; the button reports the outcome inline.
         private void OnResetPrompts(object sender, RoutedEventArgs e)
         {

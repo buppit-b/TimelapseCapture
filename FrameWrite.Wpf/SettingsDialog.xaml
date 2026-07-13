@@ -90,6 +90,11 @@
             <CheckBox Content="Close to the tray instead of exiting" IsChecked="{Binding CloseToTray}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
                       ToolTip="When on, the window's ✕ button hides the app to the tray (capture keeps running) instead of quitting. Use the tray icon's Exit to actually quit. Off by default."/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="Window" Style="{StaticResource Muted}" VerticalAlignment="Center" Width="44"/>
+                <Button Content="Reset size" Style="{StaticResource BtnBase}" Click="OnResetWindowSize"
+                        ToolTip="Restore the window to its default size and centre it — handy after it's been shrunk or dragged awkwardly."/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Window tracking -->
