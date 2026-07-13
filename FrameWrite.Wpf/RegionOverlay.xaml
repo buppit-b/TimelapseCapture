@@ -12,10 +12,10 @@
         <!-- Dimension readout, sits in the top-right corner ABOVE the outline (outside the recorded area). -->
         <Border Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                 Background="#DD161616" CornerRadius="3" Padding="6,1" Margin="0,0,0,2"
-                BorderBrush="#3FB950" BorderThickness="1">
-            <TextBlock x:Name="dimLabel" Foreground="#3FB950" FontFamily="Consolas" FontSize="11"/>
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+            <TextBlock x:Name="dimLabel" Foreground="{DynamicResource AccentBrush}" FontFamily="Consolas" FontSize="11"/>
         </Border>
-        <!-- 2px outline in the ring just OUTSIDE the capture region, so it isn't recorded. -->
-        <Border Grid.Row="1" BorderBrush="#3FB950" BorderThickness="2" Background="Transparent"/>
+        <!-- 2px outline in the ring just OUTSIDE the capture region, so it isn't recorded. Theme accent. -->
+        <Border Grid.Row="1" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" Background="Transparent"/>
     </Grid>
 </Window>

@@ -5,9 +5,11 @@
         Topmost="True" ShowInTaskbar="False" Cursor="Cross"
         WindowStartupLocation="Manual" ResizeMode="NoResize">
     <Canvas x:Name="canvas">
-        <Rectangle x:Name="selRect" Stroke="#3D8BFD" StrokeThickness="2" Fill="#220078FF" Visibility="Collapsed"/>
+        <!-- Accent stroke (was a stray blue — now matches the edit overlay + the active theme);
+             subtle neutral fill so the tint reads on any content while the outline carries the colour. -->
+        <Rectangle x:Name="selRect" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" Fill="#22FFFFFF" Visibility="Collapsed"/>
         <Border x:Name="dimBox" Background="#E61E1E1E" CornerRadius="4" Padding="6,3" Visibility="Collapsed"
-                BorderBrush="#3D8BFD" BorderThickness="1">
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
             <TextBlock x:Name="dimText" Foreground="#ECECEC" FontFamily="Consolas" FontSize="12"/>
         </Border>
         <Border Canvas.Left="0" Canvas.Top="0" Background="#CC1E1E1E" CornerRadius="6" Padding="12,7" Margin="20">

@@ -12,28 +12,30 @@
             <Rectangle x:Name="dimLeft"   Fill="#66000000"/>
             <Rectangle x:Name="dimRight"  Fill="#66000000"/>
 
-            <!-- Region outline. Transparent fill is still hit-testable → drag the center to move. -->
-            <Rectangle x:Name="outline" Stroke="#3FB950" StrokeThickness="2" Fill="#11FFFFFF"/>
+            <!-- Region outline. Transparent fill is still hit-testable → drag the center to move.
+                 Follows the active theme's accent (was a fixed green). -->
+            <Rectangle x:Name="outline" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" Fill="#11FFFFFF"/>
 
-            <!-- 8 resize handles -->
-            <Rectangle x:Name="hNW" Width="12" Height="12" Fill="#3FB950" Cursor="SizeNWSE"/>
-            <Rectangle x:Name="hN"  Width="12" Height="12" Fill="#3FB950" Cursor="SizeNS"/>
-            <Rectangle x:Name="hNE" Width="12" Height="12" Fill="#3FB950" Cursor="SizeNESW"/>
-            <Rectangle x:Name="hE"  Width="12" Height="12" Fill="#3FB950" Cursor="SizeWE"/>
-            <Rectangle x:Name="hSE" Width="12" Height="12" Fill="#3FB950" Cursor="SizeNWSE"/>
-            <Rectangle x:Name="hS"  Width="12" Height="12" Fill="#3FB950" Cursor="SizeNS"/>
-            <Rectangle x:Name="hSW" Width="12" Height="12" Fill="#3FB950" Cursor="SizeNESW"/>
-            <Rectangle x:Name="hW"  Width="12" Height="12" Fill="#3FB950" Cursor="SizeWE"/>
+            <!-- 8 resize handles — accent fill + white ring so they stay clear on any screen content
+                 (white pops on dark, the accent fill reads on light), and follow the theme. -->
+            <Rectangle x:Name="hNW" Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNWSE"/>
+            <Rectangle x:Name="hN"  Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNS"/>
+            <Rectangle x:Name="hNE" Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNESW"/>
+            <Rectangle x:Name="hE"  Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeWE"/>
+            <Rectangle x:Name="hSE" Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNWSE"/>
+            <Rectangle x:Name="hS"  Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNS"/>
+            <Rectangle x:Name="hSW" Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeNESW"/>
+            <Rectangle x:Name="hW"  Width="14" Height="14" Fill="{DynamicResource AccentBrush}" Stroke="White" StrokeThickness="2" Cursor="SizeWE"/>
 
             <Border x:Name="dimBox" Background="#DD161616" CornerRadius="3" Padding="6,2"
-                    BorderBrush="#3FB950" BorderThickness="1">
-                <TextBlock x:Name="dimText" Foreground="#3FB950" FontFamily="Consolas" FontSize="12"/>
+                    BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                <TextBlock x:Name="dimText" Foreground="{DynamicResource AccentBrush}" FontFamily="Consolas" FontSize="12"/>
             </Border>
         </Canvas>
 
         <!-- Toolbar -->
         <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,24,0,0"
-                Background="#EE161616" BorderBrush="#3FB950" BorderThickness="1" CornerRadius="8" Padding="12,8">
+                Background="#EE161616" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8">
             <StackPanel Orientation="Horizontal">
                 <TextBlock x:Name="hintText" Foreground="#E6EDE6" FontFamily="Consolas" FontSize="12"
                            VerticalAlignment="Center" Margin="0,0,12,0"/>
