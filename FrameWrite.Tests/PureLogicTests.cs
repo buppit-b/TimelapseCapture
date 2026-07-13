@@ -128,6 +128,43 @@ namespace FrameWrite.Tests
     }
 
     /// <summary>
+    /// The -frames:v output cap for a trimmed encode (VideoEncoder.ComputeOutputLimit): trim range,
+    /// frame-skip ceiling, and held-last-frame clones. Off-by-one here clips or over-runs the trim.
+    /// </summary>
+    public class OutputLimitTests
+    {
+        [Fact]
+        public void NoTrim_ReturnsZero_MeaningNoCap()
+        {
+            VideoEncoder.ComputeOutputLimit(0, 1, 0).Should().Be(0);
+            VideoEncoder.ComputeOutputLimit(0, 3, 50).Should().Be(0);   // hold without a trim → still no cap
+        }
+
+        [Fact]
+        public void PlainTrim_IsTheFrameCount()
+        {
+            VideoEncoder.ComputeOutputLimit(100, 1, 0).Should().Be(100);
+        }
+
+        [Theory]
+        [InlineData(100, 3, 34)]   // ceil(100/3)
+        [InlineData(99, 3, 33)]    // exact
+        [InlineData(100, 2, 50)]
+        [InlineData(1, 5, 1)]      // a single kept frame still counts
+        public void FrameSkip_CeilingsTheKeptCount(int maxFrames, int everyNth, int expected)
+        {
+            VideoEncoder.ComputeOutputLimit(maxFrames, everyNth, 0).Should().Be(expected);
+        }
+
+        [Fact]
+        public void HoldFrames_AreAddedOnTop_SoTheyAreNotClipped()
+        {
+            VideoEncoder.ComputeOutputLimit(100, 1, 10).Should().Be(110);
+            VideoEncoder.ComputeOutputLimit(100, 3, 10).Should().Be(44);   // ceil(100/3)=34 + 10
+        }
+    }
+
+    /// <summary>
     /// Interval ⇄ fps conversion + normalization (IntervalMath). Guards the round-trip bug where a
     /// typed 60 fps displayed as 59.88 because the interval was rounded to 4 dp (1/60 = 0.0167 → 59.88).
     /// </summary>

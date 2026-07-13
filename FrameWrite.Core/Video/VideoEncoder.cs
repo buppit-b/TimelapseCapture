@@ -37,6 +37,22 @@ namespace FrameWrite
             return Math.Clamp(encoded / durationSeconds, 0.1, 240);
         }
 
+        /// <summary>
+        /// The <c>-frames:v</c> output cap for a trimmed encode. A trim of <paramref name="maxFrames"/>
+        /// input frames, keeping every <paramref name="everyNth"/> (ceiling), plus any held-last-frame
+        /// clones (<paramref name="holdFrames"/>) which must NOT be clipped by the cap. Returns 0 when
+        /// there's no trim (<paramref name="maxFrames"/> ≤ 0) — meaning no cap, encode everything.
+        /// Off-by-one here would clip the last kept frame or over-run the trim, so it's unit-tested.
+        /// </summary>
+        internal static int ComputeOutputLimit(int maxFrames, int everyNth, int holdFrames)
+        {
+            if (maxFrames <= 0) return 0;
+            int n = Math.Max(1, everyNth);
+            int limit = n > 1 ? (maxFrames + n - 1) / n : maxFrames;
+            if (holdFrames > 0) limit += holdFrames;
+            return limit;
+        }
+
         public static async Task<Result> EncodeAsync(string ffmpegPath, string sessionFolder,
             double fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
@@ -120,8 +136,7 @@ namespace FrameWrite
             string vf = filters.Count > 0 ? $"-vf \"{string.Join(",", filters)}\" " : "";
 
             // Output-frame cap for a trim (skip reduces it; hold adds the cloned frames so they aren't clipped).
-            int outputLimit = maxFrames > 0 ? (everyNth > 1 ? (maxFrames + everyNth - 1) / everyNth : maxFrames) : 0;
-            if (outputLimit > 0 && holdFrames > 0) outputLimit += holdFrames;
+            int outputLimit = ComputeOutputLimit(maxFrames, everyNth, holdFrames);
             string limit = outputLimit > 0 ? $"-frames:v {outputLimit} " : "";
 
             // Provenance (ROADMAP item 10, approach 1): open metadata tags naming the app — readable by
