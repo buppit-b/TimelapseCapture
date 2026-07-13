@@ -30,15 +30,8 @@ namespace FrameWrite.Wpf.ViewModels
             {
                 // 0.01s (100 fps) is the floor — and the engine's real ceiling (10 ms timer). Below 0.1s
                 // is video-recording territory: allowed, but resource-intensive and flagged (IsVideoRate).
-                // Ceiling 3600s (one frame an hour) — beyond that is almost certainly a typo, not a plan.
-                decimal floor = MinIntervalSeconds;
-                decimal v = value < floor ? floor : value > 3600m ? 3600m : value;
-                // Normalize: 4 dp is plenty, and strip decimal's trailing-zero scale so a pasted
-                // "0.1000000000000000000000000000" (or an fps round-trip artifact) displays as "0.1".
-                // 6 dp, not 4: an fps like 60 → interval 1/60 = 0.016667, and 4 dp (0.0167) round-trips
-                // back to 59.88. 6 dp keeps round-number fps (60/30/24…) landing exactly on themselves.
-                v = decimal.Parse(Math.Round(v, 6).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture),
-                    System.Globalization.CultureInfo.InvariantCulture);
+                // Clamp to [floor, 3600] + normalize to 6 dp (IntervalMath — 4 dp once made 60 fps → 59.88).
+                decimal v = IntervalMath.Normalize(value, MinIntervalSeconds);
                 if (_settings.IntervalSecondsExact != v)
                 {
                     _settings.IntervalSecondsExact = v;
@@ -68,8 +61,8 @@ namespace FrameWrite.Wpf.ViewModels
         // Round-trips through IntervalSeconds so every clamp/rule lives in one place.
         public decimal CaptureFps
         {
-            get => IntervalSeconds > 0 ? Math.Round(1m / IntervalSeconds, 2) : 0;
-            set { if (value > 0) IntervalSeconds = Math.Round(1m / value, 6); }
+            get => IntervalMath.IntervalToFps(IntervalSeconds);
+            set { if (value > 0) IntervalSeconds = IntervalMath.FpsToInterval(value); }
         }
 
         // Interval-field tooltips — dry, and note the video-rate threshold rather than pretending 0.1s is a wall.

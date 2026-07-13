@@ -126,4 +126,71 @@ namespace FrameWrite.Tests
             VideoEncoder.FpsForDuration(frames, everyNth, seconds).Should().Be(30);
         }
     }
+
+    /// <summary>
+    /// Interval ⇄ fps conversion + normalization (IntervalMath). Guards the round-trip bug where a
+    /// typed 60 fps displayed as 59.88 because the interval was rounded to 4 dp (1/60 = 0.0167 → 59.88).
+    /// </summary>
+    public class IntervalMathTests
+    {
+        [Theory]
+        [InlineData(10)]
+        [InlineData(15)]
+        [InlineData(24)]
+        [InlineData(25)]
+        [InlineData(30)]
+        [InlineData(48)]
+        [InlineData(50)]
+        [InlineData(60)]
+        [InlineData(75)]
+        [InlineData(90)]
+        [InlineData(100)]
+        public void RoundNumberFps_RoundTripsToItself(int fps)
+        {
+            // fps → interval → fps must land exactly back (the 4-dp bug broke 60 and 30 specifically).
+            var interval = IntervalMath.FpsToInterval(fps);
+            IntervalMath.IntervalToFps(interval).Should().Be(fps);
+        }
+
+        [Fact]
+        public void SixtyFps_DoesNotDriftTo59Point88()
+        {
+            IntervalMath.IntervalToFps(IntervalMath.FpsToInterval(60m)).Should().Be(60m);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-5)]
+        public void NonPositiveInputs_ReturnZero(int bad)
+        {
+            IntervalMath.FpsToInterval(bad).Should().Be(0m);
+            IntervalMath.IntervalToFps(bad).Should().Be(0m);
+        }
+
+        [Fact]
+        public void Normalize_ClampsBelowFloorUpToFloor()
+        {
+            IntervalMath.Normalize(0.001m, 0.01m).Should().Be(0.01m);
+        }
+
+        [Fact]
+        public void Normalize_ClampsAboveCeilingDownTo3600()
+        {
+            IntervalMath.Normalize(99999m, 0.01m).Should().Be(3600m);
+        }
+
+        [Fact]
+        public void Normalize_StripsTrailingZeros()
+        {
+            // A pasted "0.1000000000" (or an fps round-trip artefact) should display as a clean 0.1.
+            IntervalMath.Normalize(0.1000000000m, 0.01m).Should().Be(0.1m);
+        }
+
+        [Fact]
+        public void Normalize_KeepsSubTenthValues_ForVideoRate()
+        {
+            // 0.05s (20 fps) is valid — must survive normalization unclamped.
+            IntervalMath.Normalize(0.05m, 0.01m).Should().Be(0.05m);
+        }
+    }
 }
