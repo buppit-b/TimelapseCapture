@@ -9,21 +9,21 @@ on:
 jobs:
   build-test:
     name: Build & Test
-    runs-on: windows-latest   # WPF + WinForms target net9.0-windows
+    runs-on: windows-latest   # WPF targets net9.0-windows
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '9.0.x'
 
       - name: Restore
-        run: dotnet restore TimelapseCapture.sln
+        run: dotnet restore FrameWrite.sln
 
       - name: Build (Release)
-        run: dotnet build TimelapseCapture.sln --no-restore --configuration Release
+        run: dotnet build FrameWrite.sln --no-restore --configuration Release
 
       - name: Test (Release)
-        run: dotnet test TimelapseCapture.sln --no-build --configuration Release --verbosity normal
+        run: dotnet test FrameWrite.sln --no-build --configuration Release --verbosity normal
