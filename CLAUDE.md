@@ -41,10 +41,12 @@ removed 2026-07-12 at Spike's request — don't reinstate it.)*
   (or launch `FrameWrite.Wpf/bin/Debug/net9.0-windows/FrameWrite.exe`)
 - **Test:** `dotnet test FrameWrite.sln`
 - Windows only (.NET 9, `net9.0-windows`).
-- **Version:** `0.9.5` — **the 1.0 release candidate** (SemVer; `<Version>` in both `.csproj`,
-  shown in the Settings cog). 1.0 = this RC + a passing multi-hour soak test (protocol in
-  `ROADMAP.md` "1.0 gate"). See `ROADMAP.md` (also: 1.1 candidates + pre-distribution blockers)
-  and `CHANGELOG.md`; bump the version + add a CHANGELOG entry per release.
+- **Version:** `1.0.0` — **shipped 2026-07-13** (SemVer; `<Version>` in both `.csproj`, shown in
+  the Settings cog). The formal QA-checklist / memory-flat soak was **retired as a release gate** on
+  Spike's call (2026-07-13) — the app had been exercised live throughout and the soak encode passed;
+  development **continues past 1.0** (UI polish, new features, debug + hardening). See `ROADMAP.md`
+  (1.1 candidates + pre-distribution blockers) and `CHANGELOG.md`; bump the version + add a CHANGELOG
+  entry per release.
 
 > **Testing note:** computer-use/automation **cannot drive the dev-built exe**
 > (the resolver won't target it). The maintainer (Spike) runs each build by hand
@@ -305,20 +307,18 @@ custom chrome all landed).
 
 ## Handoff notes for the next thread
 
-- The app (**FrameWrite** — mechanical rename done 2026-07-13) is at **0.9.5,
-  the 1.0 RC**, with a large RC-refinement arc on `main` (see CHANGELOG). Soak #1 substantively
-  PASSED (2026-07-12, 5.5h, encodes clean — see ROADMAP 1.0 gate). MIT LICENSE + README are in.
-  Spike tests each build live and gives UX feedback.
+- **FrameWrite shipped 1.0.0 on 2026-07-13** (tag `v1.0.0`), capping the long RC arc (see CHANGELOG).
+  Soak #1 substantively PASSED (2026-07-12, 5.5h, encodes clean). MIT LICENSE + README are in.
+  Spike tests each build live and gives UX feedback. **Development continues past 1.0** — UI polish,
+  new/intriguing features, and ongoing debug + hardening.
 - The working loop: build green (0 warnings) + `dotnet test` 158/158 → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
-- **1.0 posture (Spike, 2026-07-10): no deadline.** The app is professional-grade but mainly for
-  personal use; development continues continuously rather than gating on the QA/soak protocol.
-  Relax process where it buys development strides — but keep rigorously testing and hardening
-  features, logic, and workflows as we go (empirical smoke tests, encode-with-real-ffmpeg, unit
-  coverage). The soak/QA pass happens opportunistically, not as a blocker. The mechanical rename
-  is DONE (0.9.5); the 1.0 cut is now just: confirm memory-flat (a heartbeat-logged run) + a clean
-  QA-checklist pass → version bump 0.9.5 → 1.0 + CHANGELOG.
+- **Post-1.0 posture (Spike, 2026-07-13): no deadline, no gate.** The app is professional-grade but
+  mainly for personal use. The formal QA-checklist / memory-flat soak was **retired as a gate** —
+  keep rigorously testing and hardening as we go (empirical smoke tests, encode-with-real-ffmpeg,
+  unit coverage), but don't block development on a protocol. Cut point releases when there's a
+  meaningful batch: bump `<Version>` in both `.csproj` + add a CHANGELOG entry + tag.
 - **Packaging is solved:** `scripts/publish-release.ps1` → self-contained single-file
   `dist/FrameWrite-v{version}-win-x64.zip` (verified: publishes, launches, installed-mode data dir).
 - **Next major arc (Spike's priority): the UI elegance pass** — friend feedback says the UI is

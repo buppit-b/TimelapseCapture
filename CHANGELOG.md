@@ -3,6 +3,28 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.0.0] — 2026-07-13 — FrameWrite 1.0
+
+The first stable release. FrameWrite is a professional-grade Windows screen-timelapse tool: pick a
+region or a window to follow, capture on a timer (down to video rates), and encode to MP4 via
+FFmpeg — built for long, often-unattended art capture. This 1.0 caps a long RC arc (the whole
+0.9.x line below): window tracking, capture-failure surfacing, clip trimming, crash recovery,
+unattended safety (always-on low-disk stop, max-duration cap, finish notification), custom themed
+chrome, Simple mode, a first-run wizard, live colour themes, and a dependency-free capture-cadence
+sparkline. Cut on Spike's call — the app has been exercised live throughout and the soak encode
+(6798 frames, clean) passed; the formal QA-checklist/memory-flat protocol is retired as a gate,
+development continues past 1.0.
+
+Since 0.9.5 (all part of this release):
+- **Sub-0.1s capture as a normal, cautioned capability** (0.01s / 100 fps floor) with an amber
+  video-rate hint; **disk safety is always on** (no off switch, default 8 GB floor, min 256 MB).
+- **Region overlays follow the active theme** with clearer resize handles.
+- Bug fixes from live testing: fps entry round-trips cleanly (60 stays 60), flip-ratio no-ops on
+  Free, the loupe opens centred, and the CI workflow builds the renamed solution.
+- **Hardening: test coverage 99 → 158** — pure logic pulled out of the VM and covered
+  (`IntervalMath`, `HumanFormat`, storage-rate, encode output-cap, session-uniformity guard,
+  smart-interval decision).
+
 ## [0.9.5] — 2026-07-13 — the FrameWrite rename
 
 - **Mechanical rename to FrameWrite** — projects, folders, namespaces, the solution, the
