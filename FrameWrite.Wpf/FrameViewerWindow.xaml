@@ -23,10 +23,7 @@
                 <Image x:Name="img" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"
                        RenderTransformOrigin="0,0">
                     <Image.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform x:Name="scaleT"/>
-                            <TranslateTransform x:Name="transT"/>
-                        </TransformGroup>
+                        <MatrixTransform x:Name="xform"/>
                     </Image.RenderTransform>
                 </Image>
             </Grid>

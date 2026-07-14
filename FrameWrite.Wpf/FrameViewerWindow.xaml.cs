@@ -250,9 +250,10 @@ namespace FrameWrite.Wpf
 
         private void ApplyTransform()
         {
-            scaleT.ScaleX = scaleT.ScaleY = _scale;
-            transT.X = _tx;
-            transT.Y = _ty;
+            // One MatrixTransform (scale on the diagonal, translate in the offsets) instead of a
+            // TransformGroup — the grouped ScaleTransform's updates weren't reaching the image (it rendered
+            // native-size, translated, = the "top-left quadrant"). A single matrix is unambiguous.
+            xform.Matrix = new System.Windows.Media.Matrix(_scale, 0, 0, _scale, _tx, _ty);
             zoomText.Text = $"{_scale / _pixelScale * 100:F0}%";   // 100% = one frame pixel per screen pixel
             // Crisp pixels when magnifying (what a detail check needs); smooth when shrinking.
             RenderOptions.SetBitmapScalingMode(img,
