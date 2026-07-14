@@ -257,10 +257,12 @@ disk, a sparkline of capture cadence (gaps = idle skips), frame-size trend. Poss
 Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report** *(Spike,
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
-to the clipboard)* · GIF export · all-screens preset (item 8) · in-app playback preview at
-target fps · **zoom/loupe frame viewer — ✅ shipped (2026-07-11)**: click the Preview thumbnail →
-floating resizable viewer (wheel zoom-at-cursor, pan, fit/1:1, frame scrub with steppers,
-per-frame size + capture time, refresh for live sessions) ·
+to the clipboard)* · GIF export · all-screens preset (item 8) · **in-app playback preview — ✅
+shipped (2026-07-14, 1.0.2)**: Play/Pause in the loupe steps the scrubber at the effective encode
+fps (loops; any step pauses) so you preview the timelapse before encoding · **zoom/loupe frame
+viewer — ✅ shipped (2026-07-11)**: click the Preview thumbnail → floating resizable viewer (wheel
+zoom-at-cursor, pan, fit/1:1, frame scrub with steppers, per-frame size + capture time, refresh
+for live sessions) ·
 **Alt-drag region select from center** (agreed 2026-07-03: PS/Illustrator muscle memory, cheap —
 anchor the drag at its start point and grow symmetrically while Alt is held, works with ratio
 lock for easy centered squares) · {elapsed}/{frame} overlay tokens
