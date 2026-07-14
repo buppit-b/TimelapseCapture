@@ -612,19 +612,9 @@
 
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="TARGET" Style="{StaticResource CardTitle}"/>
                     <StackPanel Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal">
-                            <!-- "Target" flashes green on commit (own brush so PulseFg animates only this label). -->
-                            <TextBlock Text="Target" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"
-                                       Tag="{Binding TargetPulse, NotifyOnTargetUpdated=True}">
-                                <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
-                                <TextBlock.Triggers>
-                                    <EventTrigger RoutedEvent="Binding.TargetUpdated">
-                                        <BeginStoryboard Storyboard="{StaticResource PulseFg}"/>
-                                    </EventTrigger>
-                                </TextBlock.Triggers>
-                            </TextBlock>
                             <RadioButton Style="{StaticResource Seg}" GroupName="tgtkind" Content="Video length"
                                          IsChecked="{Binding TargetKind, Converter={StaticResource StrEq}, ConverterParameter=0}"
                                          ToolTip="Aim for a video of this length — progress and storage projections count frames toward it."/>
@@ -693,14 +683,11 @@
                                   Visibility="{Binding StopAtTargetVisible, Converter={StaticResource BoolToVis}}"
                                   ToolTip="Auto-stop the run once the frame count reaches the target above (target seconds × fps). A Timer target always stops by itself."/>
                     </StackPanel>
-                    <!-- Hairline divider: separates the TARGET setup above from the LIVE readouts below,
-                         so the panel reads as two calm sections instead of one dense wall (UI pass). -->
-                    <Border Style="{StaticResource Divider}"/>
                     <ProgressBar Value="{Binding CaptureProgress}" Minimum="0" Maximum="100" Height="6"
                                  Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource SurfaceAltBrush}"
                                  BorderThickness="0" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding ProgressText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
-                               Margin="0,0,0,10" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
+                               Margin="0,0,0,2" Tag="{Binding RecalcPulse, NotifyOnTargetUpdated=True}">
                         <TextBlock.Foreground><SolidColorBrush Color="#7D8C7D"/></TextBlock.Foreground>
                         <TextBlock.Triggers>
                             <EventTrigger RoutedEvent="Binding.TargetUpdated">
@@ -708,6 +695,14 @@
                             </EventTrigger>
                         </TextBlock.Triggers>
                     </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- STATS is now pure live telemetry — target setup + progress moved to their own TARGET card
+                 above, so each card does one thing (config vs monitoring). -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="STATS" Style="{StaticResource CardTitle}"/>
                     <!-- Capture cadence: live frames/min. The heartbeat — peaks while you work, valleys
                          where Smart Interval idled/skipped. Only shows once there's a trace. -->
                     <StackPanel Margin="0,0,0,10" Visibility="{Binding HasCadence, Converter={StaticResource BoolToVis}}">
