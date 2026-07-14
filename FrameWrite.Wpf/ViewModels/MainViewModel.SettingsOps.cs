@@ -26,10 +26,15 @@ namespace FrameWrite.Wpf.ViewModels
             dlg.ShowDialog();
         }
 
+        // Where the most recent safety backup landed (so the op that follows can tell the user).
+        private string? _lastBackupPath;
+
         // Runs the offered pre-destructive-op backup behind the caller's busy flag. False = backup
         // failed and the destructive operation must NOT proceed (nothing has been changed yet).
+        // BackupSession itself refuses (throws) if the drive can't hold the copy + a 256 MB margin.
         private async Task<bool> BackupSessionForSafety(string folder)
         {
+            _lastBackupPath = null;
             EncodeStatus = "Backing up session…";
             try
             {
@@ -40,6 +45,7 @@ namespace FrameWrite.Wpf.ViewModels
                             Application.Current?.Dispatcher.BeginInvoke(
                                 () => EncodeStatus = $"Backing up… {i}/{total}");
                     }));
+                _lastBackupPath = dest;
                 Logger.Log("Wpf", $"Session backed up to {dest} before a destructive operation.");
                 return true;
             }
@@ -50,6 +56,19 @@ namespace FrameWrite.Wpf.ViewModels
                     "Backup", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
+        }
+
+        // Tell the user where a just-made safety backup landed and offer to open it — they otherwise
+        // have no way to find it. No-op if the op didn't back up.
+        private void NotifyBackupLocationIfAny()
+        {
+            var path = _lastBackupPath;
+            if (path == null) return;
+            _lastBackupPath = null;
+            int c = MessageDialog.ShowChoices(
+                $"A backup of the original frames was saved to:\n\n{path}",
+                "Backup saved", MessageBoxImage.Information, "Open backup folder", "Close");
+            if (c == 0) { try { System.Diagnostics.Process.Start("explorer.exe", $"\"{path}\""); } catch { } }
         }
 
         private async Task OpenOverlay()
@@ -86,7 +105,8 @@ namespace FrameWrite.Wpf.ViewModels
                     "Bake overlay", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally { IsEncoding = false; }
-            UpdatePreview();   // the frames' pixels changed — show it
+            UpdatePreview();          // the frames' pixels changed — show it
+            NotifyBackupLocationIfAny();   // tell the user where the safety backup went
         }
 
         /// <summary>Guided setup — shown automatically on first run, re-runnable from Settings.</summary>

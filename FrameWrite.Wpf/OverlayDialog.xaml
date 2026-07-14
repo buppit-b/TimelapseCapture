@@ -110,14 +110,17 @@
                          ToolTip="Backdrop opacity, 0–100%. 0 = no box at all. Scroll to adjust."/>
                 <TextBlock Text="%" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>
             </StackPanel>
+            <!-- Bake lives INSIDE the enabled panel: it only makes sense once the overlay is on and has
+                 text, so it appears with the rest of the config (not floating below a disabled panel). -->
+            <Border Style="{StaticResource Divider}" Margin="0,16,0,12"/>
+            <Button x:Name="bakeBtn" Content="Bake into existing frames…" Style="{StaticResource BtnBase}"
+                    HorizontalAlignment="Left" MinWidth="84" Click="OnBake"
+                    ToolTip="Burn this overlay into frames you already captured (e.g. recorded before you turned it on). Each frame's real capture time is used. Permanent — you'll confirm and can back up first."/>
+            <TextBlock Text="Applies to frames already on disk. Live capture uses the toggle above."
+                       Style="{StaticResource Muted}" FontSize="10" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <Grid Margin="0,18,0,0">
-            <Button x:Name="bakeBtn" Content="Bake into frames…" Style="{StaticResource BtnBase}"
-                    HorizontalAlignment="Left" MinWidth="84" Click="OnBake"
-                    ToolTip="Burn this overlay into every frame already on disk — for when you forgot to enable it before capturing. Timestamps come from each frame file's own capture time, so past frames get their REAL times, not today's. Permanent (you'll be asked to confirm)."/>
-            <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"
-                    MinWidth="84" IsCancel="True"/>
-        </Grid>
+        <Button Content="Close" Style="{StaticResource BtnPrimary}" HorizontalAlignment="Right"
+                MinWidth="84" Margin="0,14,0,0" IsCancel="True"/>
     </StackPanel>
 </Window>

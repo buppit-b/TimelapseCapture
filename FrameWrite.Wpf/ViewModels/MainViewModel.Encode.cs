@@ -101,6 +101,7 @@ namespace FrameWrite.Wpf.ViewModels
             finally { IsEncoding = false; }
             FrameCount = newCount;
             UpdatePreview();   // the "latest" frame likely changed
+            NotifyBackupLocationIfAny();
 
             // Renumbering shifted every frame's position — the cull marks are consumed and saved trim
             // markers now point at the wrong frames; clear both rather than acting on stale positions.
@@ -150,6 +151,7 @@ namespace FrameWrite.Wpf.ViewModels
                 SetSessionCrop(null);   // the crop is baked into the frames now — encodes use the full (new) frame
                 UpdatePreview();
                 RefreshRegionScaleSuffix();   // canonical size changed — the region's scale note must follow
+                NotifyBackupLocationIfAny();
             }
             else
             {

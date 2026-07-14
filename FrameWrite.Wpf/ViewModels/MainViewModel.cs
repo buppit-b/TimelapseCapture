@@ -55,7 +55,9 @@ namespace FrameWrite.Wpf.ViewModels
             LoadSessionCommand = new RelayCommand(_ => LoadSession(), _ => HasOutputFolder && !IsCapturing && !IsEncoding);
             RenameSessionCommand = new RelayCommand(_ => RenameSession(), _ => _session != null && !IsCapturing && !IsEncoding);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
-            OpenOverlayCommand = new RelayCommand(async _ => await OpenOverlay());
+            // Not while encoding/baking: the dialog's live preview opens a frame file (Image.FromFile locks
+            // it), which collides with a bake rewriting that same frame → "file in use". Disable it instead.
+            OpenOverlayCommand = new RelayCommand(async _ => await OpenOverlay(), _ => !IsEncoding);
             DismissCaptureErrorCommand = new RelayCommand(_ => ClearCaptureError());
             OpenLogCommand = new RelayCommand(_ => OpenLog());
             OpenWizardCommand = new RelayCommand(_ => OpenWizard(), _ => !IsCapturing);

@@ -83,11 +83,9 @@ namespace FrameWrite.Wpf
         {
             if (Vm is not { } vm || vm.FrameCount < 1) return;
             int choice = MessageDialog.ShowChoices(
-                $"Permanently burn this overlay into all {vm.FrameCount} frame(s) on disk?\n\n" +
-                "Timestamp tokens use each frame file's own capture time, so past frames get their real " +
-                "times — not today's. This re-writes every frame and can't be undone.\n\n" +
-                "Note: frames that already had the overlay burned in at capture would get a second copy " +
-                "drawn over the first.",
+                $"Burn this overlay into all {vm.FrameCount} frame(s)?\n\n" +
+                "Permanent — every frame is rewritten. Timestamps use each frame's real capture time. " +
+                "A frame that already has the overlay would get a second copy.",
                 "Bake overlay into frames", MessageBoxImage.Warning,
                 "Back up, then bake", "Bake without backup", "Cancel");
             if (choice is not (0 or 1)) return;
