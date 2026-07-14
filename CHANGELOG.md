@@ -3,6 +3,25 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.0.1] — 2026-07-14 — UI elegance pass
+
+A visual-styling refinement of the existing layout (developed on a fork, verified live).
+
+- **Contrasting secondary accent per theme.** The UI read as one flat hue because the theme accent
+  painted both section labels and the interactive/live elements. Each theme now has a complementary
+  second colour used for section labels, so the primary accent means *action / live*: Synth pink +
+  green, Terminal green + amber, Ocean blue + amber, Ember orange + teal.
+- **Theme fixes.** Synth's secondary green softened from neon. **Light is now a mid-grey monochrome**
+  theme — contrast is carried by bold near-black rather than a colour, with red the only hue (it was
+  a blinding pure-white with hard-to-read labels before).
+- **Control cohesion.** Rounded input fields with a focus-accent cue (they were square and had no
+  focus state); unified corner-radius rhythm — 12 (cards) / 6 (controls). A reusable divider and a
+  hairline split in the Stats card between the target setup and the live readouts.
+- **Header.** The app logo is a themed vector (the old emoji was invisible on the dark title bar),
+  the app name no longer disappears on narrow windows, and **Simple / Stay-on-top collapse into a
+  "⋯" overflow menu** when the window is too narrow instead of vanishing.
+- **Reset window size** — Settings › Appearance restores the default size and re-centres.
+
 ## [1.0.0] — 2026-07-13 — FrameWrite 1.0
 
 The first stable release. FrameWrite is a professional-grade Windows screen-timelapse tool: pick a
