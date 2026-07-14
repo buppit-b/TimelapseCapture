@@ -169,15 +169,25 @@ namespace FrameWrite.Wpf
             }
 
             bool allowDecimal = GetAllowDecimal(tb);
+            bool proportional = GetProportional(tb);
             decimal step;
-            if (GetProportional(tb)) step = ProportionalStep(cur);
+            if (proportional) step = ProportionalStep(cur);
             else { try { step = (decimal)GetStep(tb); } catch (OverflowException) { step = 1m; } }
             if (step <= 0m) step = 1m;
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) step *= 10m;
             else if (allowDecimal && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) step *= 0.1m;
             if (!allowDecimal) step = Math.Max(1m, decimal.Round(step));
 
-            var next = cur + (e.Delta > 0 ? step : -step);
+            decimal next;
+            if (proportional)
+            {
+                // Snap to the step grid so stepping lands on clean values (0.91 → up → 1.0, not 1.01).
+                // Ctrl still gives a finer grid (0.01) for exact decimals.
+                next = e.Delta > 0 ? (Math.Floor(cur / step) + 1m) * step
+                                   : (Math.Ceiling(cur / step) - 1m) * step;
+                next = decimal.Round(next, 4);
+            }
+            else next = cur + (e.Delta > 0 ? step : -step);
             if (next < 0m) next = 0m;
             tb.Text = next.ToString(allowDecimal ? "0.###" : "0", CultureInfo.InvariantCulture);
 

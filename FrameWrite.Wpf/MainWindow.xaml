@@ -137,8 +137,23 @@
                         </StackPanel>
                     </Border>
                 </Popup>
-                <Button Style="{StaticResource BtnBase}" Content="Overlay" Margin="8,0,0,0" VerticalAlignment="Center"
-                        Command="{Binding OpenOverlayCommand}" ToolTip="Set up the text burned into each captured frame."/>
+                <!-- Turns accent + shows a dot when the overlay is enabled, so its on/off state reads at a
+                     glance from the main window (matching the app's accent-means-active language). -->
+                <Button Command="{Binding OpenOverlayCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                        ToolTip="Set up the text burned into each captured frame.">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                            <Setter Property="Content" Value="Overlay"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OverlayTimestamp}" Value="True">
+                                    <Setter Property="Content" Value="Overlay ●"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
                 <Button Style="{StaticResource BtnBase}" Content="&#9881;" FontSize="16" Margin="8,0,16,0" VerticalAlignment="Center"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
                 <Button Style="{StaticResource WindowBtn}" Content="&#xE921;" Click="OnMinimize" ToolTip="Minimize"/>
@@ -293,12 +308,12 @@
                                          local:NumericInput.AllowDecimal="True" local:NumericInput.Proportional="True"
                                          local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="{Binding IntervalTooltip}"/>
+                                         ToolTip="{Binding IntervalTooltip}" ToolTipService.Placement="Top"/>
                                 <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
                                          local:NumericInput.AllowDecimal="True" local:NumericInput.Proportional="True"
                                          local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
-                                         ToolTip="{Binding FpsTooltip}"/>
+                                         ToolTip="{Binding FpsTooltip}" ToolTipService.Placement="Top"/>
                                 <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="sec" Margin="10,0,0,0"
                                              IsChecked="{Binding IntervalUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"
                                              ToolTip="Edit the interval as seconds between frames."/>

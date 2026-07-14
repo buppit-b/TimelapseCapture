@@ -47,6 +47,10 @@ namespace FrameWrite.Wpf
                 fpsText.Text = $"@ {_playbackFps:0.##} fps";
                 Reload(goToLast: true);
             };
+            // The initial fit must run AFTER the viewport is actually rendered/sized. A deferred fit at
+            // Loaded priority can fire before that (leaving the frame at 1:1 top-left — the "top-left
+            // quadrant" bug). ContentRendered is the reliable "everything is laid out and drawn" signal.
+            ContentRendered += (s, e) => { if (_autoFit) Fit(); };
             Closed += (s, e) => _playTimer.Stop();   // don't leak the timer past the window
         }
 
