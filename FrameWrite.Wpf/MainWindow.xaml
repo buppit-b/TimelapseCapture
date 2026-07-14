@@ -290,11 +290,13 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Interval" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <TextBox Text="{Binding IntervalSeconds}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
+                                         local:NumericInput.AllowDecimal="True" local:NumericInput.Proportional="True"
+                                         local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalSeconds, Converter={StaticResource BoolToVis}}"
                                          ToolTip="{Binding IntervalTooltip}"/>
                                 <TextBox Text="{Binding CaptureFps}" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                                         local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
+                                         local:NumericInput.AllowDecimal="True" local:NumericInput.Proportional="True"
+                                         local:ClampFlash.Enabled="True" IsEnabled="{Binding NotCapturing}"
                                          Visibility="{Binding ShowIntervalFps, Converter={StaticResource BoolToVis}}"
                                          ToolTip="{Binding FpsTooltip}"/>
                                 <RadioButton Style="{StaticResource Seg}" GroupName="ivunit" Content="sec" Margin="10,0,0,0"

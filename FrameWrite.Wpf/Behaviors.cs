@@ -114,6 +114,24 @@ namespace FrameWrite.Wpf
         public static void SetStep(DependencyObject o, double v) => o.SetValue(StepProperty, v);
         public static double GetStep(DependencyObject o) => (double)o.GetValue(StepProperty);
 
+        // Proportional (curved) wheel step: the step scales with the current magnitude, so a fast interval
+        // (0.05s) nudges by 0.01 while a slow one (45s) nudges by 10 — no more coarse 1s jumps near the
+        // fast end, and no 0.01 → 1.01 leap. Shift/Ctrl still coarsen/refine on top.
+        public static readonly DependencyProperty ProportionalProperty =
+            DependencyProperty.RegisterAttached("Proportional", typeof(bool), typeof(NumericInput),
+                new PropertyMetadata(false));
+        public static void SetProportional(DependencyObject o, bool v) => o.SetValue(ProportionalProperty, v);
+        public static bool GetProportional(DependencyObject o) => (bool)o.GetValue(ProportionalProperty);
+
+        private static decimal ProportionalStep(decimal v)
+        {
+            v = Math.Abs(v);
+            if (v <= 0.1m) return 0.01m;   // sub-0.1s (video-rate) — fine 0.01 steps
+            if (v <= 1m) return 0.1m;      // 0.1–1s
+            if (v <= 10m) return 1m;       // 1–10s
+            return 10m;                    // slow rates — coarse
+        }
+
         private static void OnChanged(DependencyObject o, DependencyPropertyChangedEventArgs e)
         {
             if (o is not TextBox tb) return;
@@ -152,7 +170,8 @@ namespace FrameWrite.Wpf
 
             bool allowDecimal = GetAllowDecimal(tb);
             decimal step;
-            try { step = (decimal)GetStep(tb); } catch (OverflowException) { step = 1m; }
+            if (GetProportional(tb)) step = ProportionalStep(cur);
+            else { try { step = (decimal)GetStep(tb); } catch (OverflowException) { step = 1m; } }
             if (step <= 0m) step = 1m;
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) step *= 10m;
             else if (allowDecimal && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) step *= 0.1m;
