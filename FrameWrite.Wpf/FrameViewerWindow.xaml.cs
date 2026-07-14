@@ -30,15 +30,50 @@ namespace FrameWrite.Wpf
         // layout scale of 1/1.5, not 1.0 (which would render each pixel soft at 150%).
         private double _pixelScale = 1;
 
-        public FrameViewerWindow(string sessionFolder)
+        // Playback: step the scrubber at the encode fps so you can watch the timelapse before encoding.
+        private readonly System.Windows.Threading.DispatcherTimer _playTimer = new();
+        private readonly double _playbackFps;
+
+        public FrameViewerWindow(string sessionFolder, double playbackFps = 30)
         {
             InitializeComponent();
             _sessionFolder = sessionFolder;
+            _playbackFps = Math.Clamp(playbackFps, 0.1, 240);
+            _playTimer.Interval = TimeSpan.FromSeconds(1.0 / _playbackFps);
+            _playTimer.Tick += OnPlayTick;
             Loaded += (s, e) =>
             {
                 _pixelScale = 1.0 / VisualTreeHelper.GetDpi(this).DpiScaleX;
+                fpsText.Text = $"@ {_playbackFps:0.##} fps";
                 Reload(goToLast: true);
             };
+            Closed += (s, e) => _playTimer.Stop();   // don't leak the timer past the window
+        }
+
+        // ---- playback ----
+
+        private void OnPlayToggle(object sender, RoutedEventArgs e)
+        {
+            if (_playTimer.IsEnabled) StopPlaying();
+            else
+            {
+                if (_files.Length < 2) return;                 // nothing to play
+                if (_current >= _files.Length) scrub.Value = 1; // restart from the top if parked at the end
+                _playTimer.Start();
+                playBtn.Content = "⏸ Pause";
+            }
+        }
+
+        private void StopPlaying()
+        {
+            _playTimer.Stop();
+            if (IsLoaded) playBtn.Content = "▶ Play";
+        }
+
+        private void OnPlayTick(object? sender, EventArgs e)
+        {
+            // Advance one frame; loop back to the start at the end so the preview repeats.
+            scrub.Value = _current >= _files.Length ? 1 : _current + 1;
         }
 
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
@@ -110,6 +145,7 @@ namespace FrameWrite.Wpf
 
         private void OnStep(object sender, RoutedEventArgs e)
         {
+            StopPlaying();   // stepping is manual, frame-by-frame control — stop any playback
             if (sender is FrameworkElement el && int.TryParse(el.Tag as string, out int d))
                 scrub.Value = Math.Clamp(scrub.Value + d, scrub.Minimum, scrub.Maximum);
         }

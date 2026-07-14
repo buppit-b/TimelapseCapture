@@ -99,7 +99,7 @@ namespace FrameWrite.Wpf
         private void OnPreviewClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (DataContext is MainViewModel vm && vm.CurrentSessionFolder is { } folder && vm.FrameCount > 0)
-                new FrameViewerWindow(folder) { Owner = this }.Show();
+                new FrameViewerWindow(folder, vm.EffectiveEncodeFps) { Owner = this }.Show();
         }
 
         protected override void OnSourceInitialized(EventArgs e)

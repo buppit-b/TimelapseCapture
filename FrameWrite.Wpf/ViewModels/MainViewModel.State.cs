@@ -216,6 +216,12 @@ namespace FrameWrite.Wpf.ViewModels
             set { var v = Math.Clamp(value, 1, 240); if (_settings.EncodeFps != v) { _settings.EncodeFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); RefreshStats(); BumpRecalc(); OnPropertyChanged(nameof(SpeedHint)); OnPropertyChanged(nameof(SpeedHintNamed)); OnPropertyChanged(nameof(EncodeSummaryText)); } }
         }
 
+        /// <summary>The fps the encoded video will actually play at — EncodeFps, or the rate computed in
+        /// encode-to-duration mode. The in-app playback preview uses this so it matches the output.</summary>
+        public double EffectiveEncodeFps => EncodeDurationMode
+            ? VideoEncoder.FpsForDuration(_frameCount, Math.Max(1, _settings.EncodeEveryNth), EncodeDurationSeconds)
+            : Math.Max(1, EncodeFps);
+
         // ---- Encode-to-duration: fixed fps vs "make the video exactly N seconds" (fps computed) ----
         public bool EncodeDurationMode
         {

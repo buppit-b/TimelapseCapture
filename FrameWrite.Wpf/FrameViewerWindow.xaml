@@ -35,6 +35,11 @@
         <!-- Zoom + frame info. -->
         <Grid Grid.Row="1" Margin="0,10,0,0">
             <StackPanel Orientation="Horizontal">
+                <Button x:Name="playBtn" Content="&#9654; Play" Style="{StaticResource BtnBase}" FontSize="11" Padding="10,3" Click="OnPlayToggle"
+                        ToolTip="Play the timelapse at the encode fps so you can preview the result before encoding (loops; any step pauses it)."/>
+                <TextBlock x:Name="fpsText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <Border Width="1" Background="{DynamicResource StrokeBrush}" Margin="12,2,12,2"/>
                 <Button Content="Fit" Style="{StaticResource BtnBase}" FontSize="11" Padding="10,3" Click="OnFit"
                         ToolTip="Fit the whole frame in the window (re-fits as you resize until you zoom manually)."/>
                 <Button Content="1:1" Style="{StaticResource BtnBase}" FontSize="11" Padding="10,3" Margin="6,0,0,0" Click="OnActualSize"
