@@ -50,7 +50,11 @@ namespace FrameWrite.Wpf
             // The initial fit must run AFTER the viewport is actually rendered/sized. A deferred fit at
             // Loaded priority can fire before that (leaving the frame at 1:1 top-left — the "top-left
             // quadrant" bug). ContentRendered is the reliable "everything is laid out and drawn" signal.
-            ContentRendered += (s, e) => { if (_autoFit) Fit(); };
+            ContentRendered += (s, e) =>
+            {
+                FrameWrite.Logger.Log("Loupe", $"ContentRendered: autoFit={_autoFit}, vp={viewport.ActualWidth:F0}x{viewport.ActualHeight:F0}, src={(img.Source as BitmapSource)?.PixelWidth}");
+                Fit();   // unconditional on first render — guarantee an initial centred fit
+            };
             Closed += (s, e) => _playTimer.Stop();   // don't leak the timer past the window
         }
 
@@ -219,10 +223,15 @@ namespace FrameWrite.Wpf
 
         private void Fit()
         {
-            if (img.Source is not BitmapSource src || viewport.ActualWidth < 1 || viewport.ActualHeight < 1) return;
+            if (img.Source is not BitmapSource src || viewport.ActualWidth < 1 || viewport.ActualHeight < 1)
+            {
+                FrameWrite.Logger.Log("Loupe", $"Fit skipped: hasSrc={img.Source is BitmapSource}, vp={viewport.ActualWidth:F1}x{viewport.ActualHeight:F1}");
+                return;
+            }
             _scale = Math.Min(viewport.ActualWidth / src.PixelWidth, viewport.ActualHeight / src.PixelHeight);
             _tx = (viewport.ActualWidth - src.PixelWidth * _scale) / 2;
             _ty = (viewport.ActualHeight - src.PixelHeight * _scale) / 2;
+            FrameWrite.Logger.Log("Loupe", $"Fit: vp={viewport.ActualWidth:F0}x{viewport.ActualHeight:F0}, frame={src.PixelWidth}x{src.PixelHeight}, scale={_scale:F3}, tx={_tx:F0}, ty={_ty:F0}");
             _autoFit = true;
             ApplyTransform();
         }
