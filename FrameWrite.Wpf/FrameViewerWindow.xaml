@@ -16,17 +16,25 @@
         <!-- The loupe: wheel zooms at the cursor, drag pans, double-click toggles fit ↔ 1:1. -->
         <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
                 BorderThickness="1" ClipToBounds="True">
-            <Grid x:Name="viewport" Background="Transparent" Cursor="Cross"
-                  MouseWheel="OnWheelZoom" MouseLeftButtonDown="OnViewportDown"
-                  MouseMove="OnViewportMove" MouseLeftButtonUp="OnViewportUp"
-                  SizeChanged="OnViewportSized">
-                <Image x:Name="img" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"
-                       RenderTransformOrigin="0,0">
+            <!-- The image host MUST be a Canvas, not a Grid/panel that clips to the arrange slot: WPF
+                 layout-clips a child whose size exceeds its slot in LOCAL space, BEFORE RenderTransform —
+                 a 1920x1080 image in an ~888x521 slot got clipped to its top-left 888x521 pixels and THEN
+                 scaled down (the "top-left quadrant, cut off" bug; verified by offscreen render measurement).
+                 Canvas measures children with infinite space so nothing is slot-clipped; the Border's
+                 ClipToBounds contains the TRANSFORMED visual, which is the clip we actually want. -->
+            <Canvas x:Name="viewport" Background="Transparent" Cursor="Cross"
+                    MouseWheel="OnWheelZoom" MouseLeftButtonDown="OnViewportDown"
+                    MouseMove="OnViewportMove" MouseLeftButtonUp="OnViewportUp"
+                    SizeChanged="OnViewportSized">
+                <!-- Stretch=Fill + explicit Width/Height (set to the frame's PixelWidth/Height in code) makes
+                     1 layout unit = 1 frame pixel regardless of the file's DPI metadata (frames saved on a
+                     scaled display carry the screen DPI, which would skew Stretch=None's "natural size"). -->
+                <Image x:Name="img" Stretch="Fill" RenderTransformOrigin="0,0">
                     <Image.RenderTransform>
                         <MatrixTransform x:Name="xform"/>
                     </Image.RenderTransform>
                 </Image>
-            </Grid>
+            </Canvas>
         </Border>
 
         <!-- Zoom + frame info. -->

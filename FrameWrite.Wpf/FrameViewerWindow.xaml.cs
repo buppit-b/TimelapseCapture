@@ -47,14 +47,8 @@ namespace FrameWrite.Wpf
                 fpsText.Text = $"@ {_playbackFps:0.##} fps";
                 Reload(goToLast: true);
             };
-            // The initial fit must run AFTER the viewport is actually rendered/sized. A deferred fit at
-            // Loaded priority can fire before that (leaving the frame at 1:1 top-left — the "top-left
-            // quadrant" bug). ContentRendered is the reliable "everything is laid out and drawn" signal.
-            ContentRendered += (s, e) =>
-            {
-                FrameWrite.Logger.Log("Loupe", $"ContentRendered: autoFit={_autoFit}, vp={viewport.ActualWidth:F0}x{viewport.ActualHeight:F0}, src={(img.Source as BitmapSource)?.PixelWidth}");
-                Fit();   // unconditional on first render — guarantee an initial centred fit
-            };
+            // Initial fit once everything is laid out and drawn (ContentRendered fires after first render).
+            ContentRendered += (s, e) => Fit();
             Closed += (s, e) => _playTimer.Stop();   // don't leak the timer past the window
         }
 
@@ -78,10 +72,14 @@ namespace FrameWrite.Wpf
             if (IsLoaded) playBtn.Content = "▶ Play";
         }
 
+        private bool _timerScrub;   // distinguishes the play timer's own scrub advance from the user's
+
         private void OnPlayTick(object? sender, EventArgs e)
         {
             // Advance one frame; loop back to the start at the end so the preview repeats.
+            _timerScrub = true;
             scrub.Value = _current >= _files.Length ? 1 : _current + 1;
+            _timerScrub = false;
         }
 
         protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
@@ -127,18 +125,20 @@ namespace FrameWrite.Wpf
                     bi.EndInit();
                 }
                 bi.Freeze();
+                bool dimsChanged = img.Width != bi.PixelWidth || img.Height != bi.PixelHeight;
                 img.Source = bi;
-                // 1 layout unit = 1 frame pixel, regardless of the image's DPI metadata.
+                // 1 layout unit = 1 frame pixel, regardless of the image's DPI metadata (with Stretch=Fill).
                 img.Width = bi.PixelWidth;
                 img.Height = bi.PixelHeight;
 
                 posText.Text = $"frame {n} / {_files.Length}";
                 infoText.Text = $"{bi.PixelWidth}×{bi.PixelHeight} · {bytes.Length / 1024.0:F1} KB · " +
                                 $"{File.GetLastWriteTime(file):yyyy-MM-dd HH:mm:ss}";
-                // Defer the first fit to Loaded priority: at this point the viewport often isn't measured
-                // yet (ActualWidth 0), so an immediate Fit() would no-op and leave the frame pinned
-                // top-left. Running after layout guarantees it centres. (OnViewportSized also re-fits.)
+                // First fit is deferred until layout exists (ContentRendered also fits). Mid-session
+                // dimension changes (foreign/hand-assembled folders — engine frames are uniform) re-fit
+                // so the differently-sized frame isn't misplaced under the stale zoom/pan.
                 if (firstLoad) Dispatcher.BeginInvoke(new Action(Fit), System.Windows.Threading.DispatcherPriority.Loaded);
+                else if (dimsChanged && _autoFit) Fit();
             }
             catch (Exception ex)
             {
@@ -148,7 +148,11 @@ namespace FrameWrite.Wpf
 
         private void OnScrub(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_scrubReady) LoadFrame((int)Math.Round(e.NewValue));
+            if (!_scrubReady) return;
+            // A user-initiated scrub (drag or wheel on the slider) takes manual control — stop playback
+            // rather than let the timer fight the drag. The timer's own advances pass through.
+            if (_playTimer.IsEnabled && !_timerScrub) StopPlaying();
+            LoadFrame((int)Math.Round(e.NewValue));
         }
 
         private void OnStep(object sender, RoutedEventArgs e)
@@ -223,15 +227,10 @@ namespace FrameWrite.Wpf
 
         private void Fit()
         {
-            if (img.Source is not BitmapSource src || viewport.ActualWidth < 1 || viewport.ActualHeight < 1)
-            {
-                FrameWrite.Logger.Log("Loupe", $"Fit skipped: hasSrc={img.Source is BitmapSource}, vp={viewport.ActualWidth:F1}x{viewport.ActualHeight:F1}");
-                return;
-            }
+            if (img.Source is not BitmapSource src || viewport.ActualWidth < 1 || viewport.ActualHeight < 1) return;
             _scale = Math.Min(viewport.ActualWidth / src.PixelWidth, viewport.ActualHeight / src.PixelHeight);
             _tx = (viewport.ActualWidth - src.PixelWidth * _scale) / 2;
             _ty = (viewport.ActualHeight - src.PixelHeight * _scale) / 2;
-            FrameWrite.Logger.Log("Loupe", $"Fit: vp={viewport.ActualWidth:F0}x{viewport.ActualHeight:F0}, frame={src.PixelWidth}x{src.PixelHeight}, scale={_scale:F3}, tx={_tx:F0}, ty={_ty:F0}");
             _autoFit = true;
             ApplyTransform();
         }
@@ -250,9 +249,10 @@ namespace FrameWrite.Wpf
 
         private void ApplyTransform()
         {
-            // One MatrixTransform (scale on the diagonal, translate in the offsets) instead of a
-            // TransformGroup — the grouped ScaleTransform's updates weren't reaching the image (it rendered
-            // native-size, translated, = the "top-left quadrant"). A single matrix is unambiguous.
+            // One MatrixTransform: scale on the diagonal, translate in the offsets. (Historical note: the
+            // "top-left quadrant" bug was NOT a transform problem — TransformGroup and MatrixTransform render
+            // identically. It was the host panel layout-clipping the oversized Image to its slot BEFORE the
+            // transform; the Canvas host in the XAML is the fix.)
             xform.Matrix = new System.Windows.Media.Matrix(_scale, 0, 0, _scale, _tx, _ty);
             zoomText.Text = $"{_scale / _pixelScale * 100:F0}%";   // 100% = one frame pixel per screen pixel
             // Crisp pixels when magnifying (what a detail check needs); smooth when shrinking.
