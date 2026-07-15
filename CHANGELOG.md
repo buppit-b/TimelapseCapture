@@ -3,6 +3,30 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.0.2] — 2026-07-15 — playback preview + feedback-round fixes
+
+- **In-app playback preview** — the loupe (click the Preview thumbnail) gains **▶ Play**: watch
+  the timelapse at the effective encode fps (loops; any step or scrub pauses it) and judge the
+  result *before* encoding — no ffmpeg round-trip.
+- **Loupe fixed for real** — it only ever showed the frame's top-left quadrant. Root cause (proven
+  with an offscreen render harness): WPF clips an oversized child to its layout slot *before* the
+  zoom transform, so the frame was clipped first and scaled second. The image now lives in a
+  non-clipping Canvas host; also guards against frames carrying non-96 DPI metadata, re-fits when
+  frame dimensions change, and a manual scrub stops playback instead of fighting it.
+- **TARGET has its own card** — target setup + progress split out of the STATS card, so
+  configuration and live telemetry each get a calm, focused panel.
+- **Overlay bake UX** — the bake button now lives inside the enabled overlay panel (it appeared
+  even with the overlay off), the confirm copy is tighter, the Overlay dialog can't open mid-bake
+  (a file-lock collision), and after a safety backup the app now shows **where the backup went**
+  with an "Open backup folder" button (bake, crop, and cull).
+- **Overlay at a glance** — the header Overlay button turns accent + ● when the overlay is enabled;
+  the dialog's config panel greys out instead of collapsing (no more size jump).
+- **Interval scrolling** — proportional ("curved") wheel steps that snap to clean values: fine
+  steps at fast rates (0.01 below 0.1s), coarse at slow ones (10s above 10s); Ctrl for a fine
+  0.01 grid. Tooltip moved above the field so it stops covering the speed hint.
+- **Hide-from-capture reliability** — the exclusion is re-asserted when capture starts, fixing the
+  occasional black-square window in frames until the setting was re-toggled.
+
 ## [1.0.1] — 2026-07-14 — UI elegance pass
 
 A visual-styling refinement of the existing layout (developed on a fork, verified live).
