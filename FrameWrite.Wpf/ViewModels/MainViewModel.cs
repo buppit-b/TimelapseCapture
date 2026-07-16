@@ -70,8 +70,13 @@ namespace FrameWrite.Wpf.ViewModels
             RestoreDefaultsCommand = new RelayCommand(_ => RestoreDefaults(), _ => !IsCapturing);
             RefreshPresets();   // no built-in presets — users create their own
 
-            // After the window is up, check whether a previous run was interrupted mid-capture.
+            // After the window is up, check whether a previous run was interrupted mid-capture; then
+            // (same priority → FIFO, so recovery always resolves first) the opt-in launch auto-start.
             Application.Current?.Dispatcher.BeginInvoke(new Action(CheckForInterruptedSession), DispatcherPriority.Background);
+            Application.Current?.Dispatcher.BeginInvoke(new Action(TryAutoStartOnLaunch), DispatcherPriority.Background);
+            // Self-heal the sign-in launch entry: re-write it with the CURRENT exe path so a moved or
+            // updated install never leaves the registry pointing at a dead location.
+            if (_settings.LaunchWithWindows) StartupRegistration.Apply(true);
             FullScreenCommand = new RelayCommand(_ => SelectFullScreen(), _ => _session != null && !IsCapturing);
             TrackWindowCommand = new RelayCommand(_ => TrackWindow(), _ => _session != null && !IsCapturing);
             SelectRegionCommand = new RelayCommand(_ => SelectRegion(), _ => _session != null && !IsCapturing);

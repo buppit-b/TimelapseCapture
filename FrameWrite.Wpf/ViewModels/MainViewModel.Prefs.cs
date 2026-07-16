@@ -32,6 +32,34 @@ namespace FrameWrite.Wpf.ViewModels
         /// </summary>
         public const decimal MinIntervalSeconds = 0.01m;
 
+        // ---- The "always-there recorder" pair: launch at sign-in + start capturing on launch, so a
+        // session can never be forgotten. Both opt-in (preference, not protection). ----
+        public bool LaunchWithWindows
+        {
+            get => _settings.LaunchWithWindows;
+            set
+            {
+                if (_settings.LaunchWithWindows == value) return;
+                // Registry first: if the write fails, don't pretend the preference took.
+                if (!StartupRegistration.Apply(value))
+                {
+                    MessageDialog.Show("Couldn't update the Windows sign-in launch entry (see the log).",
+                        "Startup", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    OnPropertyChanged();   // snap the checkbox back to the real state
+                    return;
+                }
+                _settings.LaunchWithWindows = value;
+                SettingsManager.Save(_settings);
+                OnPropertyChanged();
+            }
+        }
+
+        public bool StartCaptureOnLaunch
+        {
+            get => _settings.StartCaptureOnLaunch;
+            set { if (_settings.StartCaptureOnLaunch != value) { _settings.StartCaptureOnLaunch = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public event Action? WindowAffinityChanged;
         public bool HideFromCapture
         {

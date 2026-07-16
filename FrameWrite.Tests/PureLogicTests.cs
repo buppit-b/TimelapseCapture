@@ -87,6 +87,19 @@ namespace FrameWrite.Tests
         }
     }
 
+    // The sign-in Run-key command line (StartupRegistration.RunValue) — must survive paths with spaces.
+    public class StartupRunValueTests
+    {
+        [Fact]
+        public void QuotesThePath_SoSpacesSurvive() =>
+            StartupRegistration.RunValue(@"C:\Program Files\FrameWrite\FrameWrite.exe")
+                .Should().Be("\"C:\\Program Files\\FrameWrite\\FrameWrite.exe\"");
+
+        [Fact]
+        public void PlainPath_StillQuoted() =>
+            StartupRegistration.RunValue(@"C:\fw\FrameWrite.exe").Should().StartWith("\"").And.EndWith("\"");
+    }
+
     // Output-filename sanitiser that feeds the (quoted) ffmpeg command (VideoEncoder.SanitizeFileName).
     public class SanitizeFileNameTests
     {

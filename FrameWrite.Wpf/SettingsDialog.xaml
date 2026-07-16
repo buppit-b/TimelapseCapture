@@ -97,6 +97,19 @@
             </StackPanel>
         </StackPanel>
 
+        <!-- Startup: the "always-there recorder" pair -->
+        <ToggleButton x:Name="secStartup" Style="{StaticResource SectionHeader}" Content="STARTUP" IsChecked="True"/>
+        <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secStartup, Converter={StaticResource BoolToVis}}">
+            <CheckBox Content="Launch FrameWrite when Windows starts" IsChecked="{Binding LaunchWithWindows}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      ToolTip="Adds a per-user sign-in entry (no admin needed). Removed when unticked."/>
+            <CheckBox Content="Start capturing on launch" IsChecked="{Binding StartCaptureOnLaunch}"
+                      Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
+                      ToolTip="On launch: continues the most recent session, or starts a new full-screen session if none exists, and begins capturing. Skipped during first-run setup."/>
+            <TextBlock Text="Both on = recording from sign-in. Smart interval and the disk auto-stop still apply."
+                       Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
+        </StackPanel>
+
         <!-- Window tracking -->
         <ToggleButton x:Name="secTracking" Style="{StaticResource SectionHeader}" Content="WINDOW TRACKING" IsChecked="True"/>
         <StackPanel Margin="20,0,0,0" Visibility="{Binding IsChecked, ElementName=secTracking, Converter={StaticResource BoolToVis}}">

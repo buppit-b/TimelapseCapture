@@ -61,8 +61,12 @@ candidates** section below for what happens next.
      capture (drop the title bar via `DwmGetWindowAttribute`); per-DPI rescale across monitors.
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
-   - ***"Smart tracking" of on-screen elements — AGREED NEXT FEATURE ARC (Spike, 2026-07-15;
-     design settled 2026-07-16):*** follow a visual element that isn't a window (canvas inside an
+   - ***"Smart tracking" of on-screen elements — TABLED (Spike, 2026-07-16; design kept for
+     later):*** the design below is settled and ready to pick up whenever it earns its slot; the
+     open risk that tabled it is UIA coverage in the actual target art apps (a custom-drawn canvas
+     may expose nothing trackable). If revived, START WITH SLICE 0 — the picker doubles as the
+     cheap coverage probe and the verdict decides the rest. Original design: follow a visual
+     element that isn't a window (canvas inside an
      art app, a video panel) by re-resolving its rect each tick — same plumbing as window tracking
      with a different rect source. **UIA first** (in-box for net9.0-windows, no new dependency;
      rects are physical px, matching the engine). Build order:
@@ -249,6 +253,21 @@ below (gauges/sparklines) stay open for the broader GUI reshape:
    *Still open:* rebindable Trim/Cull dialog editing keys (step ±1/±10, mark/unmark,
    set start/end) — local keys, lower value, revisit on demand.
 
+### Road forward (assessment for Spike, 2026-07-16)
+Mid-capture is strong; **the two ENDS of the loop are the weak points** vs. the best comparable
+tools (Procreate's always-on recorder is the UX gold standard: you never remember to start, and
+the timelapse just exists when the piece is done):
+1. **Starting** — the app didn't even restore the last session on launch; every run began with
+   manual session → region → Start, so a forgotten Start = a lost session (the worst outcome an
+   artist tool can have). → **"Always-there recorder" shipped 2026-07-16:** Settings › Startup —
+   launch-at-sign-in (HKCU Run, self-healing path) + start-capturing-on-launch (continues the
+   most recent session, else new full-screen session; skips are logged, never silent; crash
+   recovery resolves first). Both opt-in.
+2. **Finishing** — stop → encode → find file is still multi-step. Next candidates, in order:
+   **auto/one-click encode on stop** (item 3, the other half of this thesis) · **GIF export**
+   (artists post progress GIFs; ffmpeg palettegen — cheap, high delight) · end-frame hold is in.
+3. Then the pre-public blockers (installer, in-app bug report) whenever distribution matters.
+
 ### 1.x smaller ideas (parked, roughly by value)
 **Overlay drag precision** *(Spike, 2026-07-09)*: dragging the overlay text on the small preview
 feels imprecise — cursor covers the text, small overlays are fiddly. Ideas: a zoom slider beside
@@ -270,7 +289,7 @@ alongside start/stop; do it with the configurable-keybindings work. ·
 elements beyond the target bar + encode bar (both shipped) — e.g. a session-storage gauge vs free
 disk, a sparkline of capture cadence (gaps = idle skips), frame-size trend. Possibly a toggleable
 "advanced stats" view so the default stays clean. ·
-Start-capture-on-launch (+ optional launch-with-Windows) · **in-app bug report** *(Spike,
+**Start-capture-on-launch + launch-with-Windows — ✅ shipped (2026-07-16, Settings › Startup)** · **in-app bug report** *(Spike,
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
 to the clipboard)* · GIF export · all-screens preset (item 8) · **in-app playback preview — ✅

@@ -200,6 +200,52 @@ namespace FrameWrite.Wpf.ViewModels
             set { if (_settings.AlwaysOnTop != value) { _settings.AlwaysOnTop = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
+        // Opt-in "always-there recorder": on launch, continue the most recent session (or start a new
+        // full-screen one) and begin capturing — so a work session can never be forgotten. Runs AFTER
+        // crash recovery (posted later at the same dispatcher priority); recovery's loaded session, if
+        // any, is exactly what this then starts. Every skip is logged — never a silent no-op.
+        private void TryAutoStartOnLaunch()
+        {
+            if (!_settings.StartCaptureOnLaunch || IsCapturing || IsEncoding) return;
+            if (string.IsNullOrWhiteSpace(_settings.SaveFolder)) return;   // true first run — the wizard owns this launch
+            try
+            {
+                if (_session == null)
+                {
+                    // Continue the most recently touched session; a brand-new install starts fresh.
+                    string root = Path.Combine(_settings.SaveFolder!, "captures");
+                    string? best = Directory.Exists(root)
+                        ? Directory.GetDirectories(root)
+                            .Where(d => SessionManager.LoadSession(d) != null)
+                            .OrderByDescending(Directory.GetLastWriteTime)
+                            .FirstOrDefault()
+                        : null;
+                    if (best != null) LoadSessionFromFolder(best, fromPicker: false);
+                    else NewSession();   // no prompt on launch: there's no current session to lose
+                }
+                if (_session == null) { Logger.Log("Wpf", "Auto-start skipped: no session could be loaded or created."); return; }
+
+                if (!_region.HasValue)
+                {
+                    // Zero-config default: the primary monitor, full screen — no picker dialogs at sign-in.
+                    var monitors = ScreenHelper.Monitors();
+                    var primary = monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors[0];
+                    var r = primary.Bounds;
+                    r.Width -= r.Width % 2;    // even dimensions required by the H.264 encoder
+                    r.Height -= r.Height % 2;
+                    ApplyRegion(r, $"{r.Width}×{r.Height} (full screen)");
+                }
+
+                if (_region.HasValue)
+                {
+                    Logger.Log("Wpf", $"Auto-start: capturing session “{SessionName}” on launch.");
+                    StartCapture();
+                }
+                else Logger.Log("Wpf", "Auto-start skipped: no usable capture area.");
+            }
+            catch (Exception ex) { Logger.Log("Wpf", $"Auto-start failed: {ex.Message}"); }
+        }
+
         // Crash recovery: a session left Active means the app died mid-capture. On launch, offer to
         // resume the most-recently-touched such session; clear the flag on all of them either way.
         private void CheckForInterruptedSession()
