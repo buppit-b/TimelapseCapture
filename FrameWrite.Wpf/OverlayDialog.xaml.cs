@@ -82,6 +82,7 @@ namespace FrameWrite.Wpf
         private void OnBake(object sender, RoutedEventArgs e)
         {
             if (Vm is not { } vm || vm.FrameCount < 1) return;
+            if (vm.IsCapturing || vm.IsEncoding) return;   // button state can lag a hotkey-started capture
             int choice = MessageDialog.ShowChoices(
                 $"Burn this overlay into all {vm.FrameCount} frame(s)?\n\n" +
                 "Permanent — every frame is rewritten. Timestamps use each frame's real capture time. " +
@@ -107,7 +108,9 @@ namespace FrameWrite.Wpf
         // then nudge exactly. Inert while a text box has focus (arrows keep moving the caret there).
         private void OnNudgeKey(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (Vm is not { } vm || !vm.OverlayUsesCustom) return;
+            // Same gate as the panel's IsEnabled: with the overlay off, arrow keys must not edit (and
+            // persist!) the position of a greyed-out control — PreviewKeyDown bypasses IsEnabled.
+            if (Vm is not { } vm || !vm.OverlayTimestamp || !vm.OverlayUsesCustom) return;
             if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
                 or System.Windows.Controls.ComboBox) return;
 
@@ -174,6 +177,11 @@ namespace FrameWrite.Wpf
         {
             if (e.PropertyName?.StartsWith("Overlay", StringComparison.Ordinal) == true)
             { _renderDebounce.Stop(); _renderDebounce.Start(); RefreshBakeEnabled(); }
+            // The bake gate also depends on capture/encode state, which the global hotkey or tray can
+            // flip while this dialog is open — keep the button honest, not just Overlay-prefixed changes.
+            else if (e.PropertyName is nameof(MainViewModel.IsCapturing) or nameof(MainViewModel.IsEncoding)
+                     or nameof(MainViewModel.FrameCount) or null or "")
+                RefreshBakeEnabled();
         }
 
         private void RenderPreview()

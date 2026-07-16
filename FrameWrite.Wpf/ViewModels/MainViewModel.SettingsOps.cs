@@ -75,7 +75,20 @@ namespace FrameWrite.Wpf.ViewModels
         {
             var dlg = new OverlayDialog { Owner = Application.Current?.MainWindow, DataContext = this };
             dlg.ShowDialog();
-            if (!dlg.BakeRequested || _sessionFolder == null || IsCapturing || IsEncoding) return;
+            if (!dlg.BakeRequested || _sessionFolder == null) return;
+            // The global hotkey / tray can start a capture while the dialog is open (modality blocks
+            // input, not posted messages). Refusing is right — but a bake the user CONFIRMED must never
+            // vanish silently ("failures surfaced, never silent").
+            if (IsCapturing || IsEncoding)
+            {
+                Logger.Log("Wpf", "Overlay bake skipped: capture/encode started while the dialog was open.");
+                MessageDialog.Show(
+                    "The bake didn't run — capture started while the overlay dialog was open.\n\n" +
+                    "Nothing was changed: no backup was made, no frames were rewritten. Stop capture, " +
+                    "then bake again from the Overlay dialog.",
+                    "Bake overlay", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             // Retroactive bake — re-writes every frame on disk (consent already given in the dialog).
             // Same busy pattern as the destructive crop: IsEncoding gates start/encode/trim/cull/switch.

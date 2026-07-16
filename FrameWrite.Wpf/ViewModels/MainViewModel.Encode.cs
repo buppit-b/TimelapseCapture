@@ -96,6 +96,9 @@ namespace FrameWrite.Wpf.ViewModels
                 EncodeStatus = "Cull failed";
                 MessageDialog.Show($"Couldn't delete the frames:\n{ex.Message}", "Cull frames",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+                // Frames may be partially rewritten — point the user at the safety copy NOW, and consume
+                // the path so a later no-backup op can't falsely announce this stale backup as its own.
+                NotifyBackupLocationIfAny();
                 return;   // leave marks/trim as they are — the user can inspect what happened
             }
             finally { IsEncoding = false; }
@@ -132,6 +135,7 @@ namespace FrameWrite.Wpf.ViewModels
                 // and session switching are gated meanwhile.
                 IsEncoding = true;
                 EncodeStatus = "Cropping frames…";
+                bool cropped = false;
                 try
                 {
                     // A failed backup must abort BEFORE any frame is touched (the return also skips
@@ -139,6 +143,7 @@ namespace FrameWrite.Wpf.ViewModels
                     if (dlg.BackupFirstRequested && !await BackupSessionForSafety(_sessionFolder)) return;
                     EncodeStatus = "Cropping frames…";
                     int done = await Task.Run(() => SessionManager.CropFrames(_sessionFolder, rect, _settings.JpegQuality));
+                    cropped = true;
                     EncodeStatus = $"Cropped {done} frame(s) ✓";
                     Logger.Log("Wpf", $"Destructive crop applied: {rect} → {done} frame(s).");
                 }
@@ -148,7 +153,9 @@ namespace FrameWrite.Wpf.ViewModels
                     MessageDialog.Show($"Couldn't crop the frames:\n{ex.Message}", "Crop", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 finally { IsEncoding = false; }
-                SetSessionCrop(null);   // the crop is baked into the frames now — encodes use the full (new) frame
+                // Only clear the saved non-destructive crop when it really IS baked into the frames — a
+                // failed crop must not silently discard the user's stored crop rect.
+                if (cropped) SetSessionCrop(null);
                 UpdatePreview();
                 RefreshRegionScaleSuffix();   // canonical size changed — the region's scale note must follow
                 NotifyBackupLocationIfAny();

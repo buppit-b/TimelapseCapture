@@ -94,7 +94,16 @@ namespace FrameWrite.Wpf
         private void Reload(bool goToLast)
         {
             int before = _files.Length;
-            _files = SessionManager.GetFrameFiles(_sessionFolder);
+            // Enumeration can throw even when the folder "exists" (ACL change, AV/backup lock, flaky
+            // removable drive). Surface it in the window instead of crashing the app — the loupe is
+            // designed to be open during an active capture, which a process crash would kill.
+            try { _files = SessionManager.GetFrameFiles(_sessionFolder); }
+            catch (Exception ex)
+            {
+                StopPlaying();
+                infoText.Text = $"couldn't list frames: {ex.Message}";
+                return;   // keep the window and the last-shown frame alive
+            }
             if (_files.Length == 0) { Close(); return; }
 
             _scrubReady = false;
@@ -143,8 +152,19 @@ namespace FrameWrite.Wpf
             catch (Exception ex)
             {
                 infoText.Text = $"couldn't load frame {n}: {ex.Message}";
+                // The frame list went stale (frames culled in the main window / deleted externally):
+                // stop playback and re-scan instead of looping a file-not-found error every tick.
+                // Reload clamps _current into the new range and closes the window if nothing remains.
+                if (!_resyncing && !File.Exists(_files[n - 1]))
+                {
+                    _resyncing = true;
+                    try { StopPlaying(); Reload(goToLast: false); }
+                    finally { _resyncing = false; }
+                }
             }
         }
+
+        private bool _resyncing;   // Reload -> LoadFrame recursion guard for the stale-list resync
 
         private void OnScrub(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -170,7 +190,11 @@ namespace FrameWrite.Wpf
         {
             if (img.Source == null) return;
             double factor = e.Delta > 0 ? 1.2 : 1 / 1.2;
-            double newScale = Math.Clamp(_scale * factor, 0.05, 32);
+            // The floor never exceeds the CURRENT scale: a huge frame can legitimately fit below 0.05,
+            // and clamping up from there would invert a zoom-out into a zoom-in. A clamped no-op step
+            // must also not kill _autoFit (it changes nothing).
+            double newScale = Math.Clamp(_scale * factor, Math.Min(0.05, _scale), 32);
+            if (newScale == _scale) { e.Handled = true; return; }
             factor = newScale / _scale;
             var pos = e.GetPosition(viewport);
             // Keep the frame point under the cursor stationary while the scale changes around it.
@@ -201,6 +225,9 @@ namespace FrameWrite.Wpf
         private void OnViewportMove(object sender, MouseEventArgs e)
         {
             if (!_panning) return;
+            // Belt-and-braces against a missed button-up (capture stolen mid-drag): a pan without a
+            // held button is never valid, so end it rather than let the image chase the bare cursor.
+            if (e.LeftButton != MouseButtonState.Pressed) { EndPan(); return; }
             var p = e.GetPosition(viewport);
             _tx = _panStartT.x + (p.X - _panStart.X);
             _ty = _panStartT.y + (p.Y - _panStart.Y);
@@ -208,7 +235,18 @@ namespace FrameWrite.Wpf
             ApplyTransform();
         }
 
-        private void OnViewportUp(object sender, MouseButtonEventArgs e)
+        private void OnViewportUp(object sender, MouseButtonEventArgs e) => EndPan();
+
+        // Alt-Tab / Win key / another window stealing activation releases mouse capture WITHOUT a
+        // button-up ever reaching us — the pan state must die with the capture or the image keeps
+        // panning on plain hover (the same hole WPF's own Thumb guards against).
+        private void OnViewportCaptureLost(object sender, MouseEventArgs e)
+        {
+            _panning = false;
+            viewport.Cursor = Cursors.Cross;
+        }
+
+        private void EndPan()
         {
             _panning = false;
             viewport.ReleaseMouseCapture();

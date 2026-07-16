@@ -679,11 +679,33 @@ namespace FrameWrite
                     if (ext == "png") dst.Save(tmp, System.Drawing.Imaging.ImageFormat.Png);
                     else SaveJpeg(dst, tmp, jpegQuality);
                 }
-                File.Replace(tmp, src, null);   // original intact until the cropped copy is fully written
+                ReplaceFrameWithRetry(tmp, src);   // original intact until the cropped copy is fully written
                 File.SetLastWriteTime(src, capturedAt);   // a frame's write time = its capture moment; keep it
                 done++;
             }
             return done;
+        }
+
+        // File.Replace needs delete access to the destination, so ANY transient reader — the loupe's
+        // playback (File.ReadAllBytes holds share-read for a few ms), AV/indexer, a thumbnailer — makes
+        // it throw. Retry briefly like IncrementFrameCount does for the same class of lock; a persistent
+        // holder (file open in an app) still surfaces to the caller after the retries, with the original
+        // frame intact and the temp copy cleaned up.
+        private static void ReplaceFrameWithRetry(string tmp, string dst)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try { File.Replace(tmp, dst, null); return; }
+                catch (IOException) when (attempt < 2)
+                {
+                    System.Threading.Thread.Sleep(40);   // let the transient reader finish
+                }
+                catch
+                {
+                    try { File.Delete(tmp); } catch { /* best-effort litter cleanup */ }
+                    throw;
+                }
+            }
         }
 
         /// <summary>
@@ -778,7 +800,7 @@ namespace FrameWrite
                     else if (ext == "bmp") bmp.Save(tmp, System.Drawing.Imaging.ImageFormat.Bmp);
                     else SaveJpeg(bmp, tmp, jpegQuality);
                 }
-                File.Replace(tmp, src, null);             // original intact until the baked copy is complete
+                ReplaceFrameWithRetry(tmp, src);          // original intact until the baked copy is complete
                 File.SetLastWriteTime(src, capturedAt);   // preserve the capture moment the bake relies on
                 progress?.Invoke(++done, files.Length);
             }

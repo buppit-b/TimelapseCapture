@@ -96,10 +96,17 @@ namespace FrameWrite.Wpf
             => (DataContext as MainViewModel)?.ExpandFfmpegSetup();
 
         // The preview thumbnail opens the loupe: a floating zoom/scrub viewer over the session's frames.
+        // Singleton: a double-click on the thumbnail delivers TWO ButtonUp events, which used to stack
+        // two identical viewers (ShowInTaskbar=false made the buried twin hard to find) — re-focus instead.
+        private FrameViewerWindow? _viewer;
         private void OnPreviewClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (DataContext is MainViewModel vm && vm.CurrentSessionFolder is { } folder && vm.FrameCount > 0)
-                new FrameViewerWindow(folder, vm.EffectiveEncodeFps) { Owner = this }.Show();
+            if (DataContext is not MainViewModel vm || vm.CurrentSessionFolder is not { } folder || vm.FrameCount <= 0) return;
+            if (vm.IsEncoding) return;   // a bake/crop is rewriting frames — don't start reading them
+            if (_viewer is { IsLoaded: true }) { _viewer.Activate(); return; }
+            _viewer = new FrameViewerWindow(folder, vm.EffectiveEncodeFps) { Owner = this };
+            _viewer.Closed += (s, _) => _viewer = null;
+            _viewer.Show();
         }
 
         protected override void OnSourceInitialized(EventArgs e)

@@ -25,7 +25,7 @@
             <Canvas x:Name="viewport" Background="Transparent" Cursor="Cross"
                     MouseWheel="OnWheelZoom" MouseLeftButtonDown="OnViewportDown"
                     MouseMove="OnViewportMove" MouseLeftButtonUp="OnViewportUp"
-                    SizeChanged="OnViewportSized">
+                    LostMouseCapture="OnViewportCaptureLost" SizeChanged="OnViewportSized">
                 <!-- Stretch=Fill + explicit Width/Height (set to the frame's PixelWidth/Height in code) makes
                      1 layout unit = 1 frame pixel regardless of the file's DPI metadata (frames saved on a
                      scaled display carry the screen DPI, which would skew Stretch=None's "natural size"). -->
