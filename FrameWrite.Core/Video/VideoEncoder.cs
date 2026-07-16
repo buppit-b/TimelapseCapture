@@ -38,6 +38,29 @@ namespace FrameWrite
         }
 
         /// <summary>
+        /// Output extension + codec argument block per export format. Pure — unit-tested.
+        /// mp4 = H.264 (universal playback); webm = VP9 (smaller, browser/Discord-friendly — the user's
+        /// CRF is remapped since VP9's 0–63 scale reads ~9 higher than x264's for similar quality, and
+        /// the x264 preset maps to VP9's cpu-used speed); gif = palette-based, handled by the filter
+        /// chain (no codec block — trailing space kept so the arg string composes identically).
+        /// Unknown formats fall back to mp4 (a stale/hand-edited setting must not build broken args).
+        /// </summary>
+        internal static (string ext, string codecArgs) FormatArgs(string? format, string preset, int crf)
+        {
+            switch ((format ?? "mp4").ToLowerInvariant())
+            {
+                case "webm":
+                    int vp9Crf = Math.Clamp(crf + 9, 10, 55);
+                    int cpuUsed = preset switch { "fast" or "veryfast" or "ultrafast" => 5, "slow" or "veryslow" => 1, _ => 2 };
+                    return (".webm", $"-c:v libvpx-vp9 -b:v 0 -crf {vp9Crf} -row-mt 1 -cpu-used {cpuUsed} -pix_fmt yuv420p ");
+                case "gif":
+                    return (".gif", "");
+                default:
+                    return (".mp4", $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p ");
+            }
+        }
+
+        /// <summary>
         /// The <c>-frames:v</c> output cap for a trimmed encode. A trim of <paramref name="maxFrames"/>
         /// input frames, keeping every <paramref name="everyNth"/> (ceiling), plus any held-last-frame
         /// clones (<paramref name="holdFrames"/>) which must NOT be clipped by the cap. Returns 0 when
@@ -57,7 +80,7 @@ namespace FrameWrite
             double fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
             Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0,
-            System.Drawing.Rectangle? crop = null)
+            System.Drawing.Rectangle? crop = null, string format = "mp4")
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -85,13 +108,14 @@ namespace FrameWrite
 
             string outputFolder = SessionManager.GetOutputFolder(sessionFolder);
             Directory.CreateDirectory(outputFolder);
+            var (outExt, codecArgs) = FormatArgs(format, preset, crf);
             // Caller (the VM) resolves the user's name template; fall back to a timestamp if it's blank.
             string baseName = SanitizeFileName(outputName);
             if (string.IsNullOrEmpty(baseName))
                 baseName = $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}";
-            string outputPath = Path.Combine(outputFolder, baseName + ".mp4");
+            string outputPath = Path.Combine(outputFolder, baseName + outExt);
             for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode with the same name
-                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}.mp4");
+                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}{outExt}");
 
             if (fps <= 0) fps = 30;
             fps = Math.Clamp(fps, 0.1, 240);   // fractional fps is valid (duration mode computes it)
@@ -133,6 +157,15 @@ namespace FrameWrite
             }
             if (holdFrames > 0)
                 filters.Add($"tpad=stop_mode=clone:stop_duration={holdSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            if (format == "gif")
+            {
+                // GIFs balloon fast: cap the rate at 15 (the fps filter DROPS frames, preserving duration)
+                // and the width at 720 (aspect kept; never upscales). Then the canonical two-pass palette
+                // chain — per-encode palette + dithering — which is what makes ffmpeg GIFs look good.
+                if (fps > 15) filters.Add("fps=15");
+                filters.Add("scale='min(720,iw)':-1:flags=lanczos");
+                filters.Add("split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle");
+            }
             string vf = filters.Count > 0 ? $"-vf \"{string.Join(",", filters)}\" " : "";
 
             // Output-frame cap for a trim (skip reduces it; hold adds the cloned frames so they aren't clipped).
@@ -146,12 +179,12 @@ namespace FrameWrite
                 ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
             string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
 
-            // -pix_fmt yuv420p for broad player compatibility; -framerate before -i sets the input rate.
+            // Codec args come from FormatArgs (mp4/webm/gif); -framerate before -i sets the input rate.
             // Invariant format: a comma-decimal locale would render 24.6 as "24,6" and break the args.
             string fpsArg = fps.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
             string args = $"-y -framerate {fpsArg} -start_number {startFrame} -i \"{pattern}\" {vf}{limit}{meta}" +
-                          $"-c:v libx264 -preset {preset} -crf {crf} -pix_fmt yuv420p \"{outputPath}\"";
-            Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps preset={preset} crf={crf}" +
+                          $"{codecArgs}\"{outputPath}\"";
+            Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps format={format} preset={preset} crf={crf}" +
                 (everyNth > 1 ? $" everyNth={everyNth}" : ""));
 
             // ffmpeg reports live progress on stderr as "frame=  123 fps=…" lines — tap them for the UI.

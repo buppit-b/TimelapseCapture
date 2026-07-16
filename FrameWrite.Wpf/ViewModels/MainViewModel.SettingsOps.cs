@@ -308,6 +308,7 @@ namespace FrameWrite.Wpf.ViewModels
             s.MaxDurationMinutes = Math.Max(1, s.MaxDurationMinutes);
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
+            if (s.EncodeFormat is not ("mp4" or "webm" or "gif")) s.EncodeFormat = "mp4";   // unknown/hand-edited → safe default
             s.EncodeFps = Math.Clamp(s.EncodeFps, 1, 240);
             s.EncodeCrf = Math.Clamp(s.EncodeCrf, 0, 51);
             s.EncodeHoldLastSeconds = Math.Clamp(s.EncodeHoldLastSeconds, 0, 60);

@@ -20,7 +20,10 @@ namespace FrameWrite
         // Exact, sub-second-capable capture interval. 0 = fall back to IntervalSeconds (older settings files).
         public decimal IntervalSecondsExact { get; set; } = 0m;
         public string? Format { get; set; } = "JPEG";
-        public int JpegQuality { get; set; } = 90;
+        public int JpegQuality { get; set; } = 85;   // sweet spot for screen content: ~30-40% smaller than
+                                                     // q90 with no visible difference after the video encode
+                                                     // (frames are an intermediate — CRF dominates the output).
+                                                     // Existing installs keep their saved value.
         public string EncodePreset { get; set; } = "medium"; // x264 preset: ultrafast..veryslow (speed vs file size)
         public Rectangle? Region { get; set; }
         public string? FfmpegPath { get; set; }
@@ -60,6 +63,7 @@ namespace FrameWrite
         public int EncodeEveryNth { get; set; } = 1;         // encode speed-up: use every Nth frame (1 = all)
         public int EncodeFps { get; set; } = 30;             // output video frame rate
         public int EncodeCrf { get; set; } = 23;             // x264 quality: 0 = lossless/huge .. 51 = worst/tiny
+        public string EncodeFormat { get; set; } = "mp4";    // export container: mp4 (H.264) / webm (VP9) / gif
         public double EncodeHoldLastSeconds { get; set; }    // hold the final frame this long at the end (0 = off)
         public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
         public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls

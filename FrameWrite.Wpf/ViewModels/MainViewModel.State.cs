@@ -185,11 +185,33 @@ namespace FrameWrite.Wpf.ViewModels
             : $"on — slows to every {IdleIntervalSeconds}s after {IdleThresholdSeconds}s idle";
 
         public string EncodeSummaryText =>
+            EncodeFormat.ToUpperInvariant() + " · " +
             (EncodeDurationMode ? $"exactly {HumanDuration(EncodeDurationSeconds)}" : $"{Math.Max(1, EncodeFps)} fps") +
-            $" · CRF {EncodeCrf} · " +
-            (EncodePreset == "ultrafast" ? "Fast" : EncodePreset == "veryslow" ? "Slow" : "Medium") +
+            (EncodeFormat == "gif" ? "" :
+                $" · CRF {EncodeCrf} · " +
+                (EncodePreset == "ultrafast" ? "Fast" : EncodePreset == "veryslow" ? "Slow" : "Medium")) +
             (SpeedUpEnabled && EncodeEveryNth > 1 ? $" · 1 in {EncodeEveryNth}" : "") +
             (EncodeHoldLastSeconds > 0 ? $" · hold {EncodeHoldLastSeconds}s" : "");
+
+        // Export format: mp4 (universal H.264), webm (smaller VP9), gif (shareable embed — quality knobs
+        // don't apply, so the tuning rows hide). Persisted; encodes read it at run time.
+        public string EncodeFormat
+        {
+            get => _settings.EncodeFormat;
+            set
+            {
+                if (string.Equals(_settings.EncodeFormat, value, StringComparison.OrdinalIgnoreCase)) return;
+                _settings.EncodeFormat = value.ToLowerInvariant();
+                SettingsManager.Save(_settings);
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EncodeSummaryText));
+                OnPropertyChanged(nameof(ShowEncodeTuning));
+                OnPropertyChanged(nameof(IsGifFormat));
+            }
+        }
+        /// <summary>CRF/preset only mean something for mp4/webm — GIF is palette-based.</summary>
+        public bool ShowEncodeTuning => EncodeFormat != "gif";
+        public bool IsGifFormat => EncodeFormat == "gif";
 
         public decimal IdleIntervalSeconds
         {

@@ -264,7 +264,7 @@ namespace FrameWrite.Wpf.ViewModels
                         EncodeProgress = pct;
                         if (IsEncoding && !(_encodeCts?.IsCancellationRequested ?? true))
                             EncodeStatus = $"Encoding… {pct:0}%";
-                    })), everyNth: nth, holdLastSeconds: EncodeHoldLastSeconds, crop: crop);
+                    })), everyNth: nth, holdLastSeconds: EncodeHoldLastSeconds, crop: crop, format: EncodeFormat);
             }
             catch (Exception ex)
             {

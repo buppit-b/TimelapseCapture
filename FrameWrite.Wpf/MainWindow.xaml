@@ -516,6 +516,19 @@
                         </TextBlock>
                     <StackPanel Visibility="{Binding EncodePanelExpanded, Converter={StaticResource BoolToVis}}">
                     <StackPanel Margin="0,10,0,0" IsEnabled="{Binding NotCapturing}">
+                    <!-- Export format: MP4 plays everywhere; WebM is smaller (browsers/Discord); GIF embeds. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Format" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encfmt" Content="MP4"
+                                     IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=mp4}"
+                                     ToolTip="H.264 — plays everywhere. The default."/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encfmt" Content="WebM"
+                                     IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=webm}"
+                                     ToolTip="VP9 — noticeably smaller at the same quality; plays in browsers and Discord. Encodes slower than MP4."/>
+                        <RadioButton Style="{StaticResource Seg}" GroupName="encfmt" Content="GIF"
+                                     IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=gif}"
+                                     ToolTip="Animated GIF for embeds/posts. Rate capped at 15 fps and width at 720 px (files balloon fast); palette-optimized per encode."/>
+                    </StackPanel>
                     <!-- Speed vs exact length: mirror of the interval's sec⇄fps toggle (same value, two views). -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <RadioButton Style="{StaticResource Seg}" GroupName="encunit" Content="fps"
@@ -540,15 +553,21 @@
                                      ToolTip="Exact output length in seconds (decimals allowed). Scroll to adjust."/>
                             <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
-                        <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
-                                IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
-                                local:WheelStep.Amount="1"
-                                ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
-                        <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
-                                 local:NumericInput.AllowDecimal="False"
-                                 ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                        <!-- CRF applies to MP4/WebM only (WebM remaps it internally); GIF is palette-based. -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeTuning, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                            <Slider Minimum="0" Maximum="51" Value="{Binding EncodeCrf}" Width="110" VerticalAlignment="Center"
+                                    IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="5" Margin="0,0,8,0"
+                                    local:WheelStep.Amount="1"
+                                    ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                            <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center" local:ClampFlash.Enabled="True"
+                                     local:NumericInput.AllowDecimal="False"
+                                     ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
+                        </StackPanel>
                     </StackPanel>
+                    <TextBlock Text="GIF: rate capped at 15 fps, width at 720 px — files balloon fast beyond that."
+                               Style="{StaticResource Muted}" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding IsGifFormat, Converter={StaticResource BoolToVis}}"/>
                     <!-- The resulting video length, right where you set the fps — no hunting in Stats. -->
                     <TextBlock Text="{Binding VideoLengthText}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}"/>
@@ -573,6 +592,7 @@
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding NotCapturing}"
+                                Visibility="{Binding ShowEncodeTuning, Converter={StaticResource BoolToVis}}"
                                 ToolTip="Encoder speed vs file size at the same quality — slower presets make a smaller file but take longer to encode.">
                         <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <RadioButton Style="{StaticResource Seg}" GroupName="preset" Content="Fast"

@@ -3,6 +3,21 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.1.0] — 2026-07-16 — the always-there recorder + export formats
+
+- **Startup options** (Settings › Startup, both opt-in): **Launch FrameWrite when Windows
+  starts** (per-user entry, no admin; self-heals if the exe moves) and **Start capturing on
+  launch** — continues your most recent session, or starts a new full-screen one if none exists.
+  Both on = recording from sign-in; a work session can never be forgotten. Crash recovery still
+  runs first; skips are logged, never silent; first-run defers to the setup wizard.
+- **Export formats** (encode panel › Format): **MP4** (H.264 — plays everywhere, the default),
+  **WebM** (VP9 — noticeably smaller, browser/Discord-friendly; quality and preset map across),
+  and **GIF** (palette-optimized per encode; rate capped at 15 fps and width at 720 px so files
+  stay postable). Trim, speed-up, crop and hold-last-frame all apply to every format. Proven
+  end-to-end against real ffmpeg.
+- **Default tuned:** fresh installs store JPEG frames at quality 85 (was 90) — ~30–40% smaller
+  with no visible difference in the encoded video. Existing installs keep their saved value.
+
 ## [1.0.3] — 2026-07-15 — hardening: 10 verified fixes
 
 An adversarial multi-agent review of the recent changes; every fix was independently

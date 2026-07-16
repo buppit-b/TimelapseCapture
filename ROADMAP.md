@@ -268,6 +268,32 @@ the timelapse just exists when the piece is done):
    (artists post progress GIFs; ffmpeg palettegen — cheap, high delight) · end-frame hold is in.
 3. Then the pre-public blockers (installer, in-app bug report) whenever distribution matters.
 
+### Frame storage & disk — the biggest limiter (assessment for Spike, 2026-07-16)
+Spike: disk usage of stored frames is the app's biggest constraint; wants compression options
+WITHOUT losing plain single-frame access. The honest option ladder:
+1. **Defaults (done 2026-07-16):** fresh-install JPEG quality 90→85 (~30-40% smaller, no visible
+   difference after the video encode — frames are an intermediate; CRF dominates the output).
+   Existing installs keep their saved value.
+2. **NOT worth it — better still-image codecs:** WebP (~30% smaller) / AVIF (~50% smaller but
+   slow per-frame) all need a native encoder dependency (WIC has no in-box encoder for either);
+   against the lean rule for a 30% win that q85 largely already banked.
+3. **RECOMMENDED NEXT — "Archive session" (post-capture compaction, opt-in per session):** a
+   finished session's frames folder → ONE video file via the bundled ffmpeg (x264 CRF ~12 =
+   visually lossless, or truly lossless for purists). Screen-content timelapses are hugely
+   temporally redundant, so expect **5-15×+ smaller** than the JPEG stack. Reversible:
+   **Unarchive** extracts back to numbered frames (image2 output); single-frame access = one
+   ffmpeg seek-extract. Live capture keeps writing plain files — every existing feature (loupe,
+   cull, trim, bake, crop, crash-safety) is untouched while a session is active; archived
+   sessions show as such in the picker and offer Unarchive (or direct encode FROM the archive,
+   later). This is the "compression as an option + uncompressed access still available" answer.
+4. **Queued (capture-time lever):** optional "store frames at up to N px wide" downscale —
+   quadratic byte win (a 4K screen stored at 1920w ≈ ¼ the bytes) for people whose output is
+   1080p anyway; reuses ScaleToLocked-style resampling. Changes the region→frame mapping, so it
+   needs the same care as tracked-window scaling.
+5. **PARKED — live chunked-video storage** (streaming frames into segmented video DURING
+   capture): the biggest win (10×+, especially idle-heavy runs) but it forks every
+   frame-consuming code path + the crash-safety story; revisit only if 1+3+4 prove insufficient.
+
 ### 1.x smaller ideas (parked, roughly by value)
 **Overlay drag precision** *(Spike, 2026-07-09)*: dragging the overlay text on the small preview
 feels imprecise — cursor covers the text, small overlays are fiddly. Ideas: a zoom slider beside
@@ -292,7 +318,7 @@ disk, a sparkline of capture cadence (gaps = idle skips), frame-size trend. Poss
 **Start-capture-on-launch + launch-with-Windows — ✅ shipped (2026-07-16, Settings › Startup)** · **in-app bug report** *(Spike,
 2026-07-02 — wants this before going public; simple is fine: a "Report a bug…" button that opens
 a prefilled GitHub issue with app version/OS in the body and copies the recent `debug.log` tail
-to the clipboard)* · GIF export · all-screens preset (item 8) · **in-app playback preview — ✅
+to the clipboard)* · **GIF + WebM export — ✅ shipped (2026-07-16: encode Format seg MP4·WebM·GIF)** · all-screens preset (item 8) · **in-app playback preview — ✅
 shipped (2026-07-14, 1.0.2)**: Play/Pause in the loupe steps the scrubber at the effective encode
 fps (loops; any step pauses) so you preview the timelapse before encoding · **zoom/loupe frame
 viewer — ✅ shipped (2026-07-11)**: click the Preview thumbnail → floating resizable viewer (wheel

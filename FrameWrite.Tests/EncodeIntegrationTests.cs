@@ -238,6 +238,42 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public async Task Gif_Encodes_WithPaletteChain_AndFpsCap()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_gif_");
+            try
+            {
+                // 30 frames @ 30 fps = 1s; the GIF path caps the rate at 15 via the fps filter
+                // (dropping frames, preserving duration) → exactly 15 output frames. The palette
+                // split/palettegen/paletteuse chain is the risky arg construction this proves.
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, format: "gif");
+                r.Success.Should().BeTrue(r.Error);
+                Path.GetExtension(r.OutputPath!).Should().Be(".gif");
+                CountFrames(r.OutputPath!).Should().Be(15);
+                VideoSize(r.OutputPath!).Should().Be((64, 48));   // min(720,iw) never upscales
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task Webm_Encodes_AllFrames()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_webm_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, format: "webm");
+                r.Success.Should().BeTrue(r.Error);
+                Path.GetExtension(r.OutputPath!).Should().Be(".webm");
+                CountFrames(r.OutputPath!).Should().Be(30);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task PercentInPath_StillEncodes()
         {
             if (Ffmpeg == null) return;

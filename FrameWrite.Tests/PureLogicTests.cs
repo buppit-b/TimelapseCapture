@@ -184,6 +184,58 @@ namespace FrameWrite.Tests
     }
 
     /// <summary>
+    /// Export-format codec args (VideoEncoder.FormatArgs) — these strings are interpolated straight
+    /// into the ffmpeg command line, so each format must produce exactly the right block.
+    /// </summary>
+    public class FormatArgsTests
+    {
+        [Fact]
+        public void Mp4_IsH264_WithPresetAndCrf()
+        {
+            var (ext, args) = VideoEncoder.FormatArgs("mp4", "medium", 23);
+            ext.Should().Be(".mp4");
+            args.Should().Contain("libx264").And.Contain("-preset medium").And.Contain("-crf 23")
+                .And.Contain("yuv420p").And.EndWith(" ");
+        }
+
+        [Fact]
+        public void Webm_IsVp9_WithRemappedCrf_AndSpeedFromPreset()
+        {
+            // VP9's 0-63 CRF reads ~9 higher than x264's for similar quality; presets map to cpu-used.
+            var (ext, args) = VideoEncoder.FormatArgs("webm", "veryslow", 23);
+            ext.Should().Be(".webm");
+            args.Should().Contain("libvpx-vp9").And.Contain("-crf 32").And.Contain("-b:v 0")
+                .And.Contain("-cpu-used 1");
+            VideoEncoder.FormatArgs("webm", "ultrafast", 23).codecArgs.Should().Contain("-cpu-used 5");
+        }
+
+        [Fact]
+        public void Gif_HasNoCodecBlock_PaletteLivesInTheFilterChain()
+        {
+            var (ext, args) = VideoEncoder.FormatArgs("gif", "medium", 23);
+            ext.Should().Be(".gif");
+            args.Should().BeEmpty();
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("avi")]      // stale/hand-edited settings must not build broken args
+        [InlineData("MP4")]      // case-insensitive
+        public void UnknownOrCasedFormats_FallBackToMp4(string? format)
+        {
+            VideoEncoder.FormatArgs(format, "medium", 23).ext.Should().Be(".mp4");
+        }
+
+        [Fact]
+        public void Vp9Crf_IsClampedToItsValidRange()
+        {
+            VideoEncoder.FormatArgs("webm", "medium", 0).codecArgs.Should().Contain("-crf 10");
+            VideoEncoder.FormatArgs("webm", "medium", 51).codecArgs.Should().Contain("-crf 55");
+        }
+    }
+
+    /// <summary>
     /// The -frames:v output cap for a trimmed encode (VideoEncoder.ComputeOutputLimit): trim range,
     /// frame-skip ceiling, and held-last-frame clones. Off-by-one here clips or over-runs the trim.
     /// </summary>
