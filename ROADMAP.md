@@ -61,14 +61,30 @@ candidates** section below for what happens next.
      capture (drop the title bar via `DwmGetWindowAttribute`); per-DPI rescale across monitors.
    - *Element capture* (a sub-control inside a window) has no general OS API — best
      approximated as a region within a chosen window. Likely out of scope for 1.0.
-   - *Lofty idea — **"smart tracking"** of on-screen elements (Spike, 2026-07-10; investigate
-     later, just noted for now):* follow a visual element that isn't a window — e.g. a canvas
-     inside an art app, a video panel — by re-locating it each tick. Candidate approaches, in
-     rising ambition: **UI Automation** (`IUIAutomation` bounding rects — real element geometry
-     for apps that expose it, cheap, no image processing); **template matching** on a downscaled
-     screen grab (find-the-crop by correlation — works anywhere but costs CPU and drifts when
-     content changes, needs a confidence threshold + "lost it" behaviour); full feature tracking
-     (OpenCV-class — heavy dependency, against the lean rule). UIA first if this ever runs.
+   - ***"Smart tracking" of on-screen elements — AGREED NEXT FEATURE ARC (Spike, 2026-07-15;
+     design settled 2026-07-16):*** follow a visual element that isn't a window (canvas inside an
+     art app, a video panel) by re-resolving its rect each tick — same plumbing as window tracking
+     with a different rect source. **UIA first** (in-box for net9.0-windows, no new dependency;
+     rects are physical px, matching the engine). Build order:
+     - **Slice 0 — the element picker as a coverage probe:** crosshair overlay → `ElementFromPoint`
+       under the cursor → live highlight + element name/type/rect (+ whether it has its own HWND
+       via `NativeWindowHandle`). Ships as the picker UI AND doubles as the honest coverage test:
+       Spike points it at his actual art apps; if nothing useful highlights there, we learned
+       cheaply before building the engine side.
+     - **Slice 1 — tracking:** prefer the nearest ancestor **with its own child HWND** → engine
+       tracks it via the existing `GetWindowRect` path (zero new per-tick cost, robust). Only
+       hwnd-less elements (WPF/Qt/Electron internals) use per-tick UIA `BoundingRectangle` reads —
+       and those run on a **dedicated resolver timer** (~4/s, holds the last rect between) that
+       publishes the rect for the capture tick to consume, because UIA property reads are serviced
+       by the TARGET app's UI thread and can stall — a stall must never block the capture tick
+       inside `lock(_lock)` (engine invariant #1). Element-gone maps onto the existing
+       closed/minimized semantics; degenerate rect → transit-skip. Not persisted across restarts
+       (same as window tracking).
+     - *Fallbacks by coverage verdict:* apps that expose nothing (Blender-style custom-drawn,
+       games) get "static region inside the tracked window" as the honest answer; **template
+       matching** stays the last resort (CPU + drift + confidence/lost-it complexity), only if
+       UIA + child-HWND coverage proves insufficient in Spike's actual apps. OpenCV-class feature
+       tracking stays out (heavy dependency, against the lean rule).
    - **Hide-from-capture** toggle (0.9.2): excludes *this app's own* window from captures
      (`SetWindowDisplayAffinity`).
 2. **Hotkeys / pause** — ✅ **done (0.9.x)**: global start/stop hotkey (now opt-in +

@@ -18,7 +18,7 @@
     <AssemblyName>FrameWrite</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Product>FrameWrite</Product>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
   </PropertyGroup>
 
   <ItemGroup>

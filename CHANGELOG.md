@@ -3,6 +3,24 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.0.3] — 2026-07-15 — hardening: 10 verified fixes
+
+An adversarial multi-agent review of the recent changes; every fix was independently
+confirmed against the code before being applied. No behaviour changes beyond the fixes.
+
+- **Loupe**: pan no longer sticks after Alt-Tab mid-drag; frames culled/deleted during
+  playback stop playback and re-scan instead of looping errors; zoom-out no longer inverts
+  on very large frames; a frame-listing failure shows a message instead of crashing the app;
+  double-clicking the preview thumbnail focuses the existing viewer instead of stacking a
+  hidden duplicate; the loupe won't open while a bake/crop is rewriting frames.
+- **Destructive-op safety**: a failed on-disk crop no longer wipes the saved encode-crop;
+  a failed cull immediately shows where the safety backup went (and a later no-backup
+  operation can never claim a stale backup as its own); a bake confirmed while a hotkey/tray
+  capture started mid-dialog reports that it didn't run instead of vanishing silently; arrow
+  keys can't edit the overlay position while the overlay is disabled.
+- **Engine**: frame rewrites (bake, destructive crop) retry briefly against transient
+  readers (the loupe's playback, antivirus, thumbnailers) instead of aborting mid-run.
+
 ## [1.0.2] — 2026-07-15 — playback preview + feedback-round fixes
 
 - **In-app playback preview** — the loupe (click the Preview thumbnail) gains **▶ Play**: watch

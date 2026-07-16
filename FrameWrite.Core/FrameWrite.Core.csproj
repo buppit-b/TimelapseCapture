@@ -12,7 +12,7 @@
       for a portable imaging library (e.g. SkiaSharp/ImageSharp) and drop this flag.
     -->
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
