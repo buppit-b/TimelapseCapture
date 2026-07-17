@@ -135,12 +135,15 @@ namespace FrameWrite
             // filter active the trim range is enforced INSIDE select (lt(n, maxFrames)) — otherwise the
             // demuxer reads past the range end to fill the quota.
             var filters = new System.Collections.Generic.List<string>();
-            if (everyNth > 1)
+            // GIF's 15fps cap (below) ALSO drops frames — so a trimmed GIF hits the same quota
+            // problem and needs its range inside select too, or the demuxer reads ~2× the range.
+            bool gifCapsRate = format == "gif" && fps > 15;
+            if (everyNth > 1 || (gifCapsRate && maxFrames > 0))
             {
-                string sel = maxFrames > 0
-                    ? $"lt(n\\,{maxFrames})*not(mod(n\\,{everyNth}))"
-                    : $"not(mod(n\\,{everyNth}))";
-                filters.Add($"select='{sel}'");
+                var terms = new System.Collections.Generic.List<string>();
+                if (maxFrames > 0) terms.Add($"lt(n\\,{maxFrames})");
+                if (everyNth > 1) terms.Add($"not(mod(n\\,{everyNth}))");
+                filters.Add($"select='{string.Join("*", terms)}'");
                 filters.Add("setpts=N/FRAME_RATE/TB");
             }
             // Crop-at-encode (non-destructive): validate against the REAL frame size (read once from the

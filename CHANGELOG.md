@@ -3,6 +3,23 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.2.1] — 2026-07-17 — hardening: 5 fixes from the adversarial pass
+
+- **GIF trim over-ran its range**: a trimmed GIF encode with fps above the 15-cap silently covered
+  ~double the selected range (`-frames:v` counts output frames, and the fps cap drops frames, so
+  ffmpeg read past the trim end to fill the quota). The range is now enforced inside the select
+  filter — regression-tested against real ffmpeg (exactly half the trimmed frames come out).
+- **Archiver can no longer crash the app**: an unexpected IO failure mid-archive (antivirus lock,
+  folder vanishing) surfaced as an unhandled exception; both archiver entry points now return a
+  clear error instead (frames untouched), with a second guard in the dialog.
+- **Archived-format value from session.json is validated** before it reaches the ffmpeg command
+  line (a hand-edited value could otherwise inject arguments).
+- **Restore-failure cleanup only deletes its own extraction** (00001..N of the archived format) —
+  never other files someone put in the frames folder; a foreign-file collision now gets its own
+  clear message.
+- **Start-capturing-on-launch no longer pops a name prompt** at sign-in when no session exists —
+  it creates a default-named session directly (the prompt stalled the zero-config auto-start).
+
 ## [1.2.0] — 2026-07-17 — Archive session (the disk-space answer)
 
 - **Archive session** (Load Session picker › Archive): packs a finished session's frames into ONE

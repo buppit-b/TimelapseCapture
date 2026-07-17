@@ -26,7 +26,7 @@ removed 2026-07-12 at Spike's request — don't reinstate it.)*
 - **`FrameWrite.Wpf`** — the app. WPF + MVVM, clean dark theme, terminal/green accent.
 - **`FrameWrite.Core`** — UI-framework-agnostic shared library: capture engine, sessions,
   settings, ffmpeg, system stats.
-- **`FrameWrite.Tests`** — 158 tests, cover `SessionManager` (incl. `CullAndRenumber`,
+- **`FrameWrite.Tests`** — 181 tests (count moves with each batch — trust `dotnet test`), cover `SessionManager` (incl. `CullAndRenumber`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
@@ -69,7 +69,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 158/158.
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 100% (181 as of 1.2.1).
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -311,7 +311,7 @@ custom chrome all landed).
   Soak #1 substantively PASSED (2026-07-12, 5.5h, encodes clean). MIT LICENSE + README are in.
   Spike tests each build live and gives UX feedback. **Development continues past 1.0** — UI polish,
   new/intriguing features, and ongoing debug + hardening.
-- The working loop: build green (0 warnings) + `dotnet test` 158/158 → commit per feature → push →
+- The working loop: build green (0 warnings) + `dotnet test` 100% → commit per feature → push →
   relaunch the exe for Spike. He's git-averse (Claude owns git). Adversarially review diffs
   (multi-agent when limits allow, manual otherwise) — the passes keep finding real bugs pre-commit.
 - **Post-1.0 posture (Spike, 2026-07-13): no deadline, no gate.** The app is professional-grade but

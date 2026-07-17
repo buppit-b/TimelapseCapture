@@ -344,6 +344,26 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public async Task Gif_Trim_DoesNotReadPastTheRange()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_giftrim_");
+            try
+            {
+                // Trim to 10 frames @ 30fps: the GIF path caps at 15fps (dropping every 2nd), so the
+                // correct output is 5 frames. -frames:v counts OUTPUT frames — without the range
+                // enforced inside select, the demuxer reads ~20 inputs to fill the quota and the GIF
+                // silently covers DOUBLE the trimmed range (10 output frames).
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23,
+                    startFrame: 1, maxFrames: 10, format: "gif");
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(5);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task Webm_Encodes_AllFrames()
         {
             if (Ffmpeg == null) return;

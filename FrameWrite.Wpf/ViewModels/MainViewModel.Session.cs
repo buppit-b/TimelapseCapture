@@ -233,7 +233,9 @@ namespace FrameWrite.Wpf.ViewModels
                             .FirstOrDefault()
                         : null;
                     if (best != null) LoadSessionFromFolder(best, fromPicker: false);
-                    else NewSession();   // no prompt on launch: there's no current session to lose
+                    // Direct create with a default name — NewSession() prompts for a name, and a
+                    // modal dialog at sign-in would stall the zero-config auto-start it exists for.
+                    else CreateSession($"Session_{DateTime.Now:yyyyMMdd_HHmmss}");
                 }
                 if (_session == null) { Logger.Log("Wpf", "Auto-start skipped: no session could be loaded or created."); return; }
 

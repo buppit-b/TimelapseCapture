@@ -199,10 +199,18 @@ namespace FrameWrite.Wpf
             progressText.Text = $"{verb} “{item.Name}”…";
             try
             {
-                var result = await op(_cts.Token, n => Dispatcher.BeginInvoke(new Action(() =>
+                SessionArchiver.Result result;
+                try
                 {
-                    if (_busy) progressText.Text = $"{verb} “{item.Name}”… {Math.Min(100, n * 100 / total)}%";
-                })));
+                    result = await op(_cts.Token, n => Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (_busy) progressText.Text = $"{verb} “{item.Name}”… {Math.Min(100, n * 100 / total)}%";
+                    })));
+                }
+                catch (Exception ex)   // belt: the archiver contracts never-throw, but an async void
+                {                      // handler upstream would turn any slip into an app crash
+                    result = new SessionArchiver.Result { Success = false, Error = ex.Message };
+                }
                 return _closeWhenIdle ? null : result;
             }
             finally

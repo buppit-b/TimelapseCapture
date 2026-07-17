@@ -75,8 +75,26 @@ namespace FrameWrite
             return last;
         }
 
+        // Frame extensions that may appear in the ffmpeg arg strings. Archive derives the value
+        // from the enumerated files (already restricted), but ArchiveFrameExt on UNARCHIVE comes
+        // from session.json — untrusted file input that must never reach the args unvalidated.
+        private static bool IsSafeExt(string ext) => ext is "jpg" or "png" or "bmp";
+
+        /// <summary>Never throws — an unexpected IO/process failure returns a Result, not a crash
+        /// (these run behind async void UI handlers). Nothing is deleted before verification.</summary>
         public static async Task<Result> ArchiveAsync(string ffmpegPath, string sessionFolder,
             CancellationToken ct = default, Action<int>? onFrameProgress = null)
+        {
+            try { return await ArchiveCoreAsync(ffmpegPath, sessionFolder, ct, onFrameProgress); }
+            catch (Exception ex)
+            {
+                Logger.Log("Archiver", $"Archive failed unexpectedly: {ex}");
+                return new Result { Success = false, Error = $"Archive failed: {ex.Message}" };
+            }
+        }
+
+        private static async Task<Result> ArchiveCoreAsync(string ffmpegPath, string sessionFolder,
+            CancellationToken ct, Action<int>? onFrameProgress)
         {
             var session = SessionManager.LoadSession(sessionFolder);
             if (session == null)
@@ -94,6 +112,8 @@ namespace FrameWrite
             if (exts.Length != 1)
                 return new Result { Success = false, Error = $"This session mixes frame formats ({string.Join("/", exts)}) — can't archive." };
             string ext = exts[0];
+            if (!IsSafeExt(ext))
+                return new Result { Success = false, Error = $"Unsupported frame format “.{ext}”." };
 
             long bytesBefore = 0;
             foreach (var f in frames) { try { bytesBefore += new FileInfo(f).Length; } catch { } }
@@ -155,8 +175,20 @@ namespace FrameWrite
             return new Result { Success = true, Frames = frames.Length, BytesBefore = bytesBefore, BytesAfter = bytesAfter };
         }
 
+        /// <summary>Never throws — see <see cref="ArchiveAsync"/>. The archive file survives any failure.</summary>
         public static async Task<Result> UnarchiveAsync(string ffmpegPath, string sessionFolder,
             CancellationToken ct = default, Action<int>? onFrameProgress = null)
+        {
+            try { return await UnarchiveCoreAsync(ffmpegPath, sessionFolder, ct, onFrameProgress); }
+            catch (Exception ex)
+            {
+                Logger.Log("Archiver", $"Restore failed unexpectedly: {ex}");
+                return new Result { Success = false, Error = $"Restore failed: {ex.Message}" };
+            }
+        }
+
+        private static async Task<Result> UnarchiveCoreAsync(string ffmpegPath, string sessionFolder,
+            CancellationToken ct, Action<int>? onFrameProgress)
         {
             var session = SessionManager.LoadSession(sessionFolder);
             if (session == null)
@@ -165,7 +197,9 @@ namespace FrameWrite
             if (!session.Archived || !File.Exists(archivePath))
                 return new Result { Success = false, Error = "This session has no archive to restore." };
 
-            string ext = string.IsNullOrEmpty(session.ArchiveFrameExt) ? "jpg" : session.ArchiveFrameExt!;
+            string ext = string.IsNullOrEmpty(session.ArchiveFrameExt) ? "jpg" : session.ArchiveFrameExt!.ToLowerInvariant();
+            if (!IsSafeExt(ext))   // session.json is user-editable — this value reaches the ffmpeg args
+                return new Result { Success = false, Error = $"Unrecognized archived frame format “{ext}” in session.json." };
             string framesFolder = SessionManager.GetFramesFolder(sessionFolder);
             Directory.CreateDirectory(framesFolder);
 
@@ -182,14 +216,17 @@ namespace FrameWrite
             if (exitCode != 0 || onDisk != session.ArchivedFrames)
             {
                 // A partial extraction alongside the intact archive is a confusing half-state —
-                // remove what was written; the archive stays the single source of truth.
-                foreach (var f in SessionManager.GetFrameFiles(sessionFolder))
-                { try { File.Delete(f); } catch { } }
+                // remove ONLY the files this extraction would have written (00001..N of the known
+                // extension). Anything else in frames/ wasn't written by us, so it's never deleted.
+                for (long i = 1; i <= session.ArchivedFrames; i++)
+                { try { File.Delete(Path.Combine(framesFolder, $"{i:D5}.{ext}")); } catch { } }
                 if (ct.IsCancellationRequested)
                     return new Result { Success = false, Cancelled = true, Error = "Restore cancelled — the archive is untouched." };
                 return new Result { Success = false, Error = exitCode != 0
                     ? FirstErrorLine(error, exitCode)
-                    : $"Verification failed: extracted {onDisk} frames but the archive should hold {session.ArchivedFrames}. The archive was kept." };
+                    : onDisk > session.ArchivedFrames
+                        ? $"The frames folder contains {onDisk - session.ArchivedFrames} file(s) that aren't part of the archive — remove them and try again. The archive was kept."
+                        : $"Verification failed: extracted {onDisk} frames but the archive should hold {session.ArchivedFrames}. The archive was kept." };
             }
 
             session = SessionManager.LoadSession(sessionFolder) ?? session;
