@@ -251,6 +251,175 @@ namespace FrameWrite
             };
         }
 
+        // ---- Multi-session combine: several sessions -> ONE continuous video, oldest first. ----
+
+        /// <summary>
+        /// One ffmpeg run with one image2 input per session: each is cropped (its own saved
+        /// EncodeCrop), letterbox-scaled onto the common canvas, then concatenated; speed-up,
+        /// hold-last-frame and the GIF tail apply AFTER the join so they treat the combined
+        /// timeline as one video. Sessions may differ in size and even frame format (each input
+        /// is decoded independently) — only frames WITHIN a session must stay uniform, same as
+        /// a normal encode.
+        /// </summary>
+        public static async Task<Result> CombineAsync(string ffmpegPath, System.Collections.Generic.IReadOnlyList<string> sessionFolders,
+            double fps, string preset, int crf, CancellationToken ct = default, string? outputName = null,
+            Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0,
+            string format = "mp4", GifOptions? gif = null)
+        {
+            if (sessionFolders.Count < 2)
+                return new Result { Success = false, Error = "Select at least two sessions to combine." };
+            if (sessionFolders.Count > 24)   // each input adds args; stay far from the 32k command-line limit
+                return new Result { Success = false, Error = "Combine supports up to 24 sessions per run." };
+
+            if (fps <= 0) fps = 30;
+            fps = Math.Clamp(fps, 0.1, 240);
+            crf = Math.Clamp(crf, 0, 51);
+            preset = (preset ?? "").Trim().ToLowerInvariant();
+            if (Array.IndexOf(ValidPresets, preset) < 0) preset = "medium";
+            everyNth = Math.Clamp(everyNth, 1, 1000);
+            double holdSec = Math.Clamp(holdLastSeconds, 0, 600);
+            string fpsArg = fps.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+            // Per-session: frame files, uniform-ext check, first number, real size, saved crop.
+            var inputs = new System.Collections.Generic.List<(System.Drawing.Size size, System.Drawing.Rectangle? crop)>();
+            var inputArgs = new System.Text.StringBuilder();
+            foreach (var folder in sessionFolders)
+            {
+                string name = Path.GetFileName(folder);
+                var frames = SessionManager.GetFrameFiles(folder);
+                if (frames.Length == 0)
+                    return new Result { Success = false, Error = $"“{name}” has no frames." };
+                var exts = frames.Select(f => Path.GetExtension(f).TrimStart('.').ToLowerInvariant())
+                                 .Where(e => e.Length > 0).Distinct().ToArray();
+                if (exts.Length != 1)
+                    return new Result { Success = false, Error = $"“{name}” mixes frame formats ({string.Join("/", exts)}) — can't combine it." };
+                var size = GetImageSize(frames[0]);
+                if (size.Width < 2 || size.Height < 2)
+                    return new Result { Success = false, Error = $"“{name}”: couldn't read its first frame." };
+
+                int first = int.TryParse(Path.GetFileNameWithoutExtension(frames[0]), out int fn) ? fn : 1;
+                // ABSOLUTE input patterns (many folders — no single working dir works): image2
+                // printf-expands the WHOLE path, so literal '%' in it must be escaped as '%%'.
+                string pattern = EscapePatternPath(SessionManager.GetFramesFolder(folder)) + Path.DirectorySeparatorChar + "%05d." + exts[0];
+                inputArgs.Append($"-framerate {fpsArg} -start_number {first} -i \"{pattern}\" ");
+                inputs.Add((size, SessionManager.LoadSession(folder)?.EncodeCrop));
+            }
+
+            var target = CombineTargetSize(inputs);
+
+            // Post-join chain: speed-up (frame n is GLOBAL after concat, so 1-in-N stays uniform
+            // across session boundaries), hold-last, and the GIF tail — same order as a single encode.
+            var gifOpts = NormalizeGif(gif);
+            int holdFrames = holdSec > 0 ? (int)Math.Round(holdSec * fps) : 0;
+            var post = new System.Collections.Generic.List<string>();
+            if (everyNth > 1)
+            {
+                post.Add($"select='not(mod(n\\,{everyNth}))'");
+                post.Add("setpts=N/FRAME_RATE/TB");
+            }
+            if (holdFrames > 0)
+                post.Add($"tpad=stop_mode=clone:stop_duration={holdSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            if (format == "gif")
+                post.AddRange(GifFilters(fps, gifOpts));
+            string graph = BuildCombineFilter(inputs, target, post, out string outLabel);
+
+            // Output lands in the FIRST (oldest) session's output folder.
+            string outputFolder = SessionManager.GetOutputFolder(sessionFolders[0]);
+            Directory.CreateDirectory(outputFolder);
+            var (outExt, codecArgs) = FormatArgs(format, preset, crf);
+            string baseName = SanitizeFileName(outputName);
+            if (string.IsNullOrEmpty(baseName))
+                baseName = $"combined_{DateTime.Now:yyyyMMdd_HHmmss}";
+            string outputPath = Path.Combine(outputFolder, baseName + outExt);
+            for (int n = 2; File.Exists(outputPath); n++)
+                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}{outExt}");
+
+            string appVersion = typeof(VideoEncoder).Assembly.GetName().Version is { } v
+                ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
+            string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
+
+            string args = $"-y {inputArgs}-filter_complex \"{graph}\" -map \"[{outLabel}]\" {meta}{codecArgs}\"{outputPath}\"";
+            Logger.Log("VideoEncoder", $"Combining {sessionFolders.Count} sessions -> {outputPath} @ {fps}fps " +
+                $"target={target.Width}x{target.Height} format={format}" + (everyNth > 1 ? $" everyNth={everyNth}" : ""));
+
+            Action<string>? tap = onFrameProgress == null ? null : line =>
+            {
+                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
+            };
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap);
+
+            if (exitCode == 0 && File.Exists(outputPath))
+                return new Result { Success = true, OutputPath = outputPath };
+            return new Result
+            {
+                Success = false,
+                OutputPath = outputPath,
+                Error = string.IsNullOrWhiteSpace(error) ? $"ffmpeg exited with code {exitCode}" : error,
+            };
+        }
+
+        /// <summary>
+        /// The common canvas for a combine: each session's EFFECTIVE size (its saved crop when
+        /// valid, else the full frame) — the canvas is the max width × max height so no session
+        /// is downscaled; smaller ones letterbox. Even dims (yuv420p). Pure — unit-tested.
+        /// </summary>
+        internal static System.Drawing.Size CombineTargetSize(
+            System.Collections.Generic.IReadOnlyList<(System.Drawing.Size size, System.Drawing.Rectangle? crop)> inputs)
+        {
+            int w = 2, h = 2;
+            foreach (var (size, crop) in inputs)
+            {
+                int ew = size.Width, eh = size.Height;
+                if (crop is { } c)
+                {
+                    var cr = ClampCrop(c, size);
+                    if (cr.Width >= 2 && cr.Height >= 2) { ew = cr.Width; eh = cr.Height; }
+                }
+                w = Math.Max(w, ew);
+                h = Math.Max(h, eh);
+            }
+            return new System.Drawing.Size(w - w % 2, h - h % 2);
+        }
+
+        /// <summary>
+        /// The -filter_complex graph: per input [i:v] → optional crop → letterbox scale/pad onto
+        /// the canvas → setsar, then concat, then the post chain (skip/hold/gif). Returns the
+        /// output pad label to -map. Pure — unit-tested.
+        /// </summary>
+        internal static string BuildCombineFilter(
+            System.Collections.Generic.IReadOnlyList<(System.Drawing.Size size, System.Drawing.Rectangle? crop)> inputs,
+            System.Drawing.Size target, System.Collections.Generic.IReadOnlyList<string> postFilters, out string outLabel)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < inputs.Count; i++)
+            {
+                var (size, crop) = inputs[i];
+                sb.Append($"[{i}:v]");
+                if (crop is { } c)
+                {
+                    var cr = ClampCrop(c, size);
+                    if (cr.Width >= 2 && cr.Height >= 2) sb.Append($"crop={cr.Width}:{cr.Height}:{cr.X}:{cr.Y},");
+                }
+                sb.Append($"scale={target.Width}:{target.Height}:force_original_aspect_ratio=decrease," +
+                          $"pad={target.Width}:{target.Height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1[v{i}];");
+            }
+            for (int i = 0; i < inputs.Count; i++) sb.Append($"[v{i}]");
+            sb.Append($"concat=n={inputs.Count}:v=1:a=0[vc]");
+            if (postFilters.Count > 0)
+            {
+                sb.Append($";[vc]{string.Join(",", postFilters)}[vo]");
+                outLabel = "vo";
+            }
+            else outLabel = "vc";
+            return sb.ToString();
+        }
+
+        /// <summary>Escape literal '%' for an image2 pattern path ('%%') so only the intended
+        /// %05d token is printf-expanded. Pure — unit-tested.</summary>
+        internal static string EscapePatternPath(string path) => path.Replace("%", "%%");
+
         // Strip anything illegal in a Windows filename; collapse whitespace; trim trailing dots/spaces.
         internal static string SanitizeFileName(string? name)
         {

@@ -237,6 +237,59 @@ namespace FrameWrite.Tests
             finally { try { Directory.Delete(root, true); } catch { } }
         }
 
+        private static string MakeSizedSession(string root, string name, int n, int w, int h, string ext)
+        {
+            string session = SessionManager.CreateNamedSession(Path.Combine(root, "captures"), name, 1, null, ext == "png" ? "PNG" : "JPEG", 90);
+            string frames = SessionManager.GetFramesFolder(session);
+            Directory.CreateDirectory(frames);
+            var fmt = ext == "png" ? ImageFormat.Png : ImageFormat.Jpeg;
+            for (int i = 1; i <= n; i++)
+            {
+                using var bmp = new Bitmap(w, h);
+                using (var g = Graphics.FromImage(bmp)) g.Clear(Color.FromArgb(255, i * 9 % 256, 90, 60));
+                bmp.Save(Path.Combine(frames, $"{i:D5}.{ext}"), fmt);
+            }
+            return session;
+        }
+
+        [Fact]
+        public async Task Combine_JoinsSessions_LetterboxingOntoTheLargest()
+        {
+            if (Ffmpeg == null) return;
+            string root = Path.Combine(Path.GetTempPath(), "tlc_comb_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                // Different sizes AND different frame formats — each session is its own input, so
+                // only within-session uniformity is required. 20 + 10 frames → 30 out, canvas 64×48.
+                string a = MakeSizedSession(root, "older", 20, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "newer", 10, 32, 24, "png");
+                var r = await VideoEncoder.CombineAsync(Ffmpeg, new[] { a, b }, 30, "ultrafast", 23);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(30);
+                VideoSize(r.OutputPath!).Should().Be((64, 48));
+                Path.GetDirectoryName(r.OutputPath).Should().Be(SessionManager.GetOutputFolder(a),
+                    "the combined video lands in the FIRST session's output folder");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task Combine_SpeedUp_ThinsTheJoinedTimeline()
+        {
+            if (Ffmpeg == null) return;
+            string root = Path.Combine(Path.GetTempPath(), "tlc_comb2_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string a = MakeSizedSession(root, "s1", 15, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "s2", 15, 64, 48, "jpg");
+                // Skip runs on the timeline AFTER the join: 30 combined frames, keep 1 in 3 → 10.
+                var r = await VideoEncoder.CombineAsync(Ffmpeg, new[] { a, b }, 30, "ultrafast", 23, everyNth: 3);
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(10);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
         [Fact]
         public async Task Archive_RoundTrip_Jpeg_RestoresEveryFrame()
         {

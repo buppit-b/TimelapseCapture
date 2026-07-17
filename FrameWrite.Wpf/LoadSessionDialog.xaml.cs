@@ -29,16 +29,19 @@ namespace FrameWrite.Wpf
         private readonly string _capturesRoot;
         private readonly string? _currentSessionFolder;
         private readonly string? _ffmpegPath;
+        private readonly ViewModels.MainViewModel? _vm;   // combine reads the live encode settings
         private CancellationTokenSource? _cts;
         private bool _busy;
         private bool _closeWhenIdle;
 
-        public LoadSessionDialog(string capturesRoot, string? currentSessionFolder = null, string? ffmpegPath = null)
+        public LoadSessionDialog(string capturesRoot, string? currentSessionFolder = null, string? ffmpegPath = null,
+            ViewModels.MainViewModel? vm = null)
         {
             InitializeComponent();
             _capturesRoot = capturesRoot;
             _currentSessionFolder = currentSessionFolder;
             _ffmpegPath = ffmpegPath;
+            _vm = vm;
             RebuildList(selectFolder: null);
         }
 
@@ -95,6 +98,32 @@ namespace FrameWrite.Wpf
         private void UpdateArchiveUi()
         {
             if (_busy) return;   // the op's own status text owns the footer while running
+
+            // Multi-select = combine mode: Archive/Load step aside, Combine takes the footer.
+            var selected = list.SelectedItems.Cast<SessionListItem>().ToList();
+            if (selected.Count > 1)
+            {
+                archiveBtn.Visibility = Visibility.Collapsed;
+                loadBtn.IsEnabled = false;   // loading needs exactly one session
+                combineBtn.Visibility = Visibility.Visible;
+                combineBtn.Content = $"Combine {selected.Count}…";
+                string? blocked =
+                    _ffmpegPath == null ? "Needs ffmpeg — set it up from the main window first."
+                    : _vm == null ? "Combine isn't available here."
+                    : selected.Count > 24 ? "Combine supports up to 24 sessions per run."
+                    : selected.Any(i => i.IsArchived) ? "An archived session is selected — unarchive it first."
+                    : selected.Any(i => i.IsActive) ? "A session marked as recording is selected."
+                    : selected.Any(i => i.FrameCount == 0) ? "A selected session has no frames."
+                    : null;
+                combineBtn.IsEnabled = blocked == null;
+                combineBtn.ToolTip = blocked ??
+                    "Encode the selected sessions, oldest first, into ONE continuous video using the current encode settings. Different sizes letterbox onto a common canvas; each session's saved crop applies.";
+                progressText.Text = $"{selected.Count} sessions · {selected.Sum(i => i.FrameCount)} frames";
+                return;
+            }
+
+            combineBtn.Visibility = Visibility.Collapsed;
+            loadBtn.IsEnabled = true;
             var item = list.SelectedItem as SessionListItem;
             archiveBtn.Visibility = item == null ? Visibility.Collapsed : Visibility.Visible;
             progressText.Text = "";
@@ -182,6 +211,30 @@ namespace FrameWrite.Wpf
             return result.Success;
         }
 
+        // ---- shared busy machinery for the long-running ops (archive / restore / combine) ----
+
+        private void BeginBusy(string statusText)
+        {
+            _busy = true;
+            _cts = new CancellationTokenSource();
+            list.IsEnabled = false;
+            archiveBtn.IsEnabled = false;
+            combineBtn.IsEnabled = false;
+            loadBtn.IsEnabled = false;
+            progressText.Text = statusText;   // cancelBtn stays live — it doubles as op-cancel
+        }
+
+        private void EndBusy(string? reselectFolder)
+        {
+            _busy = false;
+            _cts?.Dispose();
+            _cts = null;
+            if (_closeWhenIdle) { Close(); return; }
+            list.IsEnabled = true;
+            loadBtn.IsEnabled = true;
+            RebuildList(reselectFolder);   // sizes/badges may have changed — re-read from disk
+        }
+
         /// <summary>
         /// Run one archiver op with footer progress + cancel; UI locked while it runs. Returns null
         /// when the dialog is closing (result deliberately swallowed — the op was cancelled).
@@ -189,20 +242,14 @@ namespace FrameWrite.Wpf
         private async Task<SessionArchiver.Result?> RunOp(SessionListItem item, string verb,
             Func<CancellationToken, Action<int>, Task<SessionArchiver.Result>> op)
         {
-            _busy = true;
-            _cts = new CancellationTokenSource();
-            list.IsEnabled = false;
-            archiveBtn.IsEnabled = false;
-            loadBtn.IsEnabled = false;
-            cancelBtn.Content = "Cancel";   // now doubles as op-cancel
             int total = Math.Max(1, item.FrameCount);
-            progressText.Text = $"{verb} “{item.Name}”…";
+            BeginBusy($"{verb} “{item.Name}”…");
             try
             {
                 SessionArchiver.Result result;
                 try
                 {
-                    result = await op(_cts.Token, n => Dispatcher.BeginInvoke(new Action(() =>
+                    result = await op(_cts!.Token, n => Dispatcher.BeginInvoke(new Action(() =>
                     {
                         if (_busy) progressText.Text = $"{verb} “{item.Name}”… {Math.Min(100, n * 100 / total)}%";
                     })));
@@ -213,19 +260,69 @@ namespace FrameWrite.Wpf
                 }
                 return _closeWhenIdle ? null : result;
             }
-            finally
+            finally { EndBusy(item.FolderPath); }
+        }
+
+        // ---- multi-session combine: selected sessions, oldest first, into ONE video ----
+
+        private async void OnCombine(object sender, RoutedEventArgs e)
+        {
+            if (_busy || _ffmpegPath == null || _vm == null) return;
+            var items = list.SelectedItems.Cast<SessionListItem>().OrderBy(i => i.SortKey).ToList();   // oldest first
+            if (items.Count < 2 || items.Any(i => i.IsArchived || i.IsActive || i.FrameCount == 0)) return;
+
+            int totalFrames = items.Sum(i => i.FrameCount);
+            int nth = _vm.SpeedUpEnabled ? Math.Max(1, _vm.EncodeEveryNth) : 1;
+            double fps = _vm.EncodeDurationMode
+                ? VideoEncoder.FpsForDuration(totalFrames, nth, _vm.EncodeDurationSeconds)
+                : _vm.EncodeFps;
+
+            string names = string.Join("\n", items.Take(8).Select(i => $"  {i.Name}  ({i.FrameCount} frames)"))
+                + (items.Count > 8 ? $"\n  … and {items.Count - 8} more" : "");
+            var r = MessageDialog.Show(
+                $"Combine {items.Count} sessions — {totalFrames} frames, oldest first — into one continuous video?\n\n{names}\n\n" +
+                $"Encode: {_vm.EncodeSummaryText}\nDifferent frame sizes letterbox onto a common canvas; each session's saved crop applies.\n" +
+                $"Output: “{items[0].Name}”'s output folder.",
+                "Combine sessions?", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (r != MessageBoxResult.Yes) return;
+
+            int expectedOut = Math.Max(1, (totalFrames + nth - 1) / nth);
+            BeginBusy($"Combining {items.Count} sessions…");
+            var token = _cts!.Token;   // survives EndBusy's dispose — needed for the cancel check below
+            VideoEncoder.Result result;
+            try
             {
-                _busy = false;
-                _cts.Dispose();
-                _cts = null;
-                if (_closeWhenIdle) Close();
-                else
+                try
                 {
-                    list.IsEnabled = true;
-                    loadBtn.IsEnabled = true;
-                    RebuildList(item.FolderPath);   // sizes/badges changed — re-read from disk
+                    result = await VideoEncoder.CombineAsync(_ffmpegPath, items.Select(i => i.FolderPath).ToList(),
+                        fps, _vm.EncodePreset, _vm.EncodeCrf, token,
+                        outputName: $"combined_{DateTime.Now:yyyyMMdd_HHmmss}",
+                        onFrameProgress: n => Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (_busy) progressText.Text = $"Combining {items.Count} sessions… {Math.Min(100, n * 100 / expectedOut)}%";
+                        })),
+                        everyNth: nth, holdLastSeconds: _vm.EncodeHoldLastSeconds, format: _vm.EncodeFormat,
+                        gif: new VideoEncoder.GifOptions(_vm.GifMaxFps, _vm.GifMaxWidth, _vm.GifMaxColors, _vm.GifDither));
                 }
+                catch (Exception ex) { result = new VideoEncoder.Result { Success = false, Error = ex.Message }; }
             }
+            finally { EndBusy(items[0].FolderPath); }
+            if (_closeWhenIdle) return;
+
+            if (result.Success)
+                MessageDialog.Show($"Combined {items.Count} sessions ({totalFrames} frames):\n{result.OutputPath}",
+                    "Sessions combined");
+            else if (!token.IsCancellationRequested)   // deliberate cancel stays quiet
+                MessageDialog.Show($"Combine failed — nothing was changed.\n\n{FirstLine(result.Error)}",
+                    "Combine sessions", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // ffmpeg errors run pages long — the tail line is the useful one.
+        private static string FirstLine(string error)
+        {
+            var lines = (error ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("frame=", StringComparison.Ordinal)).ToArray();
+            return lines.Length == 0 ? error ?? "" : lines[^1];
         }
 
         private static string Mb(long bytes) => bytes >= 1073741824
@@ -233,7 +330,7 @@ namespace FrameWrite.Wpf
 
         private async void TryLoad()
         {
-            if (_busy || list.SelectedItem is not SessionListItem item) return;
+            if (_busy || list.SelectedItems.Count != 1 || list.SelectedItem is not SessionListItem item) return;
 
             if (item.IsArchived)
             {

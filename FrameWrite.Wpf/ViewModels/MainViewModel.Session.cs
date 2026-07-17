@@ -125,7 +125,7 @@ namespace FrameWrite.Wpf.ViewModels
         {
             string capturesRoot = Path.Combine(_settings.SaveFolder ?? "", "captures");
             var dlg = new LoadSessionDialog(capturesRoot, _sessionFolder,
-                FfmpegRunner.FindFfmpeg(_settings.FfmpegPath)) { Owner = Application.Current?.MainWindow };
+                FfmpegRunner.FindFfmpeg(_settings.FfmpegPath), this) { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true || dlg.SelectedFolder == null) return;
             LoadSessionFromFolder(dlg.SelectedFolder, fromPicker: true);
         }

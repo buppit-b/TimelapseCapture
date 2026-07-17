@@ -205,8 +205,12 @@ region capture, final continuous run **5.5 hours** at ~3.1s interval, **6798 fra
    frame (numeric X/Y/W/H too); non-destructive by default (per-session `EncodeCrop`, ffmpeg `crop`
    filter, clamped + even-dims at encode) with the consented destructive "crop frames on disk"
    power option (temp+replace per frame). Smoke-tested for output dimensions + clamping.
-3. **Multi-session combine** — select several sessions and encode one continuous video (the
-   "100 hours in 10 minutes" workflow). Needs uniform frame sizes across sessions + guardrails.
+3. **Multi-session combine** — ✅ **shipped (1.5.0, 2026-07-17)**: multi-select in the session
+   picker → "Combine…" encodes the selection, oldest first, into ONE video via a single ffmpeg
+   filter_complex run (one image2 input per session → per-session saved crop → letterbox onto a
+   max-dims canvas → concat; speed-up/hold/GIF tail applied to the JOINED timeline). Sessions may
+   differ in size and even frame format; up to 24 per run; archived/active/empty sessions
+   excluded with tooltips. Output lands in the oldest session's output folder.
 
 ### Overlay follow-ups (Spike, 2026-07-05)
 - **Overlay: burn-in during vs after encode** — today the text is burned per-frame at capture time.

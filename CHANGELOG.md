@@ -3,6 +3,20 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.5.0] — 2026-07-17 — multi-session combine
+
+- **Combine sessions into one video** (Load Session picker): Ctrl/Shift-select two or more
+  sessions and the footer offers **Combine…** — one continuous video, oldest first, using the
+  current encode settings (format, fps or exact-length, CRF/preset, speed-up, hold-last-frame,
+  GIF tuning — speed-up and hold apply to the *joined* timeline). Sessions may differ in frame
+  size and even format: each is cropped by its own saved crop, then letterboxed onto a canvas
+  sized to the largest, so nothing is ever downscaled. Live progress + cancel; up to 24 sessions
+  per run; archived, recording-flagged and empty sessions are excluded with an explaining
+  tooltip. The result lands in the oldest session's output folder. This is the
+  "100 hours in 10 minutes" workflow — a multi-day piece as one timelapse.
+- Combine's ffmpeg inputs escape literal '%' in session paths (the same image2 hygiene as
+  everywhere else, now proven by unit test).
+
 ## [1.4.1] — 2026-07-17 — tray pause/resume + pause cue
 
 - **Pause/Resume in the tray menu** (enabled while recording; label follows state) — pause a run

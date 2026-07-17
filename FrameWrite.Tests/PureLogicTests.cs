@@ -320,6 +320,79 @@ namespace FrameWrite.Tests
     }
 
     /// <summary>
+    /// Multi-session combine building blocks (VideoEncoder.CombineTargetSize / BuildCombineFilter /
+    /// EscapePatternPath): the canvas must fit every session's EFFECTIVE (cropped) size, the graph
+    /// must letterbox each input and honor per-session crops, and '%' in a path must never reach
+    /// image2 unescaped.
+    /// </summary>
+    public class CombineLogicTests
+    {
+        private static (Size, Rectangle?) In(int w, int h, Rectangle? crop = null) => (new Size(w, h), crop);
+
+        [Fact]
+        public void TargetSize_IsTheMaxOfEffectiveSizes_EvenForced()
+        {
+            var t = VideoEncoder.CombineTargetSize(new[] { In(640, 480), In(801, 300) });
+            t.Should().Be(new Size(800, 480), "801 forces even; height comes from the taller session");
+        }
+
+        [Fact]
+        public void TargetSize_UsesTheCroppedSize_WhenASessionHasACrop()
+        {
+            var t = VideoEncoder.CombineTargetSize(new[] { In(1920, 1080, new Rectangle(0, 0, 640, 480)), In(320, 240) });
+            t.Should().Be(new Size(640, 480), "the cropped size is what that session contributes");
+        }
+
+        [Fact]
+        public void TargetSize_IgnoresADegenerateCrop()
+        {
+            var t = VideoEncoder.CombineTargetSize(new[] { In(640, 480, new Rectangle(5000, 5000, 10, 10)) });
+            t.Should().Be(new Size(640, 480), "an off-frame crop clamps to nothing → full frame");
+        }
+
+        [Fact]
+        public void Filter_LetterboxesEveryInput_AndConcats()
+        {
+            string g = VideoEncoder.BuildCombineFilter(new[] { In(640, 480), In(320, 240) },
+                new Size(640, 480), Array.Empty<string>(), out string label);
+            label.Should().Be("vc");
+            g.Should().Contain("[0:v]").And.Contain("[1:v]")
+             .And.Contain("scale=640:480:force_original_aspect_ratio=decrease")
+             .And.Contain("pad=640:480:(ow-iw)/2:(oh-ih)/2")
+             .And.Contain("setsar=1")
+             .And.Contain("concat=n=2:v=1:a=0[vc]");
+        }
+
+        [Fact]
+        public void Filter_AppliesAndClampsPerSessionCrops()
+        {
+            string g = VideoEncoder.BuildCombineFilter(
+                new[] { In(640, 480, new Rectangle(10, 10, 700, 700)), In(320, 240) },
+                new Size(630, 470), Array.Empty<string>(), out _);
+            g.Should().Contain("crop=630:470:10:10", "the crop clamps onto the frame and forces even dims");
+            g.Split(';')[1].Should().NotContain("crop=", "the second session has no crop");
+        }
+
+        [Fact]
+        public void Filter_PostChain_RunsAfterTheJoin_AndMapsVo()
+        {
+            string g = VideoEncoder.BuildCombineFilter(new[] { In(64, 48), In(64, 48) },
+                new Size(64, 48), new[] { "select='not(mod(n\\,2))'", "setpts=N/FRAME_RATE/TB" }, out string label);
+            label.Should().Be("vo");
+            g.Should().Contain("[vc]select=").And.EndWith("[vo]");
+            g.IndexOf("concat").Should().BeLessThan(g.IndexOf("select="), "skip applies to the combined timeline");
+        }
+
+        [Theory]
+        [InlineData(@"C:\art\50% done\frames", @"C:\art\50%% done\frames")]
+        [InlineData(@"C:\plain\frames", @"C:\plain\frames")]
+        public void PercentInPath_IsEscapedForImage2(string dir, string expected)
+        {
+            VideoEncoder.EscapePatternPath(dir).Should().Be(expected);
+        }
+    }
+
+    /// <summary>
     /// The -frames:v output cap for a trimmed encode (VideoEncoder.ComputeOutputLimit): trim range,
     /// frame-skip ceiling, and held-last-frame clones. Off-by-one here clips or over-runs the trim.
     /// </summary>

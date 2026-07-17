@@ -19,7 +19,7 @@
                 BorderThickness="1" CornerRadius="10" Padding="6">
             <Grid>
                 <ListBox x:Name="list" Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Extended"
                          MouseDoubleClick="OnDoubleClick" SelectionChanged="OnSelectionChanged">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -86,6 +86,8 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <Button x:Name="archiveBtn" Content="Archive" Style="{StaticResource BtnBase}"
                         Click="OnArchive" MinWidth="84" Visibility="Collapsed"/>
+                <Button x:Name="combineBtn" Content="Combine…" Style="{StaticResource BtnBase}"
+                        Click="OnCombine" MinWidth="84" Visibility="Collapsed"/>
                 <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
                            FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="10,0,8,0"/>
             </StackPanel>
