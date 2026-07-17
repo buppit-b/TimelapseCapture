@@ -14,14 +14,18 @@ namespace FrameWrite.Wpf
 {
     /// <summary>
     /// Combine staging: the selected sessions listed oldest-first, each preparable IN PLACE with
-    /// the real Cull/Crop dialogs (they're folder-based, so they work on cold sessions), the app's
-    /// encode settings editable inline (same live bindings as the main panel — one source of
-    /// truth), and a live outcome line (frames → length, canvas). Encode only starts from the
-    /// Combine button, with progress + cancel here. Sessions removed with ✕ are merely left out.
+    /// the real Cull/Crop dialogs (they're folder-based, so they work on cold sessions), encode
+    /// settings editable inline, and a live outcome line (frames → length, canvas). Encode only
+    /// starts from the Combine button, with progress + cancel here.
+    ///
+    /// The settings are a PER-COMBINE snapshot — seeded from the app's encode settings but applied
+    /// to this run only. (v1 live-bound the app's own settings, which made the main window's
+    /// encode panel visibly shuffle behind the dialog — functional, but it read as glitchy.)
     /// </summary>
     public partial class CombineDialog : Window
     {
         private readonly MainViewModel _vm;
+        private readonly CombineSettings _cfg;
         private readonly string _ffmpegPath;
         private readonly ObservableCollection<CombineItem> _items = new();
         private CancellationTokenSource? _cts;
@@ -33,14 +37,14 @@ namespace FrameWrite.Wpf
             InitializeComponent();
             _vm = vm;
             _ffmpegPath = ffmpegPath;
-            DataContext = vm;   // the settings block binds straight to the app's encode settings
+            _cfg = CombineSettings.SeededFrom(vm);
+            DataContext = _cfg;   // this combine's settings only — the main window never moves
 
             foreach (var f in sessionFolders) _items.Add(new CombineItem(f));
             SortOldestFirst();
             list.ItemsSource = _items;
 
-            _vm.PropertyChanged += OnVmChanged;
-            Closed += (s, e) => _vm.PropertyChanged -= OnVmChanged;
+            _cfg.PropertyChanged += (s, e) => RefreshOutcome();
             RefreshOutcome();
         }
 
@@ -54,24 +58,15 @@ namespace FrameWrite.Wpf
             }
         }
 
-        private void OnVmChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName is nameof(MainViewModel.EncodeFps) or nameof(MainViewModel.EncodeDurationMode)
-                or nameof(MainViewModel.EncodeDurationSeconds) or nameof(MainViewModel.SpeedUpEnabled)
-                or nameof(MainViewModel.EncodeEveryNth) or nameof(MainViewModel.EncodeHoldLastSeconds)
-                or nameof(MainViewModel.EncodeFormat))
-                RefreshOutcome();
-        }
-
         // ---- the live outcome line + combine gating ----
 
         private (int totalFrames, int nth, double fps) Plan()
         {
             int total = _items.Sum(i => i.Frames);
-            int nth = _vm.SpeedUpEnabled ? Math.Max(1, _vm.EncodeEveryNth) : 1;
-            double fps = _vm.EncodeDurationMode
-                ? VideoEncoder.FpsForDuration(total, nth, _vm.EncodeDurationSeconds)
-                : Math.Max(1, _vm.EncodeFps);
+            int nth = _cfg.SpeedUpEnabled ? Math.Max(1, _cfg.SpeedUpN) : 1;
+            double fps = _cfg.UnitIndex == 1
+                ? VideoEncoder.FpsForDuration(total, nth, _cfg.DurationSeconds)
+                : Math.Max(1, _cfg.Fps);
             return (total, nth, fps);
         }
 
@@ -80,14 +75,14 @@ namespace FrameWrite.Wpf
             if (_busy) return;
             var (total, nth, fps) = Plan();
             int kept = Math.Max(1, (total + nth - 1) / nth);
-            double seconds = kept / fps + Math.Max(0, _vm.EncodeHoldLastSeconds);
+            double seconds = kept / fps + Math.Max(0, _cfg.HoldLastSeconds);
             var canvas = VideoEncoder.CombineTargetSize(_items.Where(i => i.Frames > 0)
                 .Select(i => (i.FrameSize, i.Crop)).ToList());
 
             resultText.Text = _items.Count == 0 ? "No sessions left to combine."
                 : $"{_items.Count} sessions · {total} frames" + (nth > 1 ? $" → {kept} kept (1 in {nth})" : "")
                   + $" → ≈ {FormatLen(seconds)} at {fps:0.#} fps · canvas {canvas.Width}×{canvas.Height}"
-                  + $" · {_vm.EncodeFormat.ToUpperInvariant()}";
+                  + $" · {_cfg.Format.ToUpperInvariant()}";
 
             string? blocked =
                 _items.Count < 2 ? "Needs at least two sessions."
@@ -240,14 +235,14 @@ namespace FrameWrite.Wpf
                 try
                 {
                     result = await VideoEncoder.CombineAsync(_ffmpegPath, _items.Select(i => i.Folder).ToList(),
-                        fps, _vm.EncodePreset, _vm.EncodeCrf, token,
+                        fps, _cfg.Preset, _cfg.Crf, token,
                         outputName: $"combined_{DateTime.Now:yyyyMMdd_HHmmss}",
                         onFrameProgress: n => Dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (_busy) progressText.Text = $"Combining… {Math.Min(100, n * 100 / expectedOut)}%";
                         })),
-                        everyNth: nth, holdLastSeconds: _vm.EncodeHoldLastSeconds, format: _vm.EncodeFormat,
-                        gif: new VideoEncoder.GifOptions(_vm.GifMaxFps, _vm.GifMaxWidth, _vm.GifMaxColors, _vm.GifDither));
+                        everyNth: nth, holdLastSeconds: _cfg.HoldLastSeconds, format: _cfg.Format,
+                        gif: new VideoEncoder.GifOptions(_cfg.GifMaxFps, _cfg.GifMaxWidth, _cfg.GifColors, _cfg.GifDither));
                 }
                 catch (Exception ex) { result = new VideoEncoder.Result { Success = false, Error = ex.Message }; }
             }
@@ -311,6 +306,71 @@ namespace FrameWrite.Wpf
             _closeWhenIdle = true;
             _cts?.Cancel();
         }
+    }
+
+    /// <summary>
+    /// This combine's encode settings: seeded from the app's, mutated freely here, persisted
+    /// nowhere. Setters clamp; the encoder validates again anyway.
+    /// </summary>
+    public sealed class CombineSettings : ViewModelBase
+    {
+        private string _format = "mp4";
+        private int _unitIndex;
+        private int _fps = 30;
+        private double _durationSeconds = 30;
+        private int _crf = 23;
+        private string _preset = "medium";
+        private int _gifColors = 256;
+        private string _gifDither = "bayer";
+        private int _gifMaxFps = 15;
+        private int _gifMaxWidth = 720;
+        private bool _speedUpEnabled;
+        private int _speedUpN = 2;
+        private double _holdLastSeconds;
+
+        public static CombineSettings SeededFrom(MainViewModel vm) => new()
+        {
+            Format = vm.EncodeFormat,
+            UnitIndex = vm.EncodeUnitIndex == "1" ? 1 : 0,   // the VM stores the seg index as a string
+            Fps = vm.EncodeFps,
+            DurationSeconds = vm.EncodeDurationSeconds,
+            Crf = vm.EncodeCrf,
+            Preset = vm.EncodePreset,
+            GifColors = vm.GifMaxColors,
+            GifDither = vm.GifDither,
+            GifMaxFps = vm.GifMaxFps,
+            GifMaxWidth = vm.GifMaxWidth,
+            SpeedUpEnabled = vm.SpeedUpEnabled,
+            SpeedUpN = Math.Max(2, vm.EncodeEveryNth),
+            HoldLastSeconds = vm.EncodeHoldLastSeconds,
+        };
+
+        public string Format
+        {
+            get => _format;
+            set { if (SetProperty(ref _format, (value ?? "mp4").ToLowerInvariant())) { OnPropertyChanged(nameof(IsGif)); OnPropertyChanged(nameof(ShowTuning)); } }
+        }
+        public int UnitIndex
+        {
+            get => _unitIndex;
+            set { if (SetProperty(ref _unitIndex, Math.Clamp(value, 0, 1))) { OnPropertyChanged(nameof(ShowFps)); OnPropertyChanged(nameof(ShowLength)); } }
+        }
+        public int Fps { get => _fps; set => SetProperty(ref _fps, Math.Clamp(value, 1, 240)); }
+        public double DurationSeconds { get => _durationSeconds; set => SetProperty(ref _durationSeconds, Math.Clamp(value, 0.1, 86400)); }
+        public int Crf { get => _crf; set => SetProperty(ref _crf, Math.Clamp(value, 0, 51)); }
+        public string Preset { get => _preset; set => SetProperty(ref _preset, value ?? "medium"); }
+        public int GifColors { get => _gifColors; set => SetProperty(ref _gifColors, value is 32 or 64 or 128 or 256 ? value : 256); }
+        public string GifDither { get => _gifDither; set => SetProperty(ref _gifDither, value ?? "bayer"); }
+        public int GifMaxFps { get => _gifMaxFps; set => SetProperty(ref _gifMaxFps, Math.Clamp(value, 1, 50)); }
+        public int GifMaxWidth { get => _gifMaxWidth; set => SetProperty(ref _gifMaxWidth, Math.Clamp(value, 120, 3840)); }
+        public bool SpeedUpEnabled { get => _speedUpEnabled; set => SetProperty(ref _speedUpEnabled, value); }
+        public int SpeedUpN { get => _speedUpN; set => SetProperty(ref _speedUpN, Math.Clamp(value, 2, 1000)); }
+        public double HoldLastSeconds { get => _holdLastSeconds; set => SetProperty(ref _holdLastSeconds, Math.Clamp(value, 0, 600)); }
+
+        public bool IsGif => Format == "gif";
+        public bool ShowTuning => Format != "gif";
+        public bool ShowFps => UnitIndex == 0;
+        public bool ShowLength => UnitIndex == 1;
     }
 
     /// <summary>One staged session: fresh-from-disk facts, refreshable after a cull/crop.</summary>

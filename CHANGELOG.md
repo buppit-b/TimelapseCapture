@@ -3,6 +3,15 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.5.2] — 2026-07-17 — combine dialog: own settings + tidied layout (feedback round)
+
+- **Combine settings no longer move the main window.** The dialog's settings are now a
+  per-combine snapshot — seeded from the app's encode settings, but changes apply to this
+  combine only (nothing persists back, so the encode panel behind the dialog stays put).
+- **Layout tidied**: the settings sit in their own card as an aligned label-column form
+  (Format / Length / Quality / Palette / Caps / Speed / End), conditional rows collapse
+  cleanly, and the live outcome line moved into a highlighted strip at the card's foot.
+
 ## [1.5.1] — 2026-07-17 — combine is now a staging area (feedback round)
 
 - **Combine no longer jumps straight to encode.** Combine… opens a staging dialog: the selected
