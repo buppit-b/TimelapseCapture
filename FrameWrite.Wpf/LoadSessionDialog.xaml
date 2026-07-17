@@ -13,7 +13,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="SESSIONS" Style="{StaticResource CardTitle}"/>
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="SESSIONS" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Ctrl/Shift-click selects several — Combine… turns them into one video."
+                       Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,6"/>
+        </StackPanel>
 
         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="6">
@@ -87,7 +91,7 @@
                 <Button x:Name="archiveBtn" Content="Archive" Style="{StaticResource BtnBase}"
                         Click="OnArchive" MinWidth="84" Visibility="Collapsed"/>
                 <Button x:Name="combineBtn" Content="Combine…" Style="{StaticResource BtnBase}"
-                        Click="OnCombine" MinWidth="84" Visibility="Collapsed"/>
+                        Click="OnCombine" MinWidth="84" Margin="0,0,6,0"/>
                 <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
                            FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="10,0,8,0"/>
             </StackPanel>

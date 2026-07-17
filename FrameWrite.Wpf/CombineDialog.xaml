@@ -1,0 +1,168 @@
+<Window x:Class="FrameWrite.Wpf.CombineDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FrameWrite.Wpf"
+        Title="Combine sessions" Width="780" Height="720" MinWidth="660" MinHeight="560"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
+        MaxWidth="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Width}"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False"
+        Style="{StaticResource DialogWindow}" Closing="OnClosing">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
+            <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
+                       Text="One continuous video, oldest first. Prepare a session before encoding — Cull removes fumble frames, Crop sets its frame area (each session keeps its own crop), ✕ leaves it out of the combine. The encode settings below are the app's own — changes here stick."/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                BorderThickness="1" CornerRadius="10" Padding="6">
+            <ListBox x:Name="list" Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     HorizontalContentAlignment="Stretch">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Focusable" Value="False"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border Background="Transparent" CornerRadius="6" Padding="8,7" Margin="0,1">
+                                        <ContentPresenter/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel LastChildFill="True">
+                            <!-- Per-session prep: the REAL cull/crop dialogs, opened for that session. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Cull…" Style="{StaticResource BtnBase}" Padding="10,4" Margin="0,0,6,0"
+                                        Click="OnCullRow" Tag="{Binding}"
+                                        ToolTip="Scrub this session and delete fumble frames (renumbers gapless — can't be undone; backup offered)."/>
+                                <Button Content="Crop…" Style="{StaticResource BtnBase}" Padding="10,4" Margin="0,0,6,0"
+                                        Click="OnCropRow" Tag="{Binding}"
+                                        ToolTip="Choose the frame area this session contributes (saved on the session; non-destructive by default)."/>
+                                <Button Content="✕" Style="{StaticResource BtnBase}" Padding="8,4"
+                                        Click="OnRemoveRow" Tag="{Binding}"
+                                        ToolTip="Leave this session out (the session itself is untouched)."/>
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                           FontFamily="Consolas" FontSize="13"/>
+                                <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontFamily="Consolas" FontSize="11" Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Encode settings — the SAME live app settings as the main encode panel (shared bindings). -->
+        <StackPanel Grid.Row="2" Margin="0,12,0,0" x:Name="settingsPanel">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Format" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="cmbfmt" Content="MP4"
+                             IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=mp4}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="cmbfmt" Content="WebM"
+                             IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=webm}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="cmbfmt" Content="GIF"
+                             IsChecked="{Binding EncodeFormat, Converter={StaticResource StrEq}, ConverterParameter=gif}"/>
+                <TextBlock Text="Length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="cmbunit" Content="fps"
+                             IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=0}"/>
+                <RadioButton Style="{StaticResource Seg}" GroupName="cmbunit" Content="exact length"
+                             IsChecked="{Binding EncodeUnitIndex, Converter={StaticResource StrEq}, ConverterParameter=1}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeFps, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="fps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Text="{Binding EncodeFps}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeLength, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="length" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Text="{Binding EncodeDurationSeconds}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"/>
+                    <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding ShowEncodeTuning, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="CRF" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                    <TextBox Text="{Binding EncodeCrf}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                             ToolTip="Quality (CRF 0–51): LOWER is better and bigger."/>
+                    <TextBlock Text="Preset" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbpreset" Content="Fast"
+                                 IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=ultrafast}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbpreset" Content="Medium"
+                                 IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=medium}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbpreset" Content="Slow"
+                                 IsChecked="{Binding EncodePreset, Converter={StaticResource StrEq}, ConverterParameter=veryslow}"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Visibility="{Binding IsGifFormat, Converter={StaticResource BoolToVis}}">
+                <WrapPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <TextBlock Text="Colors" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifc" Content="256"
+                                 IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=256}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifc" Content="128"
+                                 IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=128}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifc" Content="64"
+                                 IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=64}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifc" Content="32"
+                                 IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=32}"/>
+                    <TextBlock Text="Dither" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifd" Content="Pattern"
+                                 IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=bayer}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifd" Content="Smooth"
+                                 IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=floyd}"/>
+                    <RadioButton Style="{StaticResource Seg}" GroupName="cmbgifd" Content="None"
+                                 IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=none}"/>
+                    <TextBlock Text="fps ≤" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,6,0"/>
+                    <TextBox Text="{Binding GifMaxFps}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
+                    <TextBlock Text="width ≤" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                    <TextBox Text="{Binding GifMaxWidth}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                             local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"/>
+                </WrapPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <CheckBox Content="Speed-up: keep 1 frame in every" IsChecked="{Binding SpeedUpEnabled}"
+                          Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center"
+                          ToolTip="Applies to the JOINED timeline, so the thinning is uniform across session boundaries."/>
+                <TextBox Text="{Binding SpeedUpN}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center" Margin="6,0,0,0"
+                         local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                         Visibility="{Binding SpeedUpEnabled, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="Hold last frame" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="18,0,6,0"/>
+                <TextBox Text="{Binding EncodeHoldLastSeconds}" Style="{StaticResource DarkTextBox}" Width="44" TextAlignment="Center"
+                         local:NumericInput.AllowDecimal="True" local:ClampFlash.Enabled="True"/>
+                <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Live outcome: frames, resulting length, canvas — recomputed as the list or settings change. -->
+        <TextBlock Grid.Row="3" x:Name="resultText" Style="{StaticResource Muted}" FontFamily="Consolas"
+                   FontSize="11" Margin="0,10,0,0" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap"/>
+
+        <Grid Grid.Row="4" Margin="0,14,0,0">
+            <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="closeBtn" Content="Close" Style="{StaticResource BtnBase}" Margin="0,0,8,0" MinWidth="84" Click="OnCloseBtn"/>
+                <Button x:Name="combineBtn" Content="Combine" Style="{StaticResource BtnPrimary}" MinWidth="110" Click="OnCombine"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

@@ -710,15 +710,15 @@
                             <StackPanel Orientation="Horizontal">
                                 <!-- Video/Timer: h/m/s boxes. Size: a single GB box. -->
                                 <StackPanel Orientation="Horizontal" Visibility="{Binding ShowTargetDuration, Converter={StaticResource BoolToVis}}">
-                                    <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                    <TextBox Text="{Binding TargetHours}" Style="{StaticResource DarkTextBox}" Width="46" TextAlignment="Center"
                                              local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True" KeyDown="OnTargetEnter"
                                              ToolTip="Hours. Scroll to adjust (Shift = ×10); commits as you go."/>
                                     <TextBlock Text="h" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
-                                    <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                    <TextBox Text="{Binding TargetMinutes}" Style="{StaticResource DarkTextBox}" Width="46" TextAlignment="Center"
                                              local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
                                              ToolTip="Minutes — values past 59 roll into hours. Scroll to adjust; commits as you go."/>
                                     <TextBlock Text="m" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,8,0"/>
-                                    <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="38" TextAlignment="Center"
+                                    <TextBox Text="{Binding TargetSecondsBox}" Style="{StaticResource DarkTextBox}" Width="46" TextAlignment="Center"
                                              local:NumericInput.AllowDecimal="False" KeyDown="OnTargetEnter"
                                              ToolTip="Seconds — values past 59 roll into minutes. Scroll to adjust; commits as you go."/>
                                     <TextBlock Text="s" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="3,0,0,0"/>

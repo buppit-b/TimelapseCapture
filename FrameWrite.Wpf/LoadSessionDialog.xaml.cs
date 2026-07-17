@@ -99,30 +99,32 @@ namespace FrameWrite.Wpf
         {
             if (_busy) return;   // the op's own status text owns the footer while running
 
-            // Multi-select = combine mode: Archive/Load step aside, Combine takes the footer.
+            // Combine… is ALWAYS visible (a hidden feature is an unknown feature); the tooltip
+            // teaches multi-select until 2+ eligible sessions are picked. Multi-select mode hands
+            // the footer to it — Archive/Load need exactly one session.
             var selected = list.SelectedItems.Cast<SessionListItem>().ToList();
+            combineBtn.Content = selected.Count > 1 ? $"Combine {selected.Count}…" : "Combine…";
+            string? blocked =
+                selected.Count < 2 ? "Ctrl/Shift-click to select two or more sessions first."
+                : _ffmpegPath == null ? "Needs ffmpeg — set it up from the main window first."
+                : _vm == null ? "Combine isn't available here."
+                : selected.Count > 24 ? "Combine supports up to 24 sessions per run."
+                : selected.Any(i => i.IsArchived) ? "An archived session is selected — unarchive it first."
+                : selected.Any(i => i.IsActive) ? "A session marked as recording is selected."
+                : selected.Any(i => i.FrameCount == 0) ? "A selected session has no frames."
+                : null;
+            combineBtn.IsEnabled = blocked == null;
+            combineBtn.ToolTip = blocked ??
+                "Stage the selected sessions (oldest first): cull, crop, tweak the encode settings, then make one continuous video.";
+
             if (selected.Count > 1)
             {
                 archiveBtn.Visibility = Visibility.Collapsed;
                 loadBtn.IsEnabled = false;   // loading needs exactly one session
-                combineBtn.Visibility = Visibility.Visible;
-                combineBtn.Content = $"Combine {selected.Count}…";
-                string? blocked =
-                    _ffmpegPath == null ? "Needs ffmpeg — set it up from the main window first."
-                    : _vm == null ? "Combine isn't available here."
-                    : selected.Count > 24 ? "Combine supports up to 24 sessions per run."
-                    : selected.Any(i => i.IsArchived) ? "An archived session is selected — unarchive it first."
-                    : selected.Any(i => i.IsActive) ? "A session marked as recording is selected."
-                    : selected.Any(i => i.FrameCount == 0) ? "A selected session has no frames."
-                    : null;
-                combineBtn.IsEnabled = blocked == null;
-                combineBtn.ToolTip = blocked ??
-                    "Encode the selected sessions, oldest first, into ONE continuous video using the current encode settings. Different sizes letterbox onto a common canvas; each session's saved crop applies.";
                 progressText.Text = $"{selected.Count} sessions · {selected.Sum(i => i.FrameCount)} frames";
                 return;
             }
 
-            combineBtn.Visibility = Visibility.Collapsed;
             loadBtn.IsEnabled = true;
             var item = list.SelectedItem as SessionListItem;
             archiveBtn.Visibility = item == null ? Visibility.Collapsed : Visibility.Visible;
@@ -263,66 +265,20 @@ namespace FrameWrite.Wpf
             finally { EndBusy(item.FolderPath); }
         }
 
-        // ---- multi-session combine: selected sessions, oldest first, into ONE video ----
+        // ---- multi-session combine: hand the selection to the staging dialog ----
 
-        private async void OnCombine(object sender, RoutedEventArgs e)
+        private void OnCombine(object sender, RoutedEventArgs e)
         {
             if (_busy || _ffmpegPath == null || _vm == null) return;
             var items = list.SelectedItems.Cast<SessionListItem>().OrderBy(i => i.SortKey).ToList();   // oldest first
             if (items.Count < 2 || items.Any(i => i.IsArchived || i.IsActive || i.FrameCount == 0)) return;
 
-            int totalFrames = items.Sum(i => i.FrameCount);
-            int nth = _vm.SpeedUpEnabled ? Math.Max(1, _vm.EncodeEveryNth) : 1;
-            double fps = _vm.EncodeDurationMode
-                ? VideoEncoder.FpsForDuration(totalFrames, nth, _vm.EncodeDurationSeconds)
-                : _vm.EncodeFps;
-
-            string names = string.Join("\n", items.Take(8).Select(i => $"  {i.Name}  ({i.FrameCount} frames)"))
-                + (items.Count > 8 ? $"\n  … and {items.Count - 8} more" : "");
-            var r = MessageDialog.Show(
-                $"Combine {items.Count} sessions — {totalFrames} frames, oldest first — into one continuous video?\n\n{names}\n\n" +
-                $"Encode: {_vm.EncodeSummaryText}\nDifferent frame sizes letterbox onto a common canvas; each session's saved crop applies.\n" +
-                $"Output: “{items[0].Name}”'s output folder.",
-                "Combine sessions?", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (r != MessageBoxResult.Yes) return;
-
-            int expectedOut = Math.Max(1, (totalFrames + nth - 1) / nth);
-            BeginBusy($"Combining {items.Count} sessions…");
-            var token = _cts!.Token;   // survives EndBusy's dispose — needed for the cancel check below
-            VideoEncoder.Result result;
-            try
-            {
-                try
-                {
-                    result = await VideoEncoder.CombineAsync(_ffmpegPath, items.Select(i => i.FolderPath).ToList(),
-                        fps, _vm.EncodePreset, _vm.EncodeCrf, token,
-                        outputName: $"combined_{DateTime.Now:yyyyMMdd_HHmmss}",
-                        onFrameProgress: n => Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            if (_busy) progressText.Text = $"Combining {items.Count} sessions… {Math.Min(100, n * 100 / expectedOut)}%";
-                        })),
-                        everyNth: nth, holdLastSeconds: _vm.EncodeHoldLastSeconds, format: _vm.EncodeFormat,
-                        gif: new VideoEncoder.GifOptions(_vm.GifMaxFps, _vm.GifMaxWidth, _vm.GifMaxColors, _vm.GifDither));
-                }
-                catch (Exception ex) { result = new VideoEncoder.Result { Success = false, Error = ex.Message }; }
-            }
-            finally { EndBusy(items[0].FolderPath); }
-            if (_closeWhenIdle) return;
-
-            if (result.Success)
-                MessageDialog.Show($"Combined {items.Count} sessions ({totalFrames} frames):\n{result.OutputPath}",
-                    "Sessions combined");
-            else if (!token.IsCancellationRequested)   // deliberate cancel stays quiet
-                MessageDialog.Show($"Combine failed — nothing was changed.\n\n{FirstLine(result.Error)}",
-                    "Combine sessions", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-
-        // ffmpeg errors run pages long — the tail line is the useful one.
-        private static string FirstLine(string error)
-        {
-            var lines = (error ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("frame=", StringComparison.Ordinal)).ToArray();
-            return lines.Length == 0 ? error ?? "" : lines[^1];
+            // The staging dialog owns the rest: per-session cull/crop, inline encode settings, the
+            // live outcome line, and the encode itself. Cull/crop may have changed what's on disk —
+            // re-read the list either way.
+            var dlg = new CombineDialog(items.Select(i => i.FolderPath), _vm, _ffmpegPath) { Owner = this };
+            dlg.ShowDialog();
+            RebuildList(items[0].FolderPath);
         }
 
         private static string Mb(long bytes) => bytes >= 1073741824

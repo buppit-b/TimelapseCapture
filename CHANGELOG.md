@@ -3,6 +3,21 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.5.1] — 2026-07-17 — combine is now a staging area (feedback round)
+
+- **Combine no longer jumps straight to encode.** Combine… opens a staging dialog: the selected
+  sessions listed oldest-first (frames · size · crop shown per row), each preparable in place —
+  **Cull…** and **Crop…** open the real dialogs for that session (backup offered before anything
+  destructive, marks/crops persist on the session exactly as they do from the main window) — and
+  **✕** leaves one out. The encode settings sit inline (format, fps/exact-length, CRF/preset,
+  GIF tuning, speed-up, hold) — they're the app's own settings, live-bound, so changes stick.
+  A live outcome line shows frames → resulting length, fps and canvas as you tweak. Encode runs
+  from the Combine button with progress + cancel.
+- **Multi-select is discoverable now**: the picker says "Ctrl/Shift-click selects several" under
+  its title, and Combine… is always visible — disabled with an explaining tooltip until two or
+  more eligible sessions are selected.
+- **Target h/m/s fields widened** — two-digit values were clipped.
+
 ## [1.5.0] — 2026-07-17 — multi-session combine
 
 - **Combine sessions into one video** (Load Session picker): Ctrl/Shift-select two or more

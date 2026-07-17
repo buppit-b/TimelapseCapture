@@ -365,7 +365,7 @@ namespace FrameWrite
         /// valid, else the full frame) — the canvas is the max width × max height so no session
         /// is downscaled; smaller ones letterbox. Even dims (yuv420p). Pure — unit-tested.
         /// </summary>
-        internal static System.Drawing.Size CombineTargetSize(
+        public static System.Drawing.Size CombineTargetSize(
             System.Collections.Generic.IReadOnlyList<(System.Drawing.Size size, System.Drawing.Rectangle? crop)> inputs)
         {
             int w = 2, h = 2;
