@@ -191,9 +191,9 @@
                       FontSize="11" Margin="22,6,0,0"
                       Visibility="{Binding NotifyOnFinish, Converter={StaticResource BoolToVis}}"
                       ToolTip="The audible half of the finish notification — untick for a silent flash."/>
-            <CheckBox Content="Play a sound when capture starts and stops"
+            <CheckBox Content="Play a sound when capture starts, stops, pauses or resumes"
                       IsChecked="{Binding SoundOnStartStop}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
-                      ToolTip="An audio cue on start and stop — handy when you toggle capture by hotkey with the window hidden in the tray. Off by default."/>
+                      ToolTip="An audio cue on start/stop (one sound) and pause/resume (a distinct one) — confirms hotkey and tray-menu toggles when the window is hidden. Off by default."/>
         </StackPanel>
 
         <!-- Encoding -->

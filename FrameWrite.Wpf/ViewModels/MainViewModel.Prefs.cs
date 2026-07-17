@@ -107,6 +107,14 @@ namespace FrameWrite.Wpf.ViewModels
                 try { System.Media.SystemSounds.Beep.Play(); } catch { }
         }
 
+        // Pause/resume shares the start/stop opt-in (it's the same "confirm unseen state changes"
+        // preference) but uses a DISTINCT sound so a tray/hotkey pause can't be mistaken for a stop.
+        private void PlayPauseCue()
+        {
+            if (_settings.SoundOnStartStop)
+                try { System.Media.SystemSounds.Question.Play(); } catch { }
+        }
+
         // Window tracking: when the tracked window is minimized, wait for it to be restored (true) instead
         // of stopping capture (false, default). Only affects tracking mode.
         public bool PauseOnTrackedMinimize

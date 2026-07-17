@@ -3,6 +3,15 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.4.1] — 2026-07-17 — tray pause/resume + pause cue
+
+- **Pause/Resume in the tray menu** (enabled while recording; label follows state) — pause a run
+  without surfacing the window, completing the tray's control set (show / start-stop /
+  pause-resume / exit).
+- **Pause/resume audio cue**: the existing opt-in start/stop sound now also confirms pause and
+  resume, with a distinct sound so a tray/hotkey pause can't be mistaken for a stop. Still one
+  setting, still off by default — every sound in the app remains individually optional.
+
 ## [1.4.0] — 2026-07-17 — GIF tuning
 
 - **GIF got its own quality controls** (encode panel, shown when the format is GIF — they replace

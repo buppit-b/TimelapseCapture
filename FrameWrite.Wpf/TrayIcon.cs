@@ -26,6 +26,7 @@ namespace FrameWrite.Wpf
         private readonly WinForms.NotifyIcon _icon;
         private readonly WinForms.ToolStripMenuItem _showItem;
         private readonly WinForms.ToolStripMenuItem _toggleItem;
+        private readonly WinForms.ToolStripMenuItem _pauseItem;
         private Icon? _idleIcon, _recIcon, _pausedIcon;
         private bool _disposed;
 
@@ -44,9 +45,11 @@ namespace FrameWrite.Wpf
             var menu = new WinForms.ContextMenuStrip();
             _showItem = new WinForms.ToolStripMenuItem("Show FrameWrite", null, (_, _) => RestoreWindow());
             _toggleItem = new WinForms.ToolStripMenuItem("Start capture", null, (_, _) => ToggleCapture());
+            _pauseItem = new WinForms.ToolStripMenuItem("Pause capture", null, (_, _) => TogglePause());
             var exitItem = new WinForms.ToolStripMenuItem("Exit", null, (_, _) => ExitApp());
             menu.Items.Add(_showItem);
             menu.Items.Add(_toggleItem);
+            menu.Items.Add(_pauseItem);
             menu.Items.Add(new WinForms.ToolStripSeparator());
             menu.Items.Add(exitItem);
 
@@ -67,7 +70,8 @@ namespace FrameWrite.Wpf
         private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is nameof(MainViewModel.IsCapturing) or nameof(MainViewModel.FrameCount)
-                or nameof(MainViewModel.IsCaptureIdleOrPaused) or nameof(MainViewModel.CaptureStatusDetail) or null)
+                or nameof(MainViewModel.IsCaptureIdleOrPaused) or nameof(MainViewModel.CaptureStatusDetail)
+                or nameof(MainViewModel.IsPaused) or null)
                 UpdateStatus();
         }
 
@@ -84,9 +88,12 @@ namespace FrameWrite.Wpf
                 : $"Recording ({_vm.FrameCount} frames)";
             _icon.Text = $"FrameWrite — {state}";
             _toggleItem.Text = rec ? "Stop capture" : "Start capture";
+            _pauseItem.Enabled = rec;   // pause only means something during a run
+            _pauseItem.Text = _vm.IsPaused ? "Resume capture" : "Pause capture";
         }
 
         private void ToggleCapture() => _window.Dispatcher.Invoke(() => _vm.ToggleCaptureHotkey());
+        private void TogglePause() => _window.Dispatcher.Invoke(() => _vm.PauseHotkey());
 
         /// <summary>Show a tray balloon (used when a capture finishes while the app is hidden in the tray).</summary>
         public void ShowBalloon(string message)

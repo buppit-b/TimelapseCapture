@@ -236,6 +236,7 @@ namespace FrameWrite.Wpf.ViewModels
                 SmartStatus = "Paused";
                 IsPaused = true;
             }
+            PlayPauseCue();   // same opt-in as start/stop — confirms a hotkey/tray toggle you can't see
         }
 
         private void StopCapture()
