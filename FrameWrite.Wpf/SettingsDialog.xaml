@@ -143,11 +143,21 @@
                 <TextBlock Text="Stop below" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                 <TextBox Text="{Binding LowDiskStopMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
                          Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
-                         ToolTip="Free-space threshold in megabytes. Always enforced — a full disk fails frame writes and can disrupt other apps. Can be lowered for testing but not below 256 MB."/>
+                         ToolTip="Free-space threshold in megabytes. Always enforced — a full disk fails frame writes and can disrupt other apps. Can be lowered for testing but not below 256 MB. No upper cap (values to ~2 billion MB)."/>
                 <TextBlock Text="MB free" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
             </StackPanel>
             <TextBlock Text="Always on (min 256 MB) — watches the disk your active session writes to."
                        Style="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+            <!-- Drive gauge: used | free, with the auto-stop floor zoned at the right edge (capture
+                 stops once free space falls inside it). Built in code-behind on open; refreshes when
+                 the floor value or the output folder changes. -->
+            <Border x:Name="driveBarBox" Margin="0,10,4,0" CornerRadius="4" BorderBrush="{DynamicResource StrokeBrush}"
+                    BorderThickness="1" Height="16" ClipToBounds="True">
+                <Grid x:Name="driveBar"/>
+            </Border>
+            <TextBlock x:Name="driveBarText" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="10"
+                       Margin="0,4,4,0" TextWrapping="Wrap"/>
 
             <CheckBox Content="Stop after a maximum duration" IsChecked="{Binding MaxDurationEnabled}"
                       Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
@@ -169,13 +179,18 @@
                 <TextBlock Text="Stop at" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                 <TextBox Text="{Binding StopAtStorageMB}" Style="{StaticResource DarkTextBox}" Width="64" TextAlignment="Center" local:ClampFlash.Enabled="True"
                          Margin="8,0,8,0" local:NumericInput.AllowDecimal="False"
-                         ToolTip="Megabytes of captured frames in this session (e.g. 2000 = 2 GB). Checked every ~2s against the session's measured average frame size."/>
+                         ToolTip="Megabytes of captured frames in this session (e.g. 2000 = 2 GB). Checked every ~2s against the session's measured average frame size. No upper cap (values to ~2 billion MB)."/>
                 <TextBlock Text="MB of frames" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <CheckBox Content="Notify (sound + taskbar flash) when a capture or encode finishes"
+            <CheckBox Content="Notify when a capture or encode finishes"
                       IsChecked="{Binding NotifyOnFinish}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,0"
-                      ToolTip="Play a sound and flash the taskbar when a capture auto-stops (target / disk / duration) or an encode completes."/>
+                      ToolTip="Flash the taskbar (and optionally play a sound) when a capture auto-stops (target / disk / duration) or an encode completes."/>
+            <CheckBox Content="Play a sound (untick: taskbar flash only)"
+                      IsChecked="{Binding NotifyFinishSound}" Foreground="{DynamicResource TextPrimaryBrush}"
+                      FontSize="11" Margin="22,6,0,0"
+                      Visibility="{Binding NotifyOnFinish, Converter={StaticResource BoolToVis}}"
+                      ToolTip="The audible half of the finish notification — untick for a silent flash."/>
             <CheckBox Content="Play a sound when capture starts and stops"
                       IsChecked="{Binding SoundOnStartStop}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"
                       ToolTip="An audio cue on start and stop — handy when you toggle capture by hotkey with the window hidden in the tray. Off by default."/>

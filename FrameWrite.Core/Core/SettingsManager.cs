@@ -65,7 +65,8 @@ namespace FrameWrite
         public int EncodeCrf { get; set; } = 23;             // x264 quality: 0 = lossless/huge .. 51 = worst/tiny
         public string EncodeFormat { get; set; } = "mp4";    // export container: mp4 (H.264) / webm (VP9) / gif
         public double EncodeHoldLastSeconds { get; set; }    // hold the final frame this long at the end (0 = off)
-        public bool NotifyOnFinish { get; set; } = true;     // sound + taskbar flash when a capture/encode finishes
+        public bool NotifyOnFinish { get; set; } = true;     // taskbar flash (+ optional sound) when a capture/encode finishes
+        public bool NotifyFinishSound { get; set; } = true;  // the sound half of the finish notification, individually optional
         public bool SimpleMode { get; set; }                 // simplified UI: speed slider + hides advanced controls
         public bool FirstRunCompleted { get; set; }          // the setup wizard has been shown once
         public bool IntervalShownAsFps { get; set; }         // show the capture interval as fps instead of seconds

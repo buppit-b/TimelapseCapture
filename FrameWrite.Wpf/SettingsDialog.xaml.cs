@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Input;
 using FrameWrite.Wpf.ViewModels;
@@ -18,11 +19,76 @@ namespace FrameWrite.Wpf
             versionText.Text = v != null ? $"FrameWrite v{v.Major}.{v.Minor}.{v.Build} — a timelapse capture application" : "FrameWrite";
             creditsText.Text = "Created by Spike Tickner · video by FFmpeg";
 
-            Loaded += (s, e) => RefreshHotkeyBoxes();
+            Loaded += (s, e) => { RefreshHotkeyBoxes(); BuildDriveBar(); HookVm(); };
+            Closed += (s, e) => UnhookVm();
             HookHotkeyBox(hkStartStop);
             HookHotkeyBox(hkPause);
             HookHotkeyBox(hkRegion);
         }
+
+        // ---- drive gauge (Capture safety): used | free with the auto-stop floor zoned at the right ----
+
+        private void HookVm()
+        {
+            if (DataContext is MainViewModel vm) vm.PropertyChanged += OnVmPropChanged;
+        }
+
+        private void UnhookVm()
+        {
+            if (DataContext is MainViewModel vm) vm.PropertyChanged -= OnVmPropChanged;
+        }
+
+        private void OnVmPropChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(MainViewModel.LowDiskStopMB) or nameof(MainViewModel.OutputFolder))
+                BuildDriveBar();
+        }
+
+        private void BuildDriveBar()
+        {
+            long total = 0, free = 0;
+            string root = "";
+            if (DataContext is MainViewModel vm && !string.IsNullOrWhiteSpace(vm.OutputFolder)
+                && System.IO.Directory.Exists(vm.OutputFolder))
+            {
+                total = SystemMonitor.GetTotalDiskSpaceMB(vm.OutputFolder);
+                free = SystemMonitor.GetAvailableDiskSpaceMB(vm.OutputFolder);
+                try { root = System.IO.Path.GetPathRoot(vm.OutputFolder) ?? ""; } catch { }
+            }
+            if (total <= 0)   // no folder yet / probe failed — hide rather than draw nonsense
+            {
+                driveBarBox.Visibility = Visibility.Collapsed;
+                driveBarText.Visibility = Visibility.Collapsed;
+                return;
+            }
+            driveBarBox.Visibility = Visibility.Visible;
+            driveBarText.Visibility = Visibility.Visible;
+
+            long floor = Math.Clamp((DataContext as MainViewModel)?.LowDiskStopMB ?? 0, 0, total);
+            long used = Math.Max(0, total - free);
+            long freeAbove = Math.Max(0, free - floor);      // the space capture may still use
+            long floorZone = Math.Min(free, floor);          // the protected tail (all of free, if already inside it)
+
+            driveBar.Children.Clear();
+            driveBar.ColumnDefinitions.Clear();
+            void Seg(long mb, System.Windows.Media.Brush brush, double opacity, string tip, double minPx = 0)
+            {
+                driveBar.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition
+                { Width = new GridLength(Math.Max(0, mb), GridUnitType.Star), MinWidth = minPx });
+                var r = new System.Windows.Shapes.Rectangle { Fill = brush, Opacity = opacity, ToolTip = tip };
+                System.Windows.Controls.Grid.SetColumn(r, driveBar.ColumnDefinitions.Count - 1);
+                driveBar.Children.Add(r);
+            }
+            Seg(used, (System.Windows.Media.Brush)FindResource("TextSecondaryBrush"), 0.35, $"In use: {FmtMb(used)}");
+            Seg(freeAbove, (System.Windows.Media.Brush)FindResource("AccentBrush"), 0.75, $"Free for capture: {FmtMb(freeAbove)}");
+            Seg(floorZone, (System.Windows.Media.Brush)FindResource("DangerBrush"), 0.6,
+                $"Auto-stop floor: capture stops before eating into the last {FmtMb(floor)}", minPx: 3);
+
+            driveBarText.Text = $"{root} used {FmtMb(used)} · free {FmtMb(free)} · auto-stop keeps the last {FmtMb(floor)} free";
+        }
+
+        private static string FmtMb(long mb) => mb >= 1048576
+            ? $"{mb / 1048576.0:0.##} TB" : mb >= 1024 ? $"{mb / 1024.0:0.#} GB" : $"{mb} MB";
 
         private void HookHotkeyBox(System.Windows.Controls.TextBox box)
         {

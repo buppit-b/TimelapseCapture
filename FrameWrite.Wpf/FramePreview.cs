@@ -64,7 +64,8 @@ namespace FrameWrite.Wpf
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.UriSource = new Uri(path);
-            bmp.DecodePixelWidth = decodePixelWidth;        // downscale → small + fast
+            if (decodePixelWidth > 0)                       // 0 = native resolution (zoomable views)
+                bmp.DecodePixelWidth = decodePixelWidth;    // downscale → small + fast
             bmp.CacheOption = BitmapCacheOption.OnLoad;       // read fully, don't lock the file
             // IgnoreImageCache: WPF caches decoded bitmaps by URI, so without this a frame rewritten
             // in place (destructive crop / overlay bake reuse the same NNNNN.ext path) would show the

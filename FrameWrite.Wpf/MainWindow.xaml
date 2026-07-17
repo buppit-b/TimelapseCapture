@@ -843,8 +843,9 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Style="{StaticResource StatIcon}" Text="&#xEDA2;"/>
-                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Free space"/>
-                        <TextBlock Grid.Column="2" Text="{Binding StatFreeSpace}">
+                        <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Free space"
+                                   ToolTip="{Binding StorageThresholdTip}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatFreeSpace}" ToolTip="{Binding StorageThresholdTip}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
                                     <Style.Triggers>

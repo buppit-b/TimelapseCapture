@@ -150,14 +150,14 @@ namespace FrameWrite.Wpf.ViewModels
         public int LowDiskStopMB
         {
             get => _settings.LowDiskStopMB;
-            set { var v = Math.Max(Constants.EmergencyDiskFloorMB, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Max(Constants.EmergencyDiskFloorMB, value); if (_settings.LowDiskStopMB != v) { _settings.LowDiskStopMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(StorageThresholdTip)); } }
         }
 
         // Opt-in: stop after a maximum accumulated capture duration (a hard wall-clock cap for unattended runs).
         public bool MaxDurationEnabled
         {
             get => _settings.MaxDurationEnabled;
-            set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { if (_settings.MaxDurationEnabled != value) { _settings.MaxDurationEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(StorageThresholdTip)); } }
         }
         // Encode speed-up: keep 1 frame in every N (stored 1 = off). Non-destructive — frames stay on
         // disk. Surfaced as a checkbox + N field (the app's reveal pattern) so "off" is explicit
@@ -195,18 +195,24 @@ namespace FrameWrite.Wpf.ViewModels
         public bool StopAtStorageEnabled
         {
             get => _settings.StopAtStorageEnabled;
-            set { if (_settings.StopAtStorageEnabled != value) { _settings.StopAtStorageEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { if (_settings.StopAtStorageEnabled != value) { _settings.StopAtStorageEnabled = value; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(StorageThresholdTip)); } }
         }
         public int StopAtStorageMB
         {
             get => _settings.StopAtStorageMB;
-            set { var v = Math.Max(10, value); if (_settings.StopAtStorageMB != v) { _settings.StopAtStorageMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Max(10, value); if (_settings.StopAtStorageMB != v) { _settings.StopAtStorageMB = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(StorageThresholdTip)); } }
         }
+
+        /// <summary>Stats-panel tooltip: the auto-stop thresholds currently in force (set in Settings).</summary>
+        public string StorageThresholdTip =>
+            $"Auto-stop below {LowDiskStopMB:N0} MB free (always on)." +
+            (StopAtStorageEnabled ? $"\nSession budget: stop at {StopAtStorageMB:N0} MB of captured frames." : "\nSession storage budget: off.") +
+            (MaxDurationEnabled ? $"\nMax duration: stop after {MaxDurationMinutes:N0} min." : "");
 
         public int MaxDurationMinutes
         {
             get => _settings.MaxDurationMinutes;
-            set { var v = Math.Max(1, value); if (_settings.MaxDurationMinutes != v) { _settings.MaxDurationMinutes = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = Math.Max(1, value); if (_settings.MaxDurationMinutes != v) { _settings.MaxDurationMinutes = v; SettingsManager.Save(_settings); OnPropertyChanged(); OnPropertyChanged(nameof(StorageThresholdTip)); } }
         }
 
         // Sound + taskbar flash when a capture auto-stops or an encode finishes (so you don't have to watch).
@@ -214,6 +220,13 @@ namespace FrameWrite.Wpf.ViewModels
         {
             get => _settings.NotifyOnFinish;
             set { if (_settings.NotifyOnFinish != value) { _settings.NotifyOnFinish = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
+        // The sound half of the finish notification, individually optional (the taskbar flash stays).
+        public bool NotifyFinishSound
+        {
+            get => _settings.NotifyFinishSound;
+            set { if (_settings.NotifyFinishSound != value) { _settings.NotifyFinishSound = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
 
         public event Action? FinishNotified;

@@ -3,6 +3,25 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.3.0] — 2026-07-17 — detail work: zoomable frame dialogs + disk visibility (Spike's feedback round)
+
+- **Crop, Cull and Trim can zoom now**: mouse-wheel zooms toward the cursor (up to 16×,
+  pixel-crisp past 2×), middle-drag pans — details can decide a crop or a cull. All three
+  dialogs are much bigger by default, resizable, and the frame area grows with the window;
+  frames display at native resolution. Crop's drag/mapping behaviour is unchanged at any zoom.
+- **Overlay dialog states the mid-capture rule**: a running capture keeps the overlay it
+  started with (the engine snapshots it at start) — the dialog now says so while capturing
+  instead of looking like a live edit. Nothing was locked; edits simply apply from the next start.
+- **Drive gauge in Settings › Capture safety**: used | free | auto-stop floor as a bar with
+  exact figures under it, updating live as you change the floor. The main window stays clean —
+  the stats "Free space" row instead gained a tooltip listing every auto-stop threshold in force.
+- **Storage limits: no artificial caps** (verified end-to-end `long`/`double` math) — the
+  low-disk floor and session budget accept values to ~2 billion MB (~2,000 TB); the tooltips
+  now say so.
+- **Finish-notification sound is individually optional**: new sub-checkbox under Notify —
+  untick for a silent taskbar flash. Existing behaviour unchanged by default; every sound in
+  the app is now independently switchable.
+
 ## [1.2.1] — 2026-07-17 — hardening: 5 fixes from the adversarial pass
 
 - **GIF trim over-ran its range**: a trimmed GIF encode with fps above the 15-cap silently covered

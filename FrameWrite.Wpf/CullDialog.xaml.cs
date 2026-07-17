@@ -108,7 +108,7 @@ namespace FrameWrite.Wpf
 
         private void ShowFrame(int n)
         {
-            preview.Source = FramePreview.LoadAt(_folder, n, 540);
+            preview.Source = FramePreview.LoadAt(_folder, n, 0);   // native res — the view zooms now
             posText.Text = $"Frame {n} of {_count}";
             metaText.Text = DescribeFrame(n);
             bool marked = _marked.Contains(n);

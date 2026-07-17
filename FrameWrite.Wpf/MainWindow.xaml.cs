@@ -130,7 +130,8 @@ namespace FrameWrite.Wpf
         // the window is in the background; the flash stops once you focus it).
         private void OnFinishNotified()
         {
-            try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+            if (DataContext is not MainViewModel v || v.NotifyFinishSound)   // sound is individually optional
+                try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
             if (!IsVisible) _tray?.ShowBalloon("Capture finished.");   // in the tray — surface it there
             var h = new WindowInteropHelper(this).Handle;
             if (h == IntPtr.Zero) return;

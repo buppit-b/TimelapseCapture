@@ -11,6 +11,15 @@
         <TextBlock Text="Burn text into every captured frame — handy for stamping the date/time onto a timelapse."
                    Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
+        <!-- The engine snapshots the overlay when a run STARTS — mid-run edits don't touch the frames
+             being captured. Without this notice the dialog looks live-editing and isn't. -->
+        <Border CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource AccentBrush}"
+                Padding="8,5" Margin="0,0,0,12"
+                Visibility="{Binding IsCapturing, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Capturing — the current run keeps the overlay it started with. Changes here apply from the next capture start."
+                       Foreground="{DynamicResource AccentBrush}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+        </Border>
+
         <CheckBox Content="Overlay text on frames" IsChecked="{Binding OverlayTimestamp}"
                   Foreground="{DynamicResource TextPrimaryBrush}"
                   ToolTip="Burn a text overlay into each frame (takes effect on the next capture start). Off by default."/>
