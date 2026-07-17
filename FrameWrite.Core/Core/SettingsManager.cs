@@ -64,6 +64,12 @@ namespace FrameWrite
         public int EncodeFps { get; set; } = 30;             // output video frame rate
         public int EncodeCrf { get; set; } = 23;             // x264 quality: 0 = lossless/huge .. 51 = worst/tiny
         public string EncodeFormat { get; set; } = "mp4";    // export container: mp4 (H.264) / webm (VP9) / gif
+        // GIF tuning (palette-based — CRF/preset don't apply): rate/width caps keep files postable,
+        // palette size trades colors for bytes, dither hides the reduction (bayer/floyd/none).
+        public int GifMaxFps { get; set; } = 15;
+        public int GifMaxWidth { get; set; } = 720;
+        public int GifMaxColors { get; set; } = 256;
+        public string GifDither { get; set; } = "bayer";
         public double EncodeHoldLastSeconds { get; set; }    // hold the final frame this long at the end (0 = off)
         public bool NotifyOnFinish { get; set; } = true;     // taskbar flash (+ optional sound) when a capture/encode finishes
         public bool NotifyFinishSound { get; set; } = true;  // the sound half of the finish notification, individually optional

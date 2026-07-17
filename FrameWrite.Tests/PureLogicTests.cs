@@ -275,6 +275,51 @@ namespace FrameWrite.Tests
     }
 
     /// <summary>
+    /// GIF tuning (VideoEncoder.NormalizeGif + GifFilters): these values come from settings.json
+    /// and land in the ffmpeg filter chain, so normalization must clamp/allowlist everything, and
+    /// the chain must reflect each option exactly.
+    /// </summary>
+    public class GifOptionsTests
+    {
+        [Fact]
+        public void Normalize_DefaultsAndClamps()
+        {
+            var d = VideoEncoder.NormalizeGif(null);
+            (d.MaxFps, d.MaxWidth, d.MaxColors, d.Dither).Should().Be((15, 720, 256, "bayer"));
+
+            var wild = VideoEncoder.NormalizeGif(new VideoEncoder.GifOptions(999, 99999, 9999, "sierra?; rm"));
+            (wild.MaxFps, wild.MaxWidth, wild.MaxColors, wild.Dither).Should().Be((50, 3840, 256, "bayer"));
+
+            var zero = VideoEncoder.NormalizeGif(new VideoEncoder.GifOptions(0, 0, 0, null!));
+            (zero.MaxFps, zero.MaxWidth, zero.MaxColors, zero.Dither).Should().Be((15, 720, 256, "bayer"));
+        }
+
+        [Fact]
+        public void Filters_ReflectEveryOption()
+        {
+            var g = VideoEncoder.NormalizeGif(new VideoEncoder.GifOptions(10, 480, 64, "floyd"));
+            var f = string.Join(",", VideoEncoder.GifFilters(30, g));
+            f.Should().Contain("fps=10").And.Contain("min(480,iw)")
+             .And.Contain("max_colors=64").And.Contain("dither=floyd_steinberg");
+        }
+
+        [Fact]
+        public void FpsFilter_OnlyWhenTheEncodeRateExceedsTheCap()
+        {
+            var g = VideoEncoder.NormalizeGif(new VideoEncoder.GifOptions(MaxFps: 15));
+            string.Join(",", VideoEncoder.GifFilters(12, g)).Should().NotContain("fps=");
+            string.Join(",", VideoEncoder.GifFilters(30, g)).Should().Contain("fps=15");
+        }
+
+        [Fact]
+        public void DitherNone_MapsThrough()
+        {
+            var g = VideoEncoder.NormalizeGif(new VideoEncoder.GifOptions(Dither: "none"));
+            string.Join(",", VideoEncoder.GifFilters(30, g)).Should().Contain("dither=none").And.NotContain("bayer");
+        }
+    }
+
+    /// <summary>
     /// The -frames:v output cap for a trimmed encode (VideoEncoder.ComputeOutputLimit): trim range,
     /// frame-skip ceiling, and held-last-frame clones. Off-by-one here clips or over-runs the trim.
     /// </summary>

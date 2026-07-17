@@ -565,9 +565,45 @@
                                      ToolTip="Quality (CRF 0–51): LOWER is better and bigger. 0 = lossless/huge · 18 ≈ visually lossless · 23 = default · 28 = smaller file."/>
                         </StackPanel>
                     </StackPanel>
-                    <TextBlock Text="GIF: rate capped at 15 fps, width at 720 px — files balloon fast beyond that."
-                               Style="{StaticResource Muted}" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"
-                               Visibility="{Binding IsGifFormat, Converter={StaticResource BoolToVis}}"/>
+                    <!-- GIF tuning replaces CRF/preset (palette-based). Caps DROP frames/pixels, never duration. -->
+                    <StackPanel Visibility="{Binding IsGifFormat, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    ToolTip="Palette size: fewer colors = smaller file, more banding. 256 is the GIF maximum; screen art often survives 64 fine.">
+                            <TextBlock Text="Colors" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifcolors" Content="256"
+                                         IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=256}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifcolors" Content="128"
+                                         IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=128}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifcolors" Content="64"
+                                         IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=64}"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifcolors" Content="32"
+                                         IsChecked="{Binding GifMaxColors, Converter={StaticResource StrEq}, ConverterParameter=32}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Dither" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifdither" Content="Pattern"
+                                         IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=bayer}"
+                                         ToolTip="Bayer (ordered) dithering — stable frame to frame, smallest files. The default."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifdither" Content="Smooth"
+                                         IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=floyd}"
+                                         ToolTip="Floyd–Steinberg (error-diffusion) — smoother gradients, but can shimmer between frames and makes bigger files."/>
+                            <RadioButton Style="{StaticResource Seg}" GroupName="gifdither" Content="None"
+                                         IsChecked="{Binding GifDither, Converter={StaticResource StrEq}, ConverterParameter=none}"
+                                         ToolTip="No dithering — cleanest flat colors and smallest files; gradients band."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Caps" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="fps ≤" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding GifMaxFps}" Style="{StaticResource DarkTextBox}" Width="40" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                                     ToolTip="Frame-rate ceiling (1–50): frames above it are dropped, duration is preserved. GIFs balloon fast past 15."/>
+                            <TextBlock Text="width ≤" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                            <TextBox Text="{Binding GifMaxWidth}" Style="{StaticResource DarkTextBox}" Width="52" TextAlignment="Center"
+                                     local:NumericInput.AllowDecimal="False" local:ClampFlash.Enabled="True"
+                                     ToolTip="Width ceiling in pixels (120–3840): wider output is scaled down, aspect kept — never upscaled."/>
+                            <TextBlock Text="px" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
                     <!-- The resulting video length, right where you set the fps — no hunting in Stats. -->
                     <TextBlock Text="{Binding VideoLengthText}" Style="{StaticResource Muted}" FontFamily="Consolas"
                                FontSize="11" Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}"/>

@@ -213,6 +213,28 @@ namespace FrameWrite.Wpf.ViewModels
         public bool ShowEncodeTuning => EncodeFormat != "gif";
         public bool IsGifFormat => EncodeFormat == "gif";
 
+        // ---- GIF tuning (visible only when the format is gif; validated again in the encoder) ----
+        public int GifMaxFps
+        {
+            get => _settings.GifMaxFps;
+            set { var v = Math.Clamp(value, 1, 50); if (_settings.GifMaxFps != v) { _settings.GifMaxFps = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int GifMaxWidth
+        {
+            get => _settings.GifMaxWidth;
+            set { var v = Math.Clamp(value, 120, 3840); if (_settings.GifMaxWidth != v) { _settings.GifMaxWidth = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public int GifMaxColors
+        {
+            get => _settings.GifMaxColors;
+            set { if (_settings.GifMaxColors != value) { _settings.GifMaxColors = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public string GifDither
+        {
+            get => _settings.GifDither;
+            set { if (!string.Equals(_settings.GifDither, value, StringComparison.OrdinalIgnoreCase)) { _settings.GifDither = value.ToLowerInvariant(); SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         public decimal IdleIntervalSeconds
         {
             get => _settings.IdleIntervalSeconds;

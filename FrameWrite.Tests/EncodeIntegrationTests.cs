@@ -344,6 +344,25 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public async Task Gif_CustomTuning_AppliesToTheRealChain()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_giftune_");
+            try
+            {
+                // 30 frames @ 30fps with a 10fps cap → exactly 10 output frames; 32-color palette +
+                // no dither exercises the max_colors/dither args against real ffmpeg.
+                WriteFrames(session, 30, "jpg");
+                var r = await VideoEncoder.EncodeAsync(Ffmpeg, session, 30, "ultrafast", 23, format: "gif",
+                    gif: new VideoEncoder.GifOptions(MaxFps: 10, MaxWidth: 480, MaxColors: 32, Dither: "none"));
+                r.Success.Should().BeTrue(r.Error);
+                CountFrames(r.OutputPath!).Should().Be(10);
+                VideoSize(r.OutputPath!).Should().Be((64, 48), "min(480,iw) never upscales");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task Gif_Trim_DoesNotReadPastTheRange()
         {
             if (Ffmpeg == null) return;

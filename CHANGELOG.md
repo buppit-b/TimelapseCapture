@@ -3,6 +3,18 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.4.0] — 2026-07-17 — GIF tuning
+
+- **GIF got its own quality controls** (encode panel, shown when the format is GIF — they replace
+  CRF/preset, which don't apply to palette-based GIF): **Colors** 256/128/64/32 (palette size —
+  fewer colors, smaller file), **Dither** Pattern (bayer — stable, small) / Smooth
+  (Floyd–Steinberg — smoother gradients, can shimmer) / None (cleanest flat colors, gradients
+  band), and the **fps / width caps** — previously hardcoded at 15 fps / 720 px, now editable
+  (1–50 fps, 120–3840 px; caps drop frames/pixels, never duration; width never upscales).
+  Every value is clamped + allowlisted before it reaches the ffmpeg filter chain, and the whole
+  matrix is proven against real ffmpeg. WebM needs no extra knobs: the existing CRF slider and
+  preset map onto VP9 directly.
+
 ## [1.3.0] — 2026-07-17 — detail work: zoomable frame dialogs + disk visibility (Spike's feedback round)
 
 - **Crop, Cull and Trim can zoom now**: mouse-wheel zooms toward the cursor (up to 16×,

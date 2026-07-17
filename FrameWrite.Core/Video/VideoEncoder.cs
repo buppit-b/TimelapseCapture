@@ -24,6 +24,53 @@ namespace FrameWrite
         }
 
         /// <summary>
+        /// GIF tuning (palette-based, so CRF/preset don't apply): frame-rate cap and width cap keep
+        /// files postable (both DROP resolution, never duration), palette size trades colors for
+        /// bytes, dither picks the pattern that hides the reduction. Values are normalized (clamped
+        /// + allowlisted) before they reach the ffmpeg args — a hand-edited settings.json can't
+        /// inject or break the filter chain.
+        /// </summary>
+        public sealed record GifOptions(int MaxFps = 15, int MaxWidth = 720, int MaxColors = 256, string Dither = "bayer");
+
+        /// <summary>Clamp/allowlist every GifOptions field. Pure — unit-tested.</summary>
+        internal static GifOptions NormalizeGif(GifOptions? g)
+        {
+            g ??= new GifOptions();
+            string dither = (g.Dither ?? "bayer").ToLowerInvariant() switch
+            {
+                "none" => "none",
+                "floyd" or "floyd_steinberg" or "smooth" => "floyd",
+                _ => "bayer",
+            };
+            return new GifOptions(
+                MaxFps: Math.Clamp(g.MaxFps <= 0 ? 15 : g.MaxFps, 1, 50),        // GIF timing is 10ms units; >50 is fiction
+                MaxWidth: Math.Clamp(g.MaxWidth <= 0 ? 720 : g.MaxWidth, 120, 3840),
+                MaxColors: Math.Clamp(g.MaxColors <= 0 ? 256 : g.MaxColors, 4, 256),
+                Dither: dither);
+        }
+
+        /// <summary>
+        /// The GIF tail of the -vf chain, from NORMALIZED options: optional fps cap (drops frames,
+        /// preserves duration), width cap (aspect kept, never upscales), then the two-pass palette —
+        /// per-encode palettegen (stats_mode=diff suits mostly-static screen content) + paletteuse
+        /// with the chosen dither. Pure — unit-tested.
+        /// </summary>
+        internal static string[] GifFilters(double fps, GifOptions g)
+        {
+            string use = g.Dither switch
+            {
+                "none" => "dither=none",
+                "floyd" => "dither=floyd_steinberg",
+                _ => "dither=bayer:bayer_scale=4",
+            };
+            var list = new System.Collections.Generic.List<string>();
+            if (fps > g.MaxFps) list.Add($"fps={g.MaxFps}");
+            list.Add($"scale='min({g.MaxWidth},iw)':-1:flags=lanczos");
+            list.Add($"split[s0][s1];[s0]palettegen=stats_mode=diff:max_colors={g.MaxColors}[p];[s1][p]paletteuse={use}:diff_mode=rectangle");
+            return list.ToArray();
+        }
+
+        /// <summary>
         /// The playback fps that makes <paramref name="inputFrames"/> frames (thinned by
         /// <paramref name="everyNth"/>) last exactly <paramref name="durationSeconds"/>.
         /// Clamped to [0.1, 240] — past ~240fps players choke, so very long sessions come out
@@ -80,7 +127,7 @@ namespace FrameWrite
             double fps, string preset, int crf, CancellationToken ct = default,
             int startFrame = 1, int maxFrames = 0, string? outputName = null,
             Action<int>? onFrameProgress = null, int everyNth = 1, double holdLastSeconds = 0,
-            System.Drawing.Rectangle? crop = null, string format = "mp4")
+            System.Drawing.Rectangle? crop = null, string format = "mp4", GifOptions? gif = null)
         {
             var frames = SessionManager.GetFrameFiles(sessionFolder);
             if (frames.Length == 0)
@@ -135,9 +182,10 @@ namespace FrameWrite
             // filter active the trim range is enforced INSIDE select (lt(n, maxFrames)) — otherwise the
             // demuxer reads past the range end to fill the quota.
             var filters = new System.Collections.Generic.List<string>();
-            // GIF's 15fps cap (below) ALSO drops frames — so a trimmed GIF hits the same quota
+            var gifOpts = NormalizeGif(gif);   // single normalization — the cap check and the filter agree
+            // GIF's fps cap (below) ALSO drops frames — so a trimmed GIF hits the same quota
             // problem and needs its range inside select too, or the demuxer reads ~2× the range.
-            bool gifCapsRate = format == "gif" && fps > 15;
+            bool gifCapsRate = format == "gif" && fps > gifOpts.MaxFps;
             if (everyNth > 1 || (gifCapsRate && maxFrames > 0))
             {
                 var terms = new System.Collections.Generic.List<string>();
@@ -161,14 +209,7 @@ namespace FrameWrite
             if (holdFrames > 0)
                 filters.Add($"tpad=stop_mode=clone:stop_duration={holdSec.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
             if (format == "gif")
-            {
-                // GIFs balloon fast: cap the rate at 15 (the fps filter DROPS frames, preserving duration)
-                // and the width at 720 (aspect kept; never upscales). Then the canonical two-pass palette
-                // chain — per-encode palette + dithering — which is what makes ffmpeg GIFs look good.
-                if (fps > 15) filters.Add("fps=15");
-                filters.Add("scale='min(720,iw)':-1:flags=lanczos");
-                filters.Add("split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle");
-            }
+                filters.AddRange(GifFilters(fps, gifOpts));
             string vf = filters.Count > 0 ? $"-vf \"{string.Join(",", filters)}\" " : "";
 
             // Output-frame cap for a trim (skip reduces it; hold adds the cloned frames so they aren't clipped).

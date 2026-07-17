@@ -309,6 +309,10 @@ namespace FrameWrite.Wpf.ViewModels
             s.StopAtStorageMB = Math.Max(10, s.StopAtStorageMB);
             s.EncodeEveryNth = Math.Clamp(s.EncodeEveryNth, 1, 1000);
             if (s.EncodeFormat is not ("mp4" or "webm" or "gif")) s.EncodeFormat = "mp4";   // unknown/hand-edited → safe default
+            s.GifMaxFps = Math.Clamp(s.GifMaxFps <= 0 ? 15 : s.GifMaxFps, 1, 50);
+            s.GifMaxWidth = Math.Clamp(s.GifMaxWidth <= 0 ? 720 : s.GifMaxWidth, 120, 3840);
+            s.GifMaxColors = s.GifMaxColors is 32 or 64 or 128 or 256 ? s.GifMaxColors : 256;  // Seg choices only
+            if (s.GifDither is not ("bayer" or "floyd" or "none")) s.GifDither = "bayer";
             s.EncodeFps = Math.Clamp(s.EncodeFps, 1, 240);
             s.EncodeCrf = Math.Clamp(s.EncodeCrf, 0, 51);
             s.EncodeHoldLastSeconds = Math.Clamp(s.EncodeHoldLastSeconds, 0, 60);
