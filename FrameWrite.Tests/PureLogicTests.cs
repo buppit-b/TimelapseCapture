@@ -184,6 +184,45 @@ namespace FrameWrite.Tests
     }
 
     /// <summary>
+    /// Archive-session pure logic (SessionArchiver): the codec choice encodes the fidelity promise
+    /// (lossless captures archive lossless), and the stderr frame-count parse GATES frame deletion —
+    /// a parse bug must fail toward "mismatch", never toward "counts match".
+    /// </summary>
+    public class SessionArchiverLogicTests
+    {
+        [Theory]
+        [InlineData("png")]
+        [InlineData("bmp")]
+        public void LosslessCaptures_ArchiveMathematicallyLossless(string ext)
+        {
+            SessionArchiver.ArchiveCodecArgs(ext).Should().Contain("libx264rgb").And.Contain("-qp 0");
+        }
+
+        [Fact]
+        public void JpegCaptures_ArchiveVisuallyLossless_WithoutASecondChromaSubsample()
+        {
+            var args = SessionArchiver.ArchiveCodecArgs("jpg");
+            args.Should().Contain("libx264 ").And.Contain("-crf 10").And.Contain("yuv444p");
+        }
+
+        [Fact]
+        public void ParseLastFrameCount_TakesTheLastProgressLine()
+        {
+            string stderr = "Input #0, matroska\nframe=   10 fps=0.0 q=28.0\nsome noise\nframe=  165 fps=99 q=-1.0 Lsize=N/A\n";
+            SessionArchiver.ParseLastFrameCount(stderr).Should().Be(165);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("no progress lines at all")]
+        [InlineData("  frame= 12 indented does not count")]   // ^ anchor: real lines start at column 0
+        public void ParseLastFrameCount_NoFrameLine_IsMinusOne_NeverZeroOrAMatch(string stderr)
+        {
+            SessionArchiver.ParseLastFrameCount(stderr).Should().Be(-1);
+        }
+    }
+
+    /// <summary>
     /// Export-format codec args (VideoEncoder.FormatArgs) — these strings are interpolated straight
     /// into the ffmpeg command line, so each format must produce exactly the right block.
     /// </summary>

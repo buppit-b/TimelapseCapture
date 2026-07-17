@@ -3,6 +3,21 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.2.0] — 2026-07-17 — Archive session (the disk-space answer)
+
+- **Archive session** (Load Session picker › Archive): packs a finished session's frames into ONE
+  video file — typically **5–15× smaller**, because a screen timelapse barely changes frame to
+  frame and video compression exploits exactly that (JPEG/PNG stacks can't). **Reversible**:
+  Unarchive restores the numbered frames any time; loading an archived session offers to restore
+  it first. Fidelity is explicit: JPEG sessions re-encode visually lossless (CRF 10, no second
+  chroma subsample); **PNG sessions archive mathematically lossless** — restored frames are
+  pixel-identical (proven in tests). Safety: the archive is decoded back and frame-counted, and
+  the frames are deleted **only after** that verification passes — a crash or cancel at any
+  instant leaves your data intact. Live capture is untouched: only finished, non-loaded sessions
+  can be archived, and archived sessions are skipped by crash recovery and start-on-launch.
+- Session picker: ARCHIVED badge + archive size on archived rows; per-row Archive/Unarchive with
+  live progress and cancel.
+
 ## [1.1.0] — 2026-07-16 — the always-there recorder + export formats
 
 - **Startup options** (Settings › Startup, both opt-in): **Launch FrameWrite when Windows

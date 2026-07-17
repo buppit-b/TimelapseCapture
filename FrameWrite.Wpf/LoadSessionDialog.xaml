@@ -5,7 +5,7 @@
         Background="{DynamicResource BgBrush}"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         MinHeight="320" MinWidth="380" ShowInTaskbar="False"
-        Style="{StaticResource DialogWindow}">
+        Style="{StaticResource DialogWindow}" Closing="OnClosing">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -20,7 +20,7 @@
             <Grid>
                 <ListBox x:Name="list" Background="Transparent" BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         MouseDoubleClick="OnDoubleClick">
+                         MouseDoubleClick="OnDoubleClick" SelectionChanged="OnSelectionChanged">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -55,8 +55,18 @@
                                     <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                               FontFamily="Consolas" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   FontFamily="Consolas" FontSize="14"/>
+                                        <Border CornerRadius="3" BorderThickness="1" Padding="5,1" Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                BorderBrush="{DynamicResource AccentBrush}"
+                                                Visibility="{Binding IsArchived, Converter={StaticResource BoolToVis}}"
+                                                ToolTip="Frames are packed into one archive file — load (or Unarchive) to restore them.">
+                                            <TextBlock Text="ARCHIVED" Foreground="{DynamicResource AccentBrush}"
+                                                       FontFamily="Consolas" FontSize="9"/>
+                                        </Border>
+                                    </StackPanel>
                                     <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"
                                                FontFamily="Consolas" FontSize="11" Margin="0,3,0,0"/>
                                 </StackPanel>
@@ -71,9 +81,18 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="Cancel" Style="{StaticResource BtnBase}" Margin="0,0,8,0" Click="OnCancel" MinWidth="84"/>
-            <Button Content="Load" Style="{StaticResource BtnPrimary}" Click="OnLoad" MinWidth="84"/>
-        </StackPanel>
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <!-- Left: storage management (Archive/Unarchive per selected row) + live progress. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button x:Name="archiveBtn" Content="Archive" Style="{StaticResource BtnBase}"
+                        Click="OnArchive" MinWidth="84" Visibility="Collapsed"/>
+                <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="10,0,8,0"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="cancelBtn" Content="Cancel" Style="{StaticResource BtnBase}" Margin="0,0,8,0" Click="OnCancel" MinWidth="84"/>
+                <Button x:Name="loadBtn" Content="Load" Style="{StaticResource BtnPrimary}" Click="OnLoad" MinWidth="84"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

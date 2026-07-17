@@ -124,7 +124,8 @@ namespace FrameWrite.Wpf.ViewModels
         private void LoadSession()
         {
             string capturesRoot = Path.Combine(_settings.SaveFolder ?? "", "captures");
-            var dlg = new LoadSessionDialog(capturesRoot) { Owner = Application.Current?.MainWindow };
+            var dlg = new LoadSessionDialog(capturesRoot, _sessionFolder,
+                FfmpegRunner.FindFfmpeg(_settings.FfmpegPath)) { Owner = Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true || dlg.SelectedFolder == null) return;
             LoadSessionFromFolder(dlg.SelectedFolder, fromPicker: true);
         }
@@ -137,6 +138,17 @@ namespace FrameWrite.Wpf.ViewModels
                 if (fromPicker)
                     MessageDialog.Show("That folder doesn't contain a valid session (no session.json).",
                         "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            // Every load path funnels through here, so this single gate keeps an archived session
+            // (frames packed into archive.mkv, none on disk) out of ALL live state — capture would
+            // interleave new frames next to the archive, encode/preview would see nothing.
+            if (session.Archived)
+            {
+                if (fromPicker)   // the picker normally restores first; this catches stray paths
+                    MessageDialog.Show("This session is archived — use Load Session and restore it first.",
+                        "Load Session", MessageBoxButton.OK, MessageBoxImage.Warning);
+                else Logger.Log("Wpf", $"Skipped loading archived session: {folder}");
                 return;
             }
 
@@ -216,7 +228,7 @@ namespace FrameWrite.Wpf.ViewModels
                     string root = Path.Combine(_settings.SaveFolder!, "captures");
                     string? best = Directory.Exists(root)
                         ? Directory.GetDirectories(root)
-                            .Where(d => SessionManager.LoadSession(d) != null)
+                            .Where(d => SessionManager.LoadSession(d) is { Archived: false })
                             .OrderByDescending(Directory.GetLastWriteTime)
                             .FirstOrDefault()
                         : null;
@@ -262,7 +274,7 @@ namespace FrameWrite.Wpf.ViewModels
                 foreach (var dir in Directory.GetDirectories(capturesRoot))
                 {
                     var s = SessionManager.LoadSession(dir);
-                    if (s == null || !s.Active || s.FramesCaptured <= 0) continue;
+                    if (s == null || !s.Active || s.FramesCaptured <= 0 || s.Archived) continue;
                     actives.Add(dir);
                     if (best == null || Directory.GetLastWriteTime(dir) > Directory.GetLastWriteTime(best))
                     {

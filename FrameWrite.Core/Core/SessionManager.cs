@@ -44,6 +44,13 @@ namespace FrameWrite
         // Null = no crop. Persisted per session like the trim markers.
         public Rectangle? EncodeCrop { get; set; }
 
+        // Archive state (SessionArchiver): frames replaced by one verified archive.mkv in the
+        // session folder. ArchiveFrameExt remembers what to extract back to. Additive fields —
+        // older session.json files simply lack them (Archived defaults false).
+        public bool Archived { get; set; }
+        public long ArchivedFrames { get; set; }
+        public string? ArchiveFrameExt { get; set; }
+
         // Track actual capture time and interval changes
         public DateTime? LastCaptureTime { get; set; }
         public double TotalCaptureSeconds { get; set; } = 0;

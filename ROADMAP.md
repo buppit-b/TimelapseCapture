@@ -277,7 +277,7 @@ WITHOUT losing plain single-frame access. The honest option ladder:
 2. **NOT worth it — better still-image codecs:** WebP (~30% smaller) / AVIF (~50% smaller but
    slow per-frame) all need a native encoder dependency (WIC has no in-box encoder for either);
    against the lean rule for a 30% win that q85 largely already banked.
-3. **RECOMMENDED NEXT — "Archive session" (post-capture compaction, opt-in per session):** a
+3. **✅ SHIPPED (1.2.0, 2026-07-17) — "Archive session" (post-capture compaction, opt-in per session):** a
    finished session's frames folder → ONE video file via the bundled ffmpeg (x264 CRF ~12 =
    visually lossless, or truly lossless for purists). Screen-content timelapses are hugely
    temporally redundant, so expect **5-15×+ smaller** than the JPEG stack. Reversible:

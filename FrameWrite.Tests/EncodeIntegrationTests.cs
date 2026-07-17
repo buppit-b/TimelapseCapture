@@ -238,6 +238,92 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public async Task Archive_RoundTrip_Jpeg_RestoresEveryFrame()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_arch_");
+            try
+            {
+                WriteFrames(session, 30, "jpg");
+                SessionManager.MarkSessionInactive(session);   // only finished sessions archive
+
+                var a = await SessionArchiver.ArchiveAsync(Ffmpeg, session);
+                a.Success.Should().BeTrue(a.Error);
+                a.Frames.Should().Be(30);
+                File.Exists(SessionArchiver.GetArchivePath(session)).Should().BeTrue();
+                SessionManager.GetFrameFiles(session).Should().BeEmpty("frames are replaced by the archive");
+                var info = SessionManager.LoadSession(session)!;
+                info.Archived.Should().BeTrue();
+                info.ArchivedFrames.Should().Be(30);
+                info.FramesCaptured.Should().Be(30, "metadata must survive for the picker");
+
+                var u = await SessionArchiver.UnarchiveAsync(Ffmpeg, session);
+                u.Success.Should().BeTrue(u.Error);
+                var frames = SessionManager.GetFrameFiles(session);
+                frames.Length.Should().Be(30);
+                Path.GetFileName(frames[0]).Should().Be("00001.jpg", "restore renumbers gapless from 1");
+                File.Exists(SessionArchiver.GetArchivePath(session)).Should().BeFalse("the archive is consumed");
+                info = SessionManager.LoadSession(session)!;
+                info.Archived.Should().BeFalse();
+                info.FramesCaptured.Should().Be(30);
+                using var img = Image.FromFile(frames[10]);
+                img.Size.Should().Be(new Size(64, 48), "restored frames keep the session's dimensions");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task Archive_RoundTrip_Png_IsPixelIdentical()
+        {
+            if (Ffmpeg == null) return;
+            // PNG captures are lossless — the archive path promises MATHEMATICAL losslessness
+            // (libx264rgb -qp 0), so a restored frame must match the original pixel for pixel.
+            string session = MakeSession(out string root, "tlc_archpng_");
+            try
+            {
+                WriteFrames(session, 8, "png");
+                SessionManager.MarkSessionInactive(session);
+                var beforePixels = ReadPixels(SessionManager.GetFrameFiles(session)[3]);
+
+                var a = await SessionArchiver.ArchiveAsync(Ffmpeg, session);
+                a.Success.Should().BeTrue(a.Error);
+                var u = await SessionArchiver.UnarchiveAsync(Ffmpeg, session);
+                u.Success.Should().BeTrue(u.Error);
+
+                var frames = SessionManager.GetFrameFiles(session);
+                frames.Length.Should().Be(8);
+                Path.GetExtension(frames[3]).Should().Be(".png");
+                ReadPixels(frames[3]).Should().Equal(beforePixels, "lossless capture → lossless archive");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public async Task Archive_RefusesAnActiveSession()
+        {
+            if (Ffmpeg == null) return;
+            string session = MakeSession(out string root, "tlc_archact_");
+            try
+            {
+                WriteFrames(session, 3, "jpg");   // session is created Active=true
+                var a = await SessionArchiver.ArchiveAsync(Ffmpeg, session);
+                a.Success.Should().BeFalse();
+                SessionManager.GetFrameFiles(session).Length.Should().Be(3, "nothing may be touched");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        private static int[] ReadPixels(string path)
+        {
+            using var bmp = new Bitmap(path);
+            var px = new int[bmp.Width * bmp.Height];
+            for (int y = 0; y < bmp.Height; y++)
+                for (int x = 0; x < bmp.Width; x++)
+                    px[y * bmp.Width + x] = bmp.GetPixel(x, y).ToArgb();
+            return px;
+        }
+
+        [Fact]
         public async Task Gif_Encodes_WithPaletteChain_AndFpsCap()
         {
             if (Ffmpeg == null) return;
