@@ -17,8 +17,12 @@
     <!-- The shipped exe is FrameWrite.exe (namespaces stay FrameWrite.Wpf via RootNamespace). -->
     <AssemblyName>FrameWrite</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Desktop/taskbar/window icon (WPF windows inherit the exe icon). Placeholder mark in the
+         app's own language — dark tile, viewfinder brackets, record dot. Regenerate with
+         scripts/make-icon.ps1. The tray icon stays runtime-drawn (it shows live status). -->
+    <ApplicationIcon>Assets\framewrite.ico</ApplicationIcon>
     <Product>FrameWrite</Product>
-    <Version>1.6.1</Version>
+    <Version>1.6.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,6 +3,18 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.6.2] — 2026-07-18 — size on disk in the lists + app icon (feedback)
+
+- **Size on disk shown per session** in both the picker and the combine dialog (e.g. "1.2 GB"),
+  and the **Size sort now sorts by it** — the number that actually matters when managing
+  sessions. Computed in one directory pass per row on dialog open only, never on a capture tick.
+- **The app has an icon** — a placeholder in the app's own language (dark tile, viewfinder
+  corner brackets, green record dot), rendered crisp at every shell size (proper BMP entries
+  16–128 px + PNG 256). Shows on the exe, desktop, taskbar and window; the tray icon stays
+  runtime-drawn since it reports live recording status. Regenerate via scripts/make-icon.ps1.
+- Auto-encode-on-stop was considered for the wrap and **deliberately rejected** (Spike):
+  prep-then-encode is the app's model; the video should not appear without instruction.
+
 ## [1.6.1] — 2026-07-18 — sort bar: own row + Name field (feedback)
 
 - **The sort control no longer clips** — it sits on its own right-aligned row directly above the

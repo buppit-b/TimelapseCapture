@@ -28,7 +28,7 @@
                 <RadioButton x:Name="sortFrames" Style="{StaticResource Seg}" GroupName="lssort" Content="Frames"
                              Checked="OnSortChanged" ToolTip="Sort by frame count."/>
                 <RadioButton x:Name="sortSize" Style="{StaticResource Seg}" GroupName="lssort" Content="Size"
-                             Checked="OnSortChanged" ToolTip="Sort by capture-area size (pixels)."/>
+                             Checked="OnSortChanged" ToolTip="Sort by size on disk."/>
                 <ToggleButton x:Name="sortDir" Style="{StaticResource HeaderToggle}" FontSize="12" Margin="6,0,0,0"
                               Click="OnSortChanged" VerticalAlignment="Center"
                               ToolTip="Flip the direction (↓ = newest / Z / most first)."/>

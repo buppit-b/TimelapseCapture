@@ -122,7 +122,7 @@ namespace FrameWrite.Wpf
                 sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size"
                     : sortName.IsChecked == true ? "name" : "date",
                 sortDir.IsChecked == true);
-            var ordered = _items.OrderBy(i => (i.Name, i.SortKey, i.Frames, i.PixelArea),
+            var ordered = _items.OrderBy(i => (i.Name, i.SortKey, i.Frames, i.DiskBytes),
                 Comparer<(string, DateTime, int, long)>.Create((a, b) => cmp(a, b))).ToList();
             for (int i = 0; i < ordered.Count; i++)
             {
@@ -561,8 +561,8 @@ namespace FrameWrite.Wpf
         public string Reason { get; private set; } = "";
         /// <summary>Frame extension (".jpg"), for merge's uniformity gate. Empty when frameless.</summary>
         public string Ext { get; private set; } = "";
-        /// <summary>Real frame pixels (W×H) — the "Size" sort key.</summary>
-        public long PixelArea => (long)FrameSize.Width * FrameSize.Height;
+        /// <summary>Bytes of frames on disk — the "Size" sort key and the size shown per row.</summary>
+        public long DiskBytes { get; private set; }
         public System.Windows.Media.ImageSource? Thumbnail { get; private set; }
 
         private bool _included;
@@ -596,6 +596,9 @@ namespace FrameWrite.Wpf
             Frames = files.Length;
             FrameSize = System.Drawing.Size.Empty;
             Ext = files.Length > 0 ? Path.GetExtension(files[0]).ToLowerInvariant() : "";
+            long bytes = 0;
+            foreach (var f in files) { try { bytes += new FileInfo(f).Length; } catch { } }
+            DiskBytes = bytes;
             if (files.Length > 0)
             {
                 // Header-level read for the real frame size (regions can lie after a destructive crop).
@@ -610,7 +613,7 @@ namespace FrameWrite.Wpf
             if (!Eligible && _included) _included = false;   // e.g. culled to zero mid-staging
 
             string size = FrameSize.IsEmpty ? "?" : $"{FrameSize.Width}×{FrameSize.Height}";
-            Detail = $"{SortKey:dd MMM}   ·   {Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}"
+            Detail = $"{SortKey:dd MMM}   ·   {Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}   ·   {SessionListItem.FmtBytes(DiskBytes)}"
                 + (Crop is { } c ? $"   ·   crop {c.Width}×{c.Height}" : "")
                 + (Eligible ? "" : $"   ·   {Reason}");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(""));   // all props

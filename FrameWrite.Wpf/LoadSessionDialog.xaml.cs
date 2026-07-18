@@ -104,7 +104,7 @@ namespace FrameWrite.Wpf
             catch { /* best-effort listing — a bad folder shouldn't break the picker */ }
 
             var cmp = SortComparer(SortField(), sortDir.IsChecked == true);
-            items.Sort((a, b) => cmp((a.Name, a.SortKey, a.FrameCount, a.PixelArea), (b.Name, b.SortKey, b.FrameCount, b.PixelArea)));
+            items.Sort((a, b) => cmp((a.Name, a.SortKey, a.FrameCount, a.DiskBytes), (b.Name, b.SortKey, b.FrameCount, b.DiskBytes)));
 
             list.ItemsSource = items;
             emptyMsg.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -359,8 +359,11 @@ namespace FrameWrite.Wpf
         public bool IsActive { get; }
         public int FrameCount { get; }
         public string FrameExt { get; }
-        /// <summary>Capture-area pixels (region W×H) — the "Size" sort key. 0 when no region.</summary>
-        public long PixelArea { get; }
+        /// <summary>Bytes on disk (frames + archive) — the "Size" sort key and the size shown per row.</summary>
+        public long DiskBytes { get; }
+
+        internal static string FmtBytes(long b) => b >= 1073741824
+            ? $"{b / 1073741824.0:0.##} GB" : b >= 1048576 ? $"{b / 1048576.0:0.#} MB" : $"{b / 1024.0:0.#} KB";
 
         public SessionListItem(string folder, SessionInfo s)
         {
@@ -383,20 +386,23 @@ namespace FrameWrite.Wpf
             DateText = when.ToString("dd MMM, HH:mm");
 
             FramesText = $"{FrameCount} frame{(FrameCount == 1 ? "" : "s")}";
-            PixelArea = s.CaptureRegion.HasValue
-                ? (long)s.CaptureRegion.Value.Width * s.CaptureRegion.Value.Height : 0;
+            // One directory pass per row, on dialog open only — never on a capture tick.
+            long bytes = 0;
+            try
+            {
+                var df = new DirectoryInfo(SessionManager.GetFramesFolder(folder));
+                if (df.Exists) foreach (var f in df.EnumerateFiles()) bytes += f.Length;
+            }
+            catch { }
+            DiskBytes = bytes + SessionArchiver.GetArchiveSize(folder);
             SizeText = s.CaptureRegion.HasValue
                 ? $"{s.CaptureRegion.Value.Width}×{s.CaptureRegion.Value.Height}"
                 : "no region";
             // Prefer the recorded actual interval (sub-second capable); fall back to the rounded int.
             double iv = s.IntervalSecondsActual > 0 ? s.IntervalSecondsActual : s.IntervalSeconds;
             string ivText = iv > 0 ? $"{iv:0.###}s" : "";
-            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}" + (ivText.Length > 0 ? $"   ·   {ivText}" : "");
-            if (IsArchived)
-            {
-                long sz = SessionArchiver.GetArchiveSize(folder);   // one file stat — cheap per row
-                Detail += sz > 0 ? $"   ·   {sz / 1048576.0:0.#} MB" : "";
-            }
+            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}   ·   {FmtBytes(DiskBytes)}"
+                + (ivText.Length > 0 ? $"   ·   {ivText}" : "");
         }
     }
 }
