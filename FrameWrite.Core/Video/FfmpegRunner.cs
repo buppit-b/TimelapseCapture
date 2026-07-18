@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,32 @@ namespace FrameWrite
 {
     public static class FfmpegRunner
     {
+        /// <summary>
+        /// Build a stderr tap that forwards ffmpeg's live "frame=  123 fps=…" progress counter.
+        /// Shared by encode / combine / archive so the parsing lives in exactly one place.
+        /// Null callback in, null tap out.
+        /// </summary>
+        public static Action<string>? MakeFrameTap(Action<int>? onFrameProgress)
+            => onFrameProgress == null ? null : line =>
+            {
+                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
+            };
+
+        /// <summary>
+        /// ffmpeg's stderr runs pages long — the LAST non-progress line is the human-useful error.
+        /// Falls back to the exit code when there's nothing to show.
+        /// </summary>
+        public static string TailErrorLine(string? stderr, int exitCode)
+        {
+            string? last = (stderr ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0 && !l.StartsWith("frame=", StringComparison.Ordinal))
+                .LastOrDefault();
+            return string.IsNullOrEmpty(last) ? $"ffmpeg exited with code {exitCode}" : last;
+        }
+
         public static string? FindFfmpeg(string? configuredPath)
         {
             if (!string.IsNullOrEmpty(configuredPath) && File.Exists(configuredPath))

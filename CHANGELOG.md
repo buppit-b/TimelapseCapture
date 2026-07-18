@@ -3,6 +3,24 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.7.0] — 2026-07-18 — hardening + refactor sweep · Alt-drag region select
+
+- **Alt-drag-from-centre region select** (the last item of the agreed 1.1 line): hold Alt while
+  dragging a region and it grows symmetrically from your anchor point — the art-app convention.
+  Plays with the aspect-ratio lock, can never select off-screen; the overlay hint says so.
+- **Merge hardening** (three fixes from the adversarial pass): a merge target is no longer born
+  with the recording flag set (a crash mid-merge would have made crash recovery offer to "resume"
+  a half-built merge); a failed move mid-merge now saves the partial target's honest frame count
+  (it previously claimed zero frames while holding some); duplicated source entries are deduped
+  (they'd have moved the same frames twice and thrown).
+- **Combine prep gated off the loaded session**: Cull/Crop in the combine dialog no longer act on
+  the session the main window has open (its frame count/preview would go stale, and a hotkey
+  could start capturing mid-prep) — the hint points to the main window's own buttons.
+- **Refactor**: the ffmpeg progress tap, tail-error extraction, unique-output naming, provenance
+  metadata and byte formatting each now live in exactly one place (they'd accumulated 2–3 copies
+  across encode/combine/archive during the feature rounds); the merge's disk estimate reuses the
+  row sizes instead of re-walking every frame file. Behaviour unchanged — proven by the suite.
+
 ## [1.6.2] — 2026-07-18 — size on disk in the lists + app icon (feedback)
 
 - **Size on disk shown per session** in both the picker and the combine dialog (e.g. "1.2 GB"),

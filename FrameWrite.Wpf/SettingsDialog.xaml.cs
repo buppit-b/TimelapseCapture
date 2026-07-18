@@ -87,8 +87,9 @@ namespace FrameWrite.Wpf
             driveBarText.Text = $"{root} used {FmtMb(used)} · free {FmtMb(free)} · auto-stop keeps the last {FmtMb(floor)} free";
         }
 
+        // MB in, human out — the drive gauge speaks the same units as everything else.
         private static string FmtMb(long mb) => mb >= 1048576
-            ? $"{mb / 1048576.0:0.##} TB" : mb >= 1024 ? $"{mb / 1024.0:0.#} GB" : $"{mb} MB";
+            ? $"{mb / 1048576.0:0.##} TB" : HumanFormat.Bytes(mb * 1048576L);
 
         private void HookHotkeyBox(System.Windows.Controls.TextBox box)
         {

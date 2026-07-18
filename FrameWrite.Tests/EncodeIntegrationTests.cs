@@ -307,6 +307,24 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public void Merge_DeduplicatesRepeatedSourceEntries()
+        {
+            // A duplicated entry would move the same frames twice and throw mid-merge — the belt
+            // normalizes + dedupes, so {a, a, b} behaves exactly like {a, b}.
+            string root = Path.Combine(Path.GetTempPath(), "tlc_mergedup_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string a = MakeSizedSession(root, "one", 6, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "two", 4, 64, 48, "jpg");
+                foreach (var f in new[] { a, b }) { var s = SessionManager.LoadSession(f)!; s.Active = false; SessionManager.SaveSession(f, s); }
+
+                string merged = SessionManager.MergeSessions(new[] { a, a, b }, Path.Combine(root, "captures"), move: false);
+                SessionManager.GetFrameFiles(merged).Length.Should().Be(10, "each source counts once");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public void Merge_RefusesMismatchedSizes_AndMixedFormats()
         {
             string root = Path.Combine(Path.GetTempPath(), "tlc_mergebad_" + Guid.NewGuid().ToString("N"));

@@ -83,9 +83,7 @@ namespace FrameWrite.Wpf
             base.OnMouseMove(e);
             if (!_dragging) return;
             var p = e.GetPosition(canvas);
-            double x = Math.Min(_start.X, p.X), y = Math.Min(_start.Y, p.Y);
-            double w = Math.Abs(p.X - _start.X), h = Math.Abs(p.Y - _start.Y);
-            (w, h) = Constrain(w, h);
+            var (x, y, w, h) = DragRect(p);
 
             Canvas.SetLeft(selRect, x);
             Canvas.SetTop(selRect, y);
@@ -106,9 +104,7 @@ namespace FrameWrite.Wpf
             ReleaseMouseCapture();
 
             var p = e.GetPosition(canvas);
-            double x = Math.Min(_start.X, p.X), y = Math.Min(_start.Y, p.Y);
-            double w = Math.Abs(p.X - _start.X), h = Math.Abs(p.Y - _start.Y);
-            (w, h) = Constrain(w, h);
+            var (x, y, w, h) = DragRect(p);
 
             if (w < 5 || h < 5) { Cancel(); return; }
 
@@ -119,6 +115,24 @@ namespace FrameWrite.Wpf
             SelectedRegion = new System.Drawing.Rectangle(phys.X, phys.Y, Math.Max(2, pw), Math.Max(2, ph));
             DialogResult = true;
             Close();
+        }
+
+        // The live drag box. Normally anchor-corner to cursor; with ALT held the anchor is the
+        // CENTRE and the box grows symmetrically (the art-app convention — Spike's ask). The
+        // half-extents are capped at the anchor's distance to each canvas edge BEFORE the ratio
+        // lock (which only shrinks), so a centred drag can never select off-screen.
+        private (double x, double y, double w, double h) DragRect(Point p)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            {
+                double halfW = Math.Min(Math.Abs(p.X - _start.X), Math.Min(_start.X, canvas.ActualWidth - _start.X));
+                double halfH = Math.Min(Math.Abs(p.Y - _start.Y), Math.Min(_start.Y, canvas.ActualHeight - _start.Y));
+                var (w, h) = Constrain(halfW * 2, halfH * 2);
+                return (_start.X - w / 2, _start.Y - h / 2, w, h);
+            }
+            double x0 = Math.Min(_start.X, p.X), y0 = Math.Min(_start.Y, p.Y);
+            var (w0, h0) = Constrain(Math.Abs(p.X - _start.X), Math.Abs(p.Y - _start.Y));
+            return (x0, y0, w0, h0);
         }
 
         // Shrink (w,h) to the locked aspect ratio, keeping the box inside the drag. Free = unchanged.

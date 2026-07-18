@@ -160,9 +160,7 @@ namespace FrameWrite
             string baseName = SanitizeFileName(outputName);
             if (string.IsNullOrEmpty(baseName))
                 baseName = $"timelapse_{DateTime.Now:yyyyMMdd_HHmmss}";
-            string outputPath = Path.Combine(outputFolder, baseName + outExt);
-            for (int n = 2; File.Exists(outputPath); n++)   // don't overwrite a prior encode with the same name
-                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}{outExt}");
+            string outputPath = UniqueOutputPath(outputFolder, baseName, outExt);
 
             if (fps <= 0) fps = 30;
             fps = Math.Clamp(fps, 0.1, 240);   // fractional fps is valid (duration mode computes it)
@@ -216,12 +214,7 @@ namespace FrameWrite
             int outputLimit = ComputeOutputLimit(maxFrames, everyNth, holdFrames);
             string limit = outputLimit > 0 ? $"-frames:v {outputLimit} " : "";
 
-            // Provenance (ROADMAP item 10, approach 1): open metadata tags naming the app — readable by
-            // ffprobe / MediaInfo / file properties. Fixed strings only (no user input reaches the args);
-            // platforms that re-encode may strip them, which is fine — this identifies directly-shared files.
-            string appVersion = typeof(VideoEncoder).Assembly.GetName().Version is { } v
-                ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
-            string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
+            string meta = ProvenanceMeta();
 
             // Codec args come from FormatArgs (mp4/webm/gif); -framerate before -i sets the input rate.
             // Invariant format: a comma-decimal locale would render 24.6 as "24,6" and break the args.
@@ -231,14 +224,8 @@ namespace FrameWrite
             Logger.Log("VideoEncoder", $"Encoding {frames.Length} {ext} frames -> {outputPath} @ {fps}fps format={format} preset={preset} crf={crf}" +
                 (everyNth > 1 ? $" everyNth={everyNth}" : ""));
 
-            // ffmpeg reports live progress on stderr as "frame=  123 fps=…" lines — tap them for the UI.
-            Action<string>? tap = onFrameProgress == null ? null : line =>
-            {
-                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
-                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
-                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
-            };
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap, framesFolder);
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct,
+                FfmpegRunner.MakeFrameTap(onFrameProgress), framesFolder);
 
             if (exitCode == 0 && File.Exists(outputPath))
                 return new Result { Success = true, OutputPath = outputPath };
@@ -330,25 +317,15 @@ namespace FrameWrite
             string baseName = SanitizeFileName(outputName);
             if (string.IsNullOrEmpty(baseName))
                 baseName = $"combined_{DateTime.Now:yyyyMMdd_HHmmss}";
-            string outputPath = Path.Combine(outputFolder, baseName + outExt);
-            for (int n = 2; File.Exists(outputPath); n++)
-                outputPath = Path.Combine(outputFolder, $"{baseName}_{n}{outExt}");
-
-            string appVersion = typeof(VideoEncoder).Assembly.GetName().Version is { } v
-                ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.0.0";
-            string meta = $"-metadata encoder=\"FrameWrite {appVersion}\" -metadata comment=\"Made with FrameWrite\" ";
+            string outputPath = UniqueOutputPath(outputFolder, baseName, outExt);
+            string meta = ProvenanceMeta();
 
             string args = $"-y {inputArgs}-filter_complex \"{graph}\" -map \"[{outLabel}]\" {meta}{codecArgs}\"{outputPath}\"";
             Logger.Log("VideoEncoder", $"Combining {sessionFolders.Count} sessions -> {outputPath} @ {fps}fps " +
                 $"target={target.Width}x{target.Height} format={format}" + (everyNth > 1 ? $" everyNth={everyNth}" : ""));
 
-            Action<string>? tap = onFrameProgress == null ? null : line =>
-            {
-                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
-                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
-                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
-            };
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap);
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct,
+                FfmpegRunner.MakeFrameTap(onFrameProgress));
 
             if (exitCode == 0 && File.Exists(outputPath))
                 return new Result { Success = true, OutputPath = outputPath };
@@ -419,6 +396,24 @@ namespace FrameWrite
         /// <summary>Escape literal '%' for an image2 pattern path ('%%') so only the intended
         /// %05d token is printf-expanded. Pure — unit-tested.</summary>
         internal static string EscapePatternPath(string path) => path.Replace("%", "%%");
+
+        // Never overwrite a prior export with the same name — suffix _2, _3, … until free.
+        private static string UniqueOutputPath(string folder, string baseName, string ext)
+        {
+            string path = Path.Combine(folder, baseName + ext);
+            for (int n = 2; File.Exists(path); n++)
+                path = Path.Combine(folder, $"{baseName}_{n}{ext}");
+            return path;
+        }
+
+        // Provenance (ROADMAP item 10): open metadata tags naming the app — readable by ffprobe /
+        // MediaInfo / file properties. Fixed strings only (no user input reaches the args).
+        private static string ProvenanceMeta()
+        {
+            string v = typeof(VideoEncoder).Assembly.GetName().Version is { } ver
+                ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "0.0.0";
+            return $"-metadata encoder=\"FrameWrite {v}\" -metadata comment=\"Made with FrameWrite\" ";
+        }
 
         // Strip anything illegal in a Windows filename; collapse whitespace; trim trailing dots/spaces.
         internal static string SanitizeFileName(string? name)

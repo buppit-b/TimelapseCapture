@@ -132,14 +132,14 @@ namespace FrameWrite
                           ArchiveCodecArgs(ext) + $"\"{tmpPath}\"";
             Logger.Log("Archiver", $"Archiving {frames.Length} {ext} frames of “{session.Name}” -> {ArchiveFileName}");
 
-            var tap = MakeFrameTap(onFrameProgress);
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap, framesFolder);
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct,
+                FfmpegRunner.MakeFrameTap(onFrameProgress), framesFolder);
             if (exitCode != 0 || !File.Exists(tmpPath))
             {
                 try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
                 if (ct.IsCancellationRequested)
                     return new Result { Success = false, Cancelled = true, Error = "Archive cancelled — nothing was changed." };
-                return new Result { Success = false, Error = FirstErrorLine(error, exitCode) };
+                return new Result { Success = false, Error = FfmpegRunner.TailErrorLine(error, exitCode) };
             }
 
             // VERIFY before anything is deleted: decode the archive and count its frames. A gap in
@@ -210,8 +210,8 @@ namespace FrameWrite
             string args = $"-y -i \"{archivePath}\" -start_number 1 {q}\"%05d.{ext}\"";
             Logger.Log("Archiver", $"Restoring {session.ArchivedFrames} {ext} frames of “{session.Name}” from {ArchiveFileName}");
 
-            var tap = MakeFrameTap(onFrameProgress);
-            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct, tap, framesFolder);
+            var (exitCode, _, error) = await FfmpegRunner.RunFfmpegAsync(ffmpegPath, args, ct,
+                FfmpegRunner.MakeFrameTap(onFrameProgress), framesFolder);
             int onDisk = SessionManager.GetFrameFiles(sessionFolder).Length;
             if (exitCode != 0 || onDisk != session.ArchivedFrames)
             {
@@ -223,7 +223,7 @@ namespace FrameWrite
                 if (ct.IsCancellationRequested)
                     return new Result { Success = false, Cancelled = true, Error = "Restore cancelled — the archive is untouched." };
                 return new Result { Success = false, Error = exitCode != 0
-                    ? FirstErrorLine(error, exitCode)
+                    ? FfmpegRunner.TailErrorLine(error, exitCode)
                     : onDisk > session.ArchivedFrames
                         ? $"The frames folder contains {onDisk - session.ArchivedFrames} file(s) that aren't part of the archive — remove them and try again. The archive was kept."
                         : $"Verification failed: extracted {onDisk} frames but the archive should hold {session.ArchivedFrames}. The archive was kept." };
@@ -250,22 +250,5 @@ namespace FrameWrite
             return exitCode == 0 ? ParseLastFrameCount(stderr) : -1;
         }
 
-        // ffmpeg reports live progress on stderr as "frame=  123 fps=…" lines — tap them for the UI.
-        private static Action<string>? MakeFrameTap(Action<int>? onFrameProgress)
-            => onFrameProgress == null ? null : line =>
-            {
-                if (!line.StartsWith("frame=", StringComparison.Ordinal)) return;
-                var m = System.Text.RegularExpressions.Regex.Match(line, @"^frame=\s*(\d+)");
-                if (m.Success && int.TryParse(m.Groups[1].Value, out int n)) onFrameProgress(n);
-            };
-
-        // ffmpeg's stderr is pages long — surface the first genuinely error-looking tail line.
-        private static string FirstErrorLine(string stderr, int exitCode)
-        {
-            var lines = (stderr ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim()).Where(l => l.Length > 0).ToArray();
-            string? last = lines.LastOrDefault(l => !l.StartsWith("frame=", StringComparison.Ordinal));
-            return string.IsNullOrEmpty(last) ? $"ffmpeg exited with code {exitCode}" : last!;
-        }
     }
 }

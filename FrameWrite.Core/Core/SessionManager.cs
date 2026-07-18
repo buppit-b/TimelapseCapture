@@ -522,6 +522,10 @@ namespace FrameWrite
         public static string MergeSessions(IReadOnlyList<string> sources, string capturesRoot,
             bool move, Action<int, int>? progress = null)
         {
+            // Belt: a duplicated entry would move the same frames twice (the second pass would
+            // throw mid-merge). Normalize + dedupe before anything is validated.
+            sources = sources.Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (sources.Count < 2)
                 throw new InvalidOperationException("Select at least two sessions to merge.");
 
@@ -565,21 +569,42 @@ namespace FrameWrite
 
             string target = CreateNamedSession(capturesRoot, $"Merged_{DateTime.Now:yyyyMMdd_HHmmss}",
                 newest.IntervalSeconds, newest.CaptureRegion, newest.ImageFormat ?? "JPEG", newest.JpegQuality);
+            // A fresh session is born Active=true (capture semantics). This one must NEVER look like
+            // an interrupted recording — a crash mid-merge would otherwise make crash recovery offer
+            // to "resume" a half-built merge target on next launch.
+            var born = LoadSession(target);
+            if (born != null) { born.Active = false; SaveSession(target, born); }
             string targetFrames = GetFramesFolder(target);
             Directory.CreateDirectory(targetFrames);
             Logger.Log("Merge", $"Merging {sources.Count} sessions ({totalFrames} frames, {(move ? "move" : "copy")}) -> {target}");
 
             int n = 1, done = 0;
-            foreach (var (folder, _, files, ext, _) in infos)
+            try
             {
-                foreach (var f in files)
+                foreach (var (folder, _, files, ext, _) in infos)
                 {
-                    string dest = Path.Combine(targetFrames, $"{n:D5}{ext}");
-                    if (move) File.Move(f, dest);
-                    else File.Copy(f, dest, false);
-                    n++;
-                    progress?.Invoke(++done, totalFrames);
+                    foreach (var f in files)
+                    {
+                        string dest = Path.Combine(targetFrames, $"{n:D5}{ext}");
+                        if (move) File.Move(f, dest);
+                        else File.Copy(f, dest, false);
+                        n++;
+                        progress?.Invoke(++done, totalFrames);
+                    }
                 }
+            }
+            catch
+            {
+                // A locked/failed file mid-merge: leave everything where it is (no frame was ever
+                // deleted — moves are renames), but make the PARTIAL target coherent so it loads
+                // with an honest count instead of claiming zero frames.
+                try
+                {
+                    var partial = LoadSession(target);
+                    if (partial != null) { partial.FramesCaptured = n - 1; SaveSession(target, partial); }
+                }
+                catch { }
+                throw;
             }
 
             // The merged identity: frames counted from what actually landed on disk; time is the

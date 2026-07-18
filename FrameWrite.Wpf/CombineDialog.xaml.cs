@@ -106,14 +106,22 @@ namespace FrameWrite.Wpf
                 item.Included = !item.Included;
         }
 
+        private bool IsCurrent(CombineItem item) => _currentSessionFolder != null
+            && string.Equals(item.Folder, _currentSessionFolder, StringComparison.OrdinalIgnoreCase);
+
         private void UpdatePrepStrip()
         {
-            bool ok = !_busy && list.SelectedItem is CombineItem { Eligible: true, Frames: > 0 };
+            var it = list.SelectedItem as CombineItem;
+            // The LOADED session's frames belong to the main window (its count/preview state, and a
+            // hotkey could start capturing them mid-prep) — its own Cull/Crop buttons live there.
+            bool current = it != null && IsCurrent(it);
+            bool ok = !_busy && !current && it is { Eligible: true, Frames: > 0 };
             cullBtn.IsEnabled = ok;
             cropBtn.IsEnabled = ok;
-            prepHint.Text = list.SelectedItem is CombineItem it
-                ? (it.Eligible ? $"acts on “{it.Name}”" : $"“{it.Name}” — {it.Reason}")
-                : "highlight a session first";
+            prepHint.Text = it == null ? "highlight a session first"
+                : current ? $"“{it.Name}” is the loaded session — use the main window's Cull/Crop"
+                : it.Eligible ? $"acts on “{it.Name}”"
+                : $"“{it.Name}” — {it.Reason}";
         }
 
         private void ApplySort()
@@ -189,7 +197,7 @@ namespace FrameWrite.Wpf
 
         private async void OnCullSelected(object sender, RoutedEventArgs e)
         {
-            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1) return;
+            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1 || IsCurrent(item)) return;
             var saved = SessionManager.LoadSession(item.Folder);
             var dlg = new CullDialog(item.Folder, item.Frames, saved?.CullMarkedFrames) { Owner = this };
             bool apply = dlg.ShowDialog() == true && dlg.MarkedForDeletion.Count > 0;
@@ -234,7 +242,7 @@ namespace FrameWrite.Wpf
 
         private async void OnCropSelected(object sender, RoutedEventArgs e)
         {
-            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1) return;
+            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1 || IsCurrent(item)) return;
             var saved = SessionManager.LoadSession(item.Folder);
             var dlg = new CropDialog(item.Folder, saved?.EncodeCrop, _vm.OverlayTimestamp) { Owner = this };
             if (dlg.ShowDialog() != true) return;
@@ -337,7 +345,7 @@ namespace FrameWrite.Wpf
                 DialogResult = true;   // done — back to the picker
             }
             else if (!token.IsCancellationRequested)   // deliberate cancel stays quiet
-                MessageDialog.Show($"Combine failed — nothing was changed.\n\n{TailLine(result.Error)}",
+                MessageDialog.Show($"Combine failed — nothing was changed.\n\n{FfmpegRunner.TailErrorLine(result.Error, -1)}",
                     "Combine sessions", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
@@ -350,16 +358,13 @@ namespace FrameWrite.Wpf
             if (included.Select(i => i.Ext).Distinct().Count() > 1 || included.Select(i => i.FrameSize).Distinct().Count() > 1) return;
 
             int total = included.Sum(i => i.Frames);
-            long bytes = 0;
-            foreach (var it in included)
-                foreach (var f in SessionManager.GetFrameFiles(it.Folder))
-                    try { bytes += new FileInfo(f).Length; } catch { }
+            long bytes = included.Sum(i => i.DiskBytes);   // the rows already carry fresh sizes
 
             int choice = MessageDialog.ShowChoices(
                 $"Merge {included.Count} sessions into ONE session ({total} frames, renumbered oldest first)?\n\n" +
                 "The merged session loads and keeps recording like any other.\n\n" +
                 $"Move — frames are moved: no extra disk; the source sessions are consumed (their videos carry over).\n" +
-                $"Copy — the sources stay untouched: needs ~{bytes / 1048576.0:0.#} MB more disk.",
+                $"Copy — the sources stay untouched: needs ~{HumanFormat.Bytes(bytes)} more disk.",
                 "Merge sessions", MessageBoxImage.Question,
                 "Move (no extra disk)", "Copy (keep sources)", "Cancel");
             if (choice is not (0 or 1)) return;
@@ -430,13 +435,6 @@ namespace FrameWrite.Wpf
         private bool IncludesCurrent(IEnumerable<CombineItem> items) => _currentSessionFolder != null
             && items.Any(i => string.Equals(i.Folder, _currentSessionFolder, StringComparison.OrdinalIgnoreCase));
 
-        // ffmpeg errors run pages long — the tail line is the useful one.
-        private static string TailLine(string error)
-        {
-            var lines = (error ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith("frame=", StringComparison.Ordinal)).ToArray();
-            return lines.Length == 0 ? error ?? "" : lines[^1];
-        }
 
         // ---- busy plumbing (one op at a time; Close/X cancels a running combine safely) ----
 
@@ -613,7 +611,7 @@ namespace FrameWrite.Wpf
             if (!Eligible && _included) _included = false;   // e.g. culled to zero mid-staging
 
             string size = FrameSize.IsEmpty ? "?" : $"{FrameSize.Width}×{FrameSize.Height}";
-            Detail = $"{SortKey:dd MMM}   ·   {Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}   ·   {SessionListItem.FmtBytes(DiskBytes)}"
+            Detail = $"{SortKey:dd MMM}   ·   {Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}   ·   {HumanFormat.Bytes(DiskBytes)}"
                 + (Crop is { } c ? $"   ·   crop {c.Width}×{c.Height}" : "")
                 + (Eligible ? "" : $"   ·   {Reason}");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(""));   // all props

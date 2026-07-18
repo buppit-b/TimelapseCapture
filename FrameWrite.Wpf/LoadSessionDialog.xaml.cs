@@ -231,7 +231,7 @@ namespace FrameWrite.Wpf
             if (result.Success)
                 MessageDialog.Show(
                     $"Archived “{item.Name}”: {result.Frames} frames, " +
-                    $"{Mb(result.BytesBefore)} → {Mb(result.BytesAfter)}.",
+                    $"{HumanFormat.Bytes(result.BytesBefore)} → {HumanFormat.Bytes(result.BytesAfter)}.",
                     "Session archived");
             else
                 MessageDialog.Show($"Archive failed — nothing was changed.\n\n{result.Error}",
@@ -317,9 +317,6 @@ namespace FrameWrite.Wpf
             RebuildList(selected.FirstOrDefault());
         }
 
-        private static string Mb(long bytes) => bytes >= 1073741824
-            ? $"{bytes / 1073741824.0:0.##} GB" : $"{bytes / 1048576.0:0.#} MB";
-
         private async void TryLoad()
         {
             if (_busy || list.SelectedItems.Count != 1 || list.SelectedItem is not SessionListItem item) return;
@@ -362,9 +359,6 @@ namespace FrameWrite.Wpf
         /// <summary>Bytes on disk (frames + archive) — the "Size" sort key and the size shown per row.</summary>
         public long DiskBytes { get; }
 
-        internal static string FmtBytes(long b) => b >= 1073741824
-            ? $"{b / 1073741824.0:0.##} GB" : b >= 1048576 ? $"{b / 1048576.0:0.#} MB" : $"{b / 1024.0:0.#} KB";
-
         public SessionListItem(string folder, SessionInfo s)
         {
             FolderPath = folder;
@@ -401,7 +395,7 @@ namespace FrameWrite.Wpf
             // Prefer the recorded actual interval (sub-second capable); fall back to the rounded int.
             double iv = s.IntervalSecondsActual > 0 ? s.IntervalSecondsActual : s.IntervalSeconds;
             string ivText = iv > 0 ? $"{iv:0.###}s" : "";
-            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}   ·   {FmtBytes(DiskBytes)}"
+            Detail = $"{DateText}   ·   {FramesText}   ·   {SizeText}   ·   {HumanFormat.Bytes(DiskBytes)}"
                 + (ivText.Length > 0 ? $"   ·   {ivText}" : "");
         }
     }

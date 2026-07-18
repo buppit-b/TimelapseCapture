@@ -313,6 +313,7 @@ namespace FrameWrite.Wpf.ViewModels
             s.GifMaxWidth = Math.Clamp(s.GifMaxWidth <= 0 ? 720 : s.GifMaxWidth, 120, 3840);
             s.GifMaxColors = s.GifMaxColors is 32 or 64 or 128 or 256 ? s.GifMaxColors : 256;  // Seg choices only
             if (s.GifDither is not ("bayer" or "floyd" or "none")) s.GifDither = "bayer";
+            if (s.SessionSortBy is not ("date" or "frames" or "size" or "name")) s.SessionSortBy = "date";
             s.EncodeFps = Math.Clamp(s.EncodeFps, 1, 240);
             s.EncodeCrf = Math.Clamp(s.EncodeCrf, 0, 51);
             s.EncodeHoldLastSeconds = Math.Clamp(s.EncodeHoldLastSeconds, 0, 60);

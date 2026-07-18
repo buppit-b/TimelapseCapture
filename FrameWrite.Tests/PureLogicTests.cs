@@ -183,6 +183,22 @@ namespace FrameWrite.Tests
         }
     }
 
+    /// <summary>Shared bytes formatter (HumanFormat.Bytes) — shown in every session row and the
+    /// archive/merge messages, so the unit boundaries must land where users expect.</summary>
+    public class HumanFormatBytesTests
+    {
+        [Theory]
+        [InlineData(512, "0.5 KB")]
+        [InlineData(1048576, "1 MB")]
+        [InlineData(536870912, "512 MB")]
+        [InlineData(1073741824, "1 GB")]
+        [InlineData(1288490189, "1.2 GB")]
+        public void Boundaries_ReadRight(long bytes, string expected)
+        {
+            HumanFormat.Bytes(bytes).Should().Be(expected);
+        }
+    }
+
     /// <summary>
     /// Archive-session pure logic (SessionArchiver): the codec choice encodes the fidelity promise
     /// (lossless captures archive lossless), and the stderr frame-count parse GATES frame deletion —

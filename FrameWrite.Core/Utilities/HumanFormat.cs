@@ -12,6 +12,11 @@ namespace FrameWrite
     /// </summary>
     public static class HumanFormat
     {
+        /// <summary>Compact size on disk ("1.21 GB" / "512.3 MB" / "48.2 KB"). Pure — unit-tested.</summary>
+        public static string Bytes(long bytes) => bytes >= 1073741824L
+            ? $"{bytes / 1073741824.0:0.##} GB"
+            : bytes >= 1048576L ? $"{bytes / 1048576.0:0.#} MB" : $"{bytes / 1024.0:0.#} KB";
+
         /// <summary>Compact, planning-oriented duration ("2h 30m" / "45m" / "30s"). Fuzzy by design.</summary>
         public static string Duration(double seconds)
         {
