@@ -32,6 +32,19 @@ namespace FrameWrite.Wpf.ViewModels
         /// </summary>
         public const decimal MinIntervalSeconds = 0.01m;
 
+        // Session-list sort (picker + combine share it — one mental model). Persisted quietly;
+        // the dialogs read/write it through these.
+        public string SessionSortBy
+        {
+            get => _settings.SessionSortBy;
+            set { var v = value is "frames" or "size" ? value : "date"; if (_settings.SessionSortBy != v) { _settings.SessionSortBy = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+        public bool SessionSortDescending
+        {
+            get => _settings.SessionSortDescending;
+            set { if (_settings.SessionSortDescending != value) { _settings.SessionSortDescending = value; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+        }
+
         // ---- The "always-there recorder" pair: launch at sign-in + start capturing on launch, so a
         // session can never be forgotten. Both opt-in (preference, not protection). ----
         public bool LaunchWithWindows

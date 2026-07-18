@@ -3,6 +3,25 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.6.0] — 2026-07-17 — merge sessions + session-list sorting (feedback round)
+
+- **Merge into one session** (combine dialog, left of Combine): the ticked sessions' FRAMES
+  become one new session — renumbered oldest-first, capture time summed, story starting at the
+  earliest source — that loads and **keeps recording like any other session**. You choose:
+  **Move** (frames are renamed across — no extra disk, the disk-limiter answer; sources are
+  consumed, their encoded videos carried into the merged session's output folder) or **Copy**
+  (sources untouched; free space pre-checked). Requires one frame size + format across the ticked
+  sessions (that's what makes the result continuable — destructive crop can equalize sizes
+  first); the button explains any blocker, including the loaded session being ticked (merge will
+  never pull frames out from under the main window). Move is crash-safe by construction: every
+  frame exists in exactly one place at every instant, and a source folder is only deleted when
+  verifiably empty — unrecognized files keep it alive.
+- **Sort the session lists** — picker and combine share one control (and one saved preference):
+  **Date / Frames / Size** plus a direction toggle, date-newest-first by default. The combine
+  list now orders the SAME way as the picker (it used to run oldest-first — the session you'd
+  just selected landed at the bottom). Display order only: the combined video itself always runs
+  oldest → newest.
+
 ## [1.5.3] — 2026-07-17 — combine: tick-to-include + crop wheel fix (feedback round)
 
 - **The combine dialog now lists EVERY session with a checkbox** — tick to include. Picked the

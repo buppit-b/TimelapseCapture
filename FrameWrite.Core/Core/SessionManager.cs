@@ -505,6 +505,139 @@ namespace FrameWrite
         }
 
         /// <summary>
+        /// Merge several sessions (chronological, oldest first) into ONE new session whose frames
+        /// run 00001..N gapless — loadable and continuable like any other session. Requires every
+        /// source to share ONE frame size and format (the uniformity invariant a session must hold
+        /// to encode and to keep capturing); metadata (region/format/quality/interval) is adopted
+        /// from the NEWEST source so continued capture matches the most recent setup.
+        ///
+        /// move=true renames frames (no extra disk — the disk-limiter answer) and then consumes the
+        /// sources: their output videos are carried into the merged session's output folder first,
+        /// and a source folder is only deleted when it's verifiably empty — anything unrecognized
+        /// (user files) makes it stay behind, logged, never deleted. move=false copies (sources
+        /// untouched; free space pre-checked). Crash-safe by construction for moves: every frame
+        /// exists in exactly one place at every instant, and nothing is deleted until its session
+        /// is fully drained. Throws with a plain-language message on any validation failure.
+        /// </summary>
+        public static string MergeSessions(IReadOnlyList<string> sources, string capturesRoot,
+            bool move, Action<int, int>? progress = null)
+        {
+            if (sources.Count < 2)
+                throw new InvalidOperationException("Select at least two sessions to merge.");
+
+            // Validate every source up front — nothing is touched until all of them pass.
+            var infos = new List<(string folder, SessionInfo s, string[] files, string ext, Size size)>();
+            foreach (var folder in sources)
+            {
+                string name = Path.GetFileName(folder);
+                var s = LoadSession(folder) ?? throw new InvalidOperationException($"“{name}” isn't a valid session.");
+                if (s.Archived) throw new InvalidOperationException($"“{s.Name ?? name}” is archived — unarchive it first.");
+                if (s.Active) throw new InvalidOperationException($"“{s.Name ?? name}” is marked as recording.");
+                var files = GetFrameFiles(folder);
+                if (files.Length == 0) throw new InvalidOperationException($"“{s.Name ?? name}” has no frames.");
+                var exts = files.Select(f => Path.GetExtension(f).ToLowerInvariant()).Distinct().ToArray();
+                if (exts.Length != 1)
+                    throw new InvalidOperationException($"“{s.Name ?? name}” mixes frame formats ({string.Join("/", exts)}).");
+                Size size;
+                try { using var img = System.Drawing.Image.FromFile(files[0]); size = img.Size; }
+                catch { throw new InvalidOperationException($"“{s.Name ?? name}”: couldn't read its first frame."); }
+                infos.Add((folder, s, files, exts[0], size));
+            }
+            if (infos.Select(i => i.ext).Distinct().Count() > 1)
+                throw new InvalidOperationException(
+                    $"The sessions use different frame formats ({string.Join(", ", infos.Select(i => i.ext.TrimStart('.')).Distinct())}) — a merged session must be uniform.");
+            if (infos.Select(i => i.size).Distinct().Count() > 1)
+                throw new InvalidOperationException(
+                    $"The sessions have different frame sizes ({string.Join(", ", infos.Select(i => $"{i.size.Width}×{i.size.Height}").Distinct())}) — a merged session must be uniform. (Destructive crop can equalize them.)");
+
+            infos.Sort((a, b) => a.s.StartTime.CompareTo(b.s.StartTime));   // oldest first — story order
+            var newest = infos[^1].s;
+            int totalFrames = infos.Sum(i => i.files.Length);
+
+            if (!move)
+            {
+                long needBytes = infos.Sum(i => i.files.Sum(f => { try { return new FileInfo(f).Length; } catch { return 0L; } }));
+                long freeMb = SystemMonitor.GetAvailableDiskSpaceMB(capturesRoot);
+                if (freeMb > 0 && freeMb * 1048576L < needBytes + 256L * 1024 * 1024)
+                    throw new InvalidOperationException(
+                        $"Not enough free space to copy {needBytes / 1048576.0:0.#} MB of frames — use Move (no extra disk), or free space first.");
+            }
+
+            string target = CreateNamedSession(capturesRoot, $"Merged_{DateTime.Now:yyyyMMdd_HHmmss}",
+                newest.IntervalSeconds, newest.CaptureRegion, newest.ImageFormat ?? "JPEG", newest.JpegQuality);
+            string targetFrames = GetFramesFolder(target);
+            Directory.CreateDirectory(targetFrames);
+            Logger.Log("Merge", $"Merging {sources.Count} sessions ({totalFrames} frames, {(move ? "move" : "copy")}) -> {target}");
+
+            int n = 1, done = 0;
+            foreach (var (folder, _, files, ext, _) in infos)
+            {
+                foreach (var f in files)
+                {
+                    string dest = Path.Combine(targetFrames, $"{n:D5}{ext}");
+                    if (move) File.Move(f, dest);
+                    else File.Copy(f, dest, false);
+                    n++;
+                    progress?.Invoke(++done, totalFrames);
+                }
+            }
+
+            // The merged identity: frames counted from what actually landed on disk; time is the
+            // SUM of the sources' capture time; the story starts at the earliest session.
+            var merged = LoadSession(target);
+            if (merged != null)
+            {
+                merged.FramesCaptured = n - 1;
+                merged.TotalCaptureSeconds = infos.Sum(i => i.s.TotalCaptureSeconds);
+                merged.StartTime = infos[0].s.StartTime == default ? merged.StartTime : infos[0].s.StartTime;
+                merged.IntervalSecondsActual = newest.IntervalSecondsActual;
+                merged.Active = false;
+                SaveSession(target, merged);
+            }
+
+            if (move)
+            {
+                foreach (var (folder, s, _, _, _) in infos)
+                    ConsumeDrainedSession(folder, s.Name ?? Path.GetFileName(folder), target);
+            }
+            Logger.Log("Merge", $"Merged {sources.Count} sessions: {n - 1} frames -> {Path.GetFileName(target)}.");
+            return target;
+        }
+
+        // After a move-merge drained a source's frames: carry its output videos into the merged
+        // session, then delete only what we RECOGNIZE (session.json + the standard empty folders).
+        // Anything else — backups a user moved in, stray files — keeps the folder alive, logged.
+        private static void ConsumeDrainedSession(string folder, string name, string mergedFolder)
+        {
+            try
+            {
+                string srcOut = GetOutputFolder(folder);
+                string dstOut = GetOutputFolder(mergedFolder);
+                if (Directory.Exists(srcOut))
+                {
+                    Directory.CreateDirectory(dstOut);
+                    foreach (var f in Directory.GetFiles(srcOut))
+                    {
+                        string dest = Path.Combine(dstOut, Path.GetFileName(f));
+                        string baseName = Path.GetFileNameWithoutExtension(dest), ext = Path.GetExtension(dest);
+                        for (int k = 2; File.Exists(dest); k++)
+                            dest = Path.Combine(dstOut, $"{baseName}_{k}{ext}");
+                        File.Move(f, dest);
+                    }
+                }
+                try { File.Delete(Path.Combine(folder, SessionFileName)); } catch { }
+                foreach (var sub in new[] { GetFramesFolder(folder), GetOutputFolder(folder), GetTempFolder(folder) })
+                    try { if (Directory.Exists(sub) && !Directory.EnumerateFileSystemEntries(sub).Any()) Directory.Delete(sub); } catch { }
+                if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);
+                else Logger.Log("Merge", $"“{name}”: folder kept — it still contains files the merge doesn't recognize.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("Merge", $"Cleaning up “{name}” failed (its frames are already merged): {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Clean up temp folder (delete filelist.txt, etc).
         /// </summary>
         public static void CleanTempFolder(string sessionFolder)

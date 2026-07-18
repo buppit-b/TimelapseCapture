@@ -27,16 +27,21 @@ namespace FrameWrite.Wpf
         private readonly MainViewModel _vm;
         private readonly CombineSettings _cfg;
         private readonly string _ffmpegPath;
+        private readonly string _capturesRoot;
+        private readonly string? _currentSessionFolder;   // merge must never consume the loaded session
         private readonly ObservableCollection<CombineItem> _items = new();
         private CancellationTokenSource? _cts;
         private bool _busy;
         private bool _closeWhenIdle;
 
-        public CombineDialog(string capturesRoot, IEnumerable<string> preselect, MainViewModel vm, string ffmpegPath)
+        public CombineDialog(string capturesRoot, IEnumerable<string> preselect, MainViewModel vm, string ffmpegPath,
+            string? currentSessionFolder = null)
         {
             InitializeComponent();
             _vm = vm;
             _ffmpegPath = ffmpegPath;
+            _capturesRoot = capturesRoot;
+            _currentSessionFolder = currentSessionFolder;
             _cfg = CombineSettings.SeededFrom(vm);
             DataContext = _cfg;   // this combine's settings only — the main window never moves
 
@@ -50,18 +55,44 @@ namespace FrameWrite.Wpf
                     if (SessionManager.LoadSession(dir) == null) continue;
                     var item = new CombineItem(dir);
                     item.Included = item.Eligible && wanted.Contains(dir);
-                    item.PropertyChanged += (s, e) => RefreshOutcome();   // ticking re-plans live
+                    item.PropertyChanged += OnItemChanged;   // ticking re-plans live
                     _items.Add(item);
                 }
             }
             catch { /* best-effort listing — a bad folder shouldn't break staging */ }
-            SortOldestFirst();
+
+            // Same sort control + saved preference as the session picker — the list orders the
+            // SAME way in both, so a session picked there is where you expect it here. Display
+            // order only: the encode itself always runs oldest -> newest.
+            _sortReady = false;
+            string by = vm.SessionSortBy;
+            (by == "frames" ? sortFrames : by == "size" ? sortSize : sortDate).IsChecked = true;
+            sortDir.IsChecked = vm.SessionSortDescending;
+            SyncSortGlyph();
+            _sortReady = true;
+
+            ApplySort();
             list.ItemsSource = _items;
             if (_items.Count > 0) list.SelectedIndex = 0;
 
             _cfg.PropertyChanged += (s, e) => RefreshOutcome();
             RefreshOutcome();
         }
+
+        private bool _sortReady;
+
+        private void OnSortChanged(object sender, RoutedEventArgs e)
+        {
+            if (!_sortReady) return;
+            SyncSortGlyph();
+            _vm.SessionSortBy = sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size" : "date";
+            _vm.SessionSortDescending = sortDir.IsChecked == true;
+            var keep = list.SelectedItem as CombineItem;
+            ApplySort();
+            if (keep != null) list.SelectedItem = keep;
+        }
+
+        private void SyncSortGlyph() => sortDir.Content = sortDir.IsChecked == true ? "↓" : "↑";
 
         private IReadOnlyList<CombineItem> Included() => _items.Where(i => i.Included).ToList();
 
@@ -84,9 +115,13 @@ namespace FrameWrite.Wpf
                 : "highlight a session first";
         }
 
-        private void SortOldestFirst()
+        private void ApplySort()
         {
-            var ordered = _items.OrderBy(i => i.SortKey).ToList();
+            var cmp = LoadSessionDialog.SortComparer(
+                sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size" : "date",
+                sortDir.IsChecked == true);
+            var ordered = _items.OrderBy(i => (i.SortKey, i.Frames, i.PixelArea),
+                Comparer<(DateTime, int, long)>.Create((a, b) => cmp(a, b))).ToList();
             for (int i = 0; i < ordered.Count; i++)
             {
                 int cur = _items.IndexOf(ordered[i]);
@@ -126,6 +161,18 @@ namespace FrameWrite.Wpf
             combineBtn.ToolTip = included.Count < 2 ? "Tick two or more sessions first."
                 : included.Count > 24 ? "Combine supports up to 24 sessions per run."
                 : "Encode the ticked sessions, oldest first, into one video.";
+
+            // Merge needs true uniformity (one frame size + format) — that's what lets the merged
+            // session keep recording. Gate live with the exact reason.
+            string? mergeBlock =
+                included.Count < 2 ? "Tick two or more sessions first."
+                : included.Select(i => i.Ext).Distinct().Count() > 1 ? "The ticked sessions use different frame formats — a merged session must be uniform."
+                : included.Select(i => i.FrameSize).Distinct().Count() > 1 ? "The ticked sessions have different frame sizes — a merged session must be uniform. (Destructive crop can equalize them.)"
+                : IncludesCurrent(included) ? "The currently loaded session is ticked — merge would pull the frames out from under the main window. Load another session first."
+                : null;
+            mergeBtn.IsEnabled = mergeBlock == null;
+            mergeBtn.ToolTip = mergeBlock ??
+                "Merge the ticked sessions' FRAMES into one new session (oldest first, renumbered) that can keep recording like any other. You choose Move (no extra disk, sources consumed) or Copy (sources kept).";
             UpdatePrepStrip();
         }
 
@@ -265,7 +312,8 @@ namespace FrameWrite.Wpf
             {
                 try
                 {
-                    result = await VideoEncoder.CombineAsync(_ffmpegPath, included.Select(i => i.Folder).ToList(),
+                    result = await VideoEncoder.CombineAsync(_ffmpegPath,
+                        included.OrderBy(i => i.SortKey).Select(i => i.Folder).ToList(),   // the video is ALWAYS oldest -> newest
                         fps, _cfg.Preset, _cfg.Crf, token,
                         outputName: $"combined_{DateTime.Now:yyyyMMdd_HHmmss}",
                         onFrameProgress: n => Dispatcher.BeginInvoke(new Action(() =>
@@ -290,6 +338,95 @@ namespace FrameWrite.Wpf
                 MessageDialog.Show($"Combine failed — nothing was changed.\n\n{TailLine(result.Error)}",
                     "Combine sessions", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+
+        // ---- merge: the ticked sessions' frames become ONE continuable session ----
+
+        private async void OnMerge(object sender, RoutedEventArgs e)
+        {
+            var included = Included().OrderBy(i => i.SortKey).ToList();
+            if (_busy || included.Count < 2 || IncludesCurrent(included)) return;
+            if (included.Select(i => i.Ext).Distinct().Count() > 1 || included.Select(i => i.FrameSize).Distinct().Count() > 1) return;
+
+            int total = included.Sum(i => i.Frames);
+            long bytes = 0;
+            foreach (var it in included)
+                foreach (var f in SessionManager.GetFrameFiles(it.Folder))
+                    try { bytes += new FileInfo(f).Length; } catch { }
+
+            int choice = MessageDialog.ShowChoices(
+                $"Merge {included.Count} sessions into ONE session ({total} frames, renumbered oldest first)?\n\n" +
+                "The merged session loads and keeps recording like any other.\n\n" +
+                $"Move — frames are moved: no extra disk; the source sessions are consumed (their videos carry over).\n" +
+                $"Copy — the sources stay untouched: needs ~{bytes / 1048576.0:0.#} MB more disk.",
+                "Merge sessions", MessageBoxImage.Question,
+                "Move (no extra disk)", "Copy (keep sources)", "Cancel");
+            if (choice is not (0 or 1)) return;
+            bool move = choice == 0;
+
+            BeginBusy($"Merging {included.Count} sessions…");
+            string? merged = null, error = null;
+            try
+            {
+                var folders = included.Select(i => i.Folder).ToList();
+                merged = await Task.Run(() => SessionManager.MergeSessions(folders, _capturesRoot, move,
+                    (done, tot) => Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (_busy) progressText.Text = $"Merging… {done}/{tot} frames";
+                    }))));
+            }
+            catch (Exception ex) { error = ex.Message; }
+            finally { EndBusyAfterMerge(merged); }
+            if (_closeWhenIdle) return;
+
+            if (merged != null)
+                MessageDialog.Show(
+                    $"Merged {included.Count} sessions into “{SessionManager.LoadSession(merged)?.Name}” ({total} frames)." +
+                    (move ? "\nThe source sessions were consumed (their videos moved across)." : "\nThe source sessions are untouched.") +
+                    "\nLoad it from the session list to keep recording into it.",
+                    "Sessions merged");
+            else
+                MessageDialog.Show($"Merge failed:\n{error}", "Merge sessions",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // A merge changes the world (sources may be gone; a new session exists) — re-enumerate
+        // rather than patch, keeping surviving ticks and highlighting the merged result.
+        private void EndBusyAfterMerge(string? mergedFolder)
+        {
+            var stillTicked = Included().Select(i => i.Folder).Where(Directory.Exists).ToList();
+            _busy = false;
+            _cts?.Dispose();
+            _cts = null;
+            if (_closeWhenIdle) { Close(); return; }
+            list.IsEnabled = true;
+            prepStrip.IsEnabled = true;
+            settingsPanel.IsEnabled = true;
+            progressText.Text = "";
+
+            foreach (var it in _items) it.PropertyChanged -= OnItemChanged;
+            _items.Clear();
+            try
+            {
+                foreach (var dir in Directory.Exists(_capturesRoot) ? Directory.GetDirectories(_capturesRoot) : Array.Empty<string>())
+                {
+                    if (SessionManager.LoadSession(dir) == null) continue;
+                    var item = new CombineItem(dir);
+                    item.Included = item.Eligible && stillTicked.Contains(dir, StringComparer.OrdinalIgnoreCase);
+                    item.PropertyChanged += OnItemChanged;
+                    _items.Add(item);
+                }
+            }
+            catch { }
+            ApplySort();
+            if (mergedFolder != null)
+                list.SelectedItem = _items.FirstOrDefault(i => string.Equals(i.Folder, mergedFolder, StringComparison.OrdinalIgnoreCase));
+            RefreshOutcome();
+        }
+
+        private void OnItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => RefreshOutcome();
+
+        private bool IncludesCurrent(IEnumerable<CombineItem> items) => _currentSessionFolder != null
+            && items.Any(i => string.Equals(i.Folder, _currentSessionFolder, StringComparison.OrdinalIgnoreCase));
 
         // ffmpeg errors run pages long — the tail line is the useful one.
         private static string TailLine(string error)
@@ -420,6 +557,10 @@ namespace FrameWrite.Wpf
         public DateTime SortKey { get; private set; }
         public bool Eligible { get; private set; }
         public string Reason { get; private set; } = "";
+        /// <summary>Frame extension (".jpg"), for merge's uniformity gate. Empty when frameless.</summary>
+        public string Ext { get; private set; } = "";
+        /// <summary>Real frame pixels (W×H) — the "Size" sort key.</summary>
+        public long PixelArea => (long)FrameSize.Width * FrameSize.Height;
         public System.Windows.Media.ImageSource? Thumbnail { get; private set; }
 
         private bool _included;
@@ -452,6 +593,7 @@ namespace FrameWrite.Wpf
             var files = SessionManager.GetFrameFiles(Folder);
             Frames = files.Length;
             FrameSize = System.Drawing.Size.Empty;
+            Ext = files.Length > 0 ? Path.GetExtension(files[0]).ToLowerInvariant() : "";
             if (files.Length > 0)
             {
                 // Header-level read for the real frame size (regions can lie after a destructive crop).

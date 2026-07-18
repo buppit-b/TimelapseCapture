@@ -253,6 +253,81 @@ namespace FrameWrite.Tests
         }
 
         [Fact]
+        public void Merge_Copy_MakesOneContinuableSession_AndKeepsSources()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tlc_merge_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string a = MakeSizedSession(root, "older", 10, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "newer", 5, 64, 48, "jpg");
+                // Distinct capture times + accumulated time — the merged identity must sum/adopt them.
+                var sa = SessionManager.LoadSession(a)!; sa.StartTime = new DateTime(2026, 1, 1); sa.TotalCaptureSeconds = 100; sa.Active = false; SessionManager.SaveSession(a, sa);
+                var sb = SessionManager.LoadSession(b)!; sb.StartTime = new DateTime(2026, 2, 1); sb.TotalCaptureSeconds = 50; sb.Active = false; SessionManager.SaveSession(b, sb);
+
+                string merged = SessionManager.MergeSessions(new[] { b, a }, Path.Combine(root, "captures"), move: false);
+
+                var frames = SessionManager.GetFrameFiles(merged);
+                frames.Length.Should().Be(15);
+                Path.GetFileName(frames[0]).Should().Be("00001.jpg");
+                Path.GetFileName(frames[14]).Should().Be("00015.jpg", "renumbering must be gapless");
+                var m = SessionManager.LoadSession(merged)!;
+                m.FramesCaptured.Should().Be(15);
+                m.TotalCaptureSeconds.Should().Be(150, "capture time is the sum of the sources");
+                m.StartTime.Should().Be(new DateTime(2026, 1, 1), "the story starts at the EARLIEST source");
+                m.Active.Should().BeFalse();
+                SessionManager.GetFrameFiles(a).Length.Should().Be(10, "copy mode leaves sources intact");
+                SessionManager.GetFrameFiles(b).Length.Should().Be(5);
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public void Merge_Move_ConsumesSources_AndCarriesTheirOutputs()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tlc_mergemv_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string a = MakeSizedSession(root, "older", 8, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "newer", 4, 64, 48, "jpg");
+                foreach (var f in new[] { a, b }) { var s = SessionManager.LoadSession(f)!; s.Active = false; SessionManager.SaveSession(f, s); }
+                // A source's encoded videos are user artifacts — they must survive the consume.
+                string outFile = Path.Combine(SessionManager.GetOutputFolder(a), "timelapse_old.mp4");
+                Directory.CreateDirectory(SessionManager.GetOutputFolder(a));
+                File.WriteAllText(outFile, "video");
+
+                string merged = SessionManager.MergeSessions(new[] { a, b }, Path.Combine(root, "captures"), move: true);
+
+                SessionManager.GetFrameFiles(merged).Length.Should().Be(12);
+                Directory.Exists(a).Should().BeFalse("a fully-drained source folder is removed");
+                Directory.Exists(b).Should().BeFalse();
+                File.Exists(Path.Combine(SessionManager.GetOutputFolder(merged), "timelapse_old.mp4"))
+                    .Should().BeTrue("source output videos are carried into the merged session");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
+        public void Merge_RefusesMismatchedSizes_AndMixedFormats()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tlc_mergebad_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string a = MakeSizedSession(root, "big", 3, 64, 48, "jpg");
+                string b = MakeSizedSession(root, "small", 3, 32, 24, "jpg");
+                string c = MakeSizedSession(root, "png", 3, 64, 48, "png");
+                foreach (var f in new[] { a, b, c }) { var s = SessionManager.LoadSession(f)!; s.Active = false; SessionManager.SaveSession(f, s); }
+
+                string captures = Path.Combine(root, "captures");
+                Action sizes = () => SessionManager.MergeSessions(new[] { a, b }, captures, move: true);
+                sizes.Should().Throw<InvalidOperationException>().WithMessage("*different frame sizes*");
+                Action formats = () => SessionManager.MergeSessions(new[] { a, c }, captures, move: true);
+                formats.Should().Throw<InvalidOperationException>().WithMessage("*different frame formats*");
+                SessionManager.GetFrameFiles(a).Length.Should().Be(3, "validation failures must touch nothing");
+            }
+            finally { try { Directory.Delete(root, true); } catch { } }
+        }
+
+        [Fact]
         public async Task Combine_JoinsSessions_LetterboxingOntoTheLargest()
         {
             if (Ffmpeg == null) return;

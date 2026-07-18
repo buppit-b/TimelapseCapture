@@ -42,7 +42,48 @@ namespace FrameWrite.Wpf
             _currentSessionFolder = currentSessionFolder;
             _ffmpegPath = ffmpegPath;
             _vm = vm;
+            // Seed the sort control from the shared preference (default: date, newest first).
+            _sortReady = false;
+            string by = _vm?.SessionSortBy ?? "date";
+            (by == "frames" ? sortFrames : by == "size" ? sortSize : sortDate).IsChecked = true;
+            sortDir.IsChecked = _vm?.SessionSortDescending ?? true;
+            SyncSortGlyph();
+            _sortReady = true;
             RebuildList(selectFolder: null);
+        }
+
+        // ---- session-list sorting (shared preference with the combine dialog) ----
+
+        private bool _sortReady;   // suppress handler churn while seeding the controls
+
+        private void OnSortChanged(object sender, RoutedEventArgs e)
+        {
+            if (!_sortReady) return;
+            SyncSortGlyph();
+            if (_vm != null)
+            {
+                _vm.SessionSortBy = SortField();
+                _vm.SessionSortDescending = sortDir.IsChecked == true;
+            }
+            string? keep = (list.SelectedItem as SessionListItem)?.FolderPath;
+            RebuildList(keep);
+        }
+
+        private string SortField() => sortFrames.IsChecked == true ? "frames"
+            : sortSize.IsChecked == true ? "size" : "date";
+
+        private void SyncSortGlyph() => sortDir.Content = sortDir.IsChecked == true ? "↓" : "↑";
+
+        /// <summary>The shared session comparer: field + direction (descending = newest/most first).</summary>
+        internal static Comparison<(DateTime date, int frames, long area)> SortComparer(string by, bool desc)
+        {
+            int sign = desc ? -1 : 1;
+            return by switch
+            {
+                "frames" => (a, b) => sign * a.frames.CompareTo(b.frames),
+                "size" => (a, b) => sign * a.area.CompareTo(b.area),
+                _ => (a, b) => sign * a.date.CompareTo(b.date),
+            };
         }
 
         private void RebuildList(string? selectFolder)
@@ -61,7 +102,8 @@ namespace FrameWrite.Wpf
             }
             catch { /* best-effort listing — a bad folder shouldn't break the picker */ }
 
-            items.Sort((a, b) => b.SortKey.CompareTo(a.SortKey)); // newest first
+            var cmp = SortComparer(SortField(), sortDir.IsChecked == true);
+            items.Sort((a, b) => cmp((a.SortKey, a.FrameCount, a.PixelArea), (b.SortKey, b.FrameCount, b.PixelArea)));
 
             list.ItemsSource = items;
             emptyMsg.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -269,7 +311,7 @@ namespace FrameWrite.Wpf
             // here arrives pre-ticked) and owns the rest: per-session cull/crop, per-combine
             // settings, and the encode. Prep may have changed disk — re-read the list after.
             var selected = list.SelectedItems.Cast<SessionListItem>().Select(i => i.FolderPath).ToList();
-            var dlg = new CombineDialog(_capturesRoot, selected, _vm, _ffmpegPath) { Owner = this };
+            var dlg = new CombineDialog(_capturesRoot, selected, _vm, _ffmpegPath, _currentSessionFolder) { Owner = this };
             dlg.ShowDialog();
             RebuildList(selected.FirstOrDefault());
         }
@@ -316,6 +358,8 @@ namespace FrameWrite.Wpf
         public bool IsActive { get; }
         public int FrameCount { get; }
         public string FrameExt { get; }
+        /// <summary>Capture-area pixels (region W×H) — the "Size" sort key. 0 when no region.</summary>
+        public long PixelArea { get; }
 
         public SessionListItem(string folder, SessionInfo s)
         {
@@ -338,6 +382,8 @@ namespace FrameWrite.Wpf
             DateText = when.ToString("dd MMM, HH:mm");
 
             FramesText = $"{FrameCount} frame{(FrameCount == 1 ? "" : "s")}";
+            PixelArea = s.CaptureRegion.HasValue
+                ? (long)s.CaptureRegion.Value.Width * s.CaptureRegion.Value.Height : 0;
             SizeText = s.CaptureRegion.HasValue
                 ? $"{s.CaptureRegion.Value.Width}×{s.CaptureRegion.Value.Height}"
                 : "no region";

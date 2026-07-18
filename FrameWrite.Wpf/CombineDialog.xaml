@@ -28,11 +28,25 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0">
-            <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
-            <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
-                       Text="Tick the sessions to join — one continuous video, oldest first. Settings below apply to this combine only."/>
-        </StackPanel>
+        <DockPanel Grid.Row="0" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
+                <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
+                           Text="Tick the sessions to join — the video always runs oldest → newest, however the list is sorted. Settings below apply to this combine only."/>
+            </StackPanel>
+            <!-- Same sort control (and saved preference) as the session picker — one mental model. -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <RadioButton x:Name="sortDate" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Date"
+                             Checked="OnSortChanged" ToolTip="Sort by session start date."/>
+                <RadioButton x:Name="sortFrames" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Frames"
+                             Checked="OnSortChanged" ToolTip="Sort by frame count."/>
+                <RadioButton x:Name="sortSize" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Size"
+                             Checked="OnSortChanged" ToolTip="Sort by frame size (pixels)."/>
+                <ToggleButton x:Name="sortDir" Style="{StaticResource HeaderToggle}" FontSize="12" Margin="6,0,0,0"
+                              Click="OnSortChanged" VerticalAlignment="Center"
+                              ToolTip="Flip the direction (↓ largest/newest first)."/>
+            </StackPanel>
+        </DockPanel>
 
         <!-- EVERY session is listed (tick = include), so a wrong pick in the session list is fixed
              right here. Ineligible ones (archived / recording / empty) show greyed with the reason. -->
@@ -222,8 +236,14 @@
         </Border>
 
         <Grid Grid.Row="4" Margin="0,14,0,0">
-            <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <!-- Power option (mirrors the crop dialog's left-side destructive action): the
+                     ticked sessions become ONE session that can keep recording like any other. -->
+                <Button x:Name="mergeBtn" Content="Merge into one session…" Style="{StaticResource BtnBase}"
+                        Click="OnMerge" Margin="0,0,10,0"/>
+                <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+            </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="closeBtn" Content="Close" Style="{StaticResource BtnBase}" Margin="0,0,8,0" MinWidth="84" Click="OnCloseBtn"/>
                 <Button x:Name="combineBtn" Content="Combine" Style="{StaticResource BtnPrimary}" MinWidth="110" Click="OnCombine"/>

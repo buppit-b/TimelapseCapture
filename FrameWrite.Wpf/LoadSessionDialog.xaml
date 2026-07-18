@@ -13,11 +13,25 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0">
-            <TextBlock Text="SESSIONS" Style="{StaticResource CardTitle}"/>
-            <TextBlock Text="Ctrl/Shift-click selects several — Combine… turns them into one video."
-                       Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,6"/>
-        </StackPanel>
+        <DockPanel Grid.Row="0" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="SESSIONS" Style="{StaticResource CardTitle}"/>
+                <TextBlock Text="Ctrl/Shift-click selects several — Combine… turns them into one video."
+                           Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,6"/>
+            </StackPanel>
+            <!-- Sort (shared with the combine dialog): field + direction. Date is first and default. -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <RadioButton x:Name="sortDate" Style="{StaticResource Seg}" GroupName="lssort" Content="Date"
+                             Checked="OnSortChanged" ToolTip="Sort by session start date."/>
+                <RadioButton x:Name="sortFrames" Style="{StaticResource Seg}" GroupName="lssort" Content="Frames"
+                             Checked="OnSortChanged" ToolTip="Sort by frame count."/>
+                <RadioButton x:Name="sortSize" Style="{StaticResource Seg}" GroupName="lssort" Content="Size"
+                             Checked="OnSortChanged" ToolTip="Sort by capture-area size (pixels)."/>
+                <ToggleButton x:Name="sortDir" Style="{StaticResource HeaderToggle}" FontSize="12" Margin="6,0,0,0"
+                              Click="OnSortChanged" VerticalAlignment="Center"
+                              ToolTip="Flip the direction (↓ largest/newest first)."/>
+            </StackPanel>
+        </DockPanel>
 
         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="6">

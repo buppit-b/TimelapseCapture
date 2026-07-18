@@ -107,6 +107,10 @@ namespace FrameWrite
         // the fps is computed from however many frames are being encoded (works for trims too).
         public bool EncodeDurationMode { get; set; }
         public double EncodeDurationSeconds { get; set; } = 30;
+        // Session-list sort, shared by the picker and the combine dialog (one mental model):
+        // by "date" / "frames" / "size" (pixel area), descending by default (newest first).
+        public string SessionSortBy { get; set; } = "date";
+        public bool SessionSortDescending { get; set; } = true;
         // The "always-there recorder" pair (both opt-in): register the app to launch at Windows
         // sign-in, and/or begin capturing on launch (continues the most recent session, or starts
         // a new full-screen one) — so a capture can never be forgotten.
