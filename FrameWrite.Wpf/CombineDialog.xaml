@@ -25,29 +25,42 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
             <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
-                       Text="One continuous video, oldest first. Cull and Crop prepare a session in place; ✕ leaves it out. Settings below apply to this combine only."/>
+                       Text="Tick the sessions to join — one continuous video, oldest first. Settings below apply to this combine only."/>
         </StackPanel>
 
+        <!-- EVERY session is listed (tick = include), so a wrong pick in the session list is fixed
+             right here. Ineligible ones (archived / recording / empty) show greyed with the reason. -->
         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
-                BorderThickness="1" CornerRadius="10" Padding="6" MinHeight="120">
+                BorderThickness="1" CornerRadius="10" Padding="6" MinHeight="140">
             <ListBox x:Name="list" Background="Transparent" BorderThickness="0"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="OnRowSelected" MouseDoubleClick="OnRowDoubleClick"
                      HorizontalContentAlignment="Stretch">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Focusable" Value="False"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
-                                    <Border Background="Transparent" CornerRadius="6" Padding="8,7" Margin="0,1">
+                                    <Border x:Name="bd" Background="Transparent" CornerRadius="6"
+                                            BorderThickness="1" BorderBrush="Transparent" Padding="8,6" Margin="0,1">
                                         <ContentPresenter/>
                                     </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
@@ -55,34 +68,51 @@
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <DockPanel LastChildFill="True">
-                            <!-- Per-session prep: the REAL cull/crop dialogs, opened for that session. -->
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="Cull…" Style="{StaticResource BtnBase}" Padding="10,4" Margin="0,0,6,0"
-                                        Click="OnCullRow" Tag="{Binding}"
-                                        ToolTip="Scrub this session and delete fumble frames (renumbers gapless — can't be undone; backup offered)."/>
-                                <Button Content="Crop…" Style="{StaticResource BtnBase}" Padding="10,4" Margin="0,0,6,0"
-                                        Click="OnCropRow" Tag="{Binding}"
-                                        ToolTip="Choose the frame area this session contributes (saved on the session; non-destructive by default)."/>
-                                <Button Content="✕" Style="{StaticResource BtnBase}" Padding="8,4"
-                                        Click="OnRemoveRow" Tag="{Binding}"
-                                        ToolTip="Leave this session out (the session itself is untouched)."/>
-                            </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Eligible}" Value="False">
+                                            <Setter Property="Opacity" Value="0.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <CheckBox IsChecked="{Binding Included, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding Eligible}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Border Width="60" Height="36" Margin="0,0,12,0" CornerRadius="3"
+                                    Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                    ClipToBounds="True" SnapsToDevicePixels="True">
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                            </Border>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontFamily="Consolas" FontSize="13"/>
                                 <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"
                                            FontFamily="Consolas" FontSize="11" Margin="0,3,0,0"/>
                             </StackPanel>
-                        </DockPanel>
+                        </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
 
+        <!-- One prep strip instead of buttons on every row: acts on the highlighted session. -->
+        <StackPanel Grid.Row="2" x:Name="prepStrip" Orientation="Horizontal" Margin="0,8,0,0">
+            <TextBlock Text="Prepare" Style="{StaticResource FormLabel}"/>
+            <Button x:Name="cullBtn" Content="Cull…" Style="{StaticResource BtnBase}" Padding="12,4" Margin="0,0,6,0"
+                    Click="OnCullSelected"
+                    ToolTip="Scrub the highlighted session and delete fumble frames (renumbers gapless — can't be undone; backup offered)."/>
+            <Button x:Name="cropBtn" Content="Crop…" Style="{StaticResource BtnBase}" Padding="12,4" Margin="0,0,10,0"
+                    Click="OnCropSelected"
+                    ToolTip="Choose the frame area the highlighted session contributes (saved on the session; non-destructive by default)."/>
+            <TextBlock x:Name="prepHint" Style="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+        </StackPanel>
+
         <!-- Per-combine encode settings: SEEDED from the app's, applied here only — the main
              window doesn't move while you tweak. Aligned label column; conditional rows collapse. -->
-        <Border Grid.Row="2" x:Name="settingsPanel" Background="{DynamicResource SurfaceBrush}"
+        <Border Grid.Row="3" x:Name="settingsPanel" Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10"
                 Padding="14,10,14,12" Margin="0,12,0,0">
             <StackPanel>
@@ -191,7 +221,7 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="3" Margin="0,14,0,0">
+        <Grid Grid.Row="4" Margin="0,14,0,0">
             <TextBlock x:Name="progressText" Foreground="{DynamicResource TextSecondaryBrush}"
                        FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Left"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

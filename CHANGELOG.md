@@ -3,6 +3,21 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.5.3] — 2026-07-17 — combine: tick-to-include + crop wheel fix (feedback round)
+
+- **The combine dialog now lists EVERY session with a checkbox** — tick to include. Picked the
+  wrong ones in the session list? Fix it right there; nothing needs re-opening. Whatever was
+  selected in the picker arrives pre-ticked; double-clicking a row toggles it. Rows carry
+  thumbnails and dates (same visual language as the session picker); archived / recording /
+  empty sessions show greyed with the reason and can't be ticked. Per-row button clutter is
+  gone — one **Prepare** strip (Cull… / Crop…) acts on the highlighted session. The outcome
+  line and Combine button follow the ticked set live.
+- **Combine… in the session picker is now always openable** (no multi-select knowledge needed —
+  selection is just a pre-tick shortcut).
+- **Crop fix: W/H fields wheel-stepped down but not up.** The wheel stepped by 1, but crop
+  dimensions are force-rounded DOWN to even (H.264) — +1 always rounded back, −1 landed on −2.
+  W and H now step by 2 (tooltip explains); X/Y keep stepping by 1.
+
 ## [1.5.2] — 2026-07-17 — combine dialog: own settings + tidied layout (feedback round)
 
 - **Combine settings no longer move the main window.** The dialog's settings are now a

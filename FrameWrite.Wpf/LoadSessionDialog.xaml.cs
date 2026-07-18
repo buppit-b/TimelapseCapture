@@ -99,23 +99,18 @@ namespace FrameWrite.Wpf
         {
             if (_busy) return;   // the op's own status text owns the footer while running
 
-            // Combine… is ALWAYS visible (a hidden feature is an unknown feature); the tooltip
-            // teaches multi-select until 2+ eligible sessions are picked. Multi-select mode hands
-            // the footer to it — Archive/Load need exactly one session.
+            // Combine… is ALWAYS visible and openable — the staging dialog lists every session
+            // with tick-to-include, so nothing needs pre-selecting here (a selection just arrives
+            // pre-ticked). Multi-select mode hands the footer to it — Archive/Load need one session.
             var selected = list.SelectedItems.Cast<SessionListItem>().ToList();
             combineBtn.Content = selected.Count > 1 ? $"Combine {selected.Count}…" : "Combine…";
             string? blocked =
-                selected.Count < 2 ? "Ctrl/Shift-click to select two or more sessions first."
-                : _ffmpegPath == null ? "Needs ffmpeg — set it up from the main window first."
+                _ffmpegPath == null ? "Needs ffmpeg — set it up from the main window first."
                 : _vm == null ? "Combine isn't available here."
-                : selected.Count > 24 ? "Combine supports up to 24 sessions per run."
-                : selected.Any(i => i.IsArchived) ? "An archived session is selected — unarchive it first."
-                : selected.Any(i => i.IsActive) ? "A session marked as recording is selected."
-                : selected.Any(i => i.FrameCount == 0) ? "A selected session has no frames."
                 : null;
             combineBtn.IsEnabled = blocked == null;
             combineBtn.ToolTip = blocked ??
-                "Stage the selected sessions (oldest first): cull, crop, tweak the encode settings, then make one continuous video.";
+                "Join sessions into one continuous video — tick them inside (anything selected here arrives pre-ticked), cull/crop each, tweak the settings, then encode.";
 
             if (selected.Count > 1)
             {
@@ -265,20 +260,18 @@ namespace FrameWrite.Wpf
             finally { EndBusy(item.FolderPath); }
         }
 
-        // ---- multi-session combine: hand the selection to the staging dialog ----
+        // ---- multi-session combine: hand off to the staging dialog ----
 
         private void OnCombine(object sender, RoutedEventArgs e)
         {
             if (_busy || _ffmpegPath == null || _vm == null) return;
-            var items = list.SelectedItems.Cast<SessionListItem>().OrderBy(i => i.SortKey).ToList();   // oldest first
-            if (items.Count < 2 || items.Any(i => i.IsArchived || i.IsActive || i.FrameCount == 0)) return;
-
-            // The staging dialog owns the rest: per-session cull/crop, inline encode settings, the
-            // live outcome line, and the encode itself. Cull/crop may have changed what's on disk —
-            // re-read the list either way.
-            var dlg = new CombineDialog(items.Select(i => i.FolderPath), _vm, _ffmpegPath) { Owner = this };
+            // The staging dialog lists EVERY session with tick-to-include (whatever is selected
+            // here arrives pre-ticked) and owns the rest: per-session cull/crop, per-combine
+            // settings, and the encode. Prep may have changed disk — re-read the list after.
+            var selected = list.SelectedItems.Cast<SessionListItem>().Select(i => i.FolderPath).ToList();
+            var dlg = new CombineDialog(_capturesRoot, selected, _vm, _ffmpegPath) { Owner = this };
             dlg.ShowDialog();
-            RebuildList(items[0].FolderPath);
+            RebuildList(selected.FirstOrDefault());
         }
 
         private static string Mb(long bytes) => bytes >= 1073741824

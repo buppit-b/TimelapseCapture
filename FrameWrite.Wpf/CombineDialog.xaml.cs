@@ -32,7 +32,7 @@ namespace FrameWrite.Wpf
         private bool _busy;
         private bool _closeWhenIdle;
 
-        public CombineDialog(IEnumerable<string> sessionFolders, MainViewModel vm, string ffmpegPath)
+        public CombineDialog(string capturesRoot, IEnumerable<string> preselect, MainViewModel vm, string ffmpegPath)
         {
             InitializeComponent();
             _vm = vm;
@@ -40,12 +40,48 @@ namespace FrameWrite.Wpf
             _cfg = CombineSettings.SeededFrom(vm);
             DataContext = _cfg;   // this combine's settings only — the main window never moves
 
-            foreach (var f in sessionFolders) _items.Add(new CombineItem(f));
+            // EVERY session is a row (tick = include) — a wrong pick in the session list is fixed
+            // here by ticking, not by starting over. Pre-tick what the picker had selected.
+            var wanted = new HashSet<string>(preselect, StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var dir in Directory.Exists(capturesRoot) ? Directory.GetDirectories(capturesRoot) : Array.Empty<string>())
+                {
+                    if (SessionManager.LoadSession(dir) == null) continue;
+                    var item = new CombineItem(dir);
+                    item.Included = item.Eligible && wanted.Contains(dir);
+                    item.PropertyChanged += (s, e) => RefreshOutcome();   // ticking re-plans live
+                    _items.Add(item);
+                }
+            }
+            catch { /* best-effort listing — a bad folder shouldn't break staging */ }
             SortOldestFirst();
             list.ItemsSource = _items;
+            if (_items.Count > 0) list.SelectedIndex = 0;
 
             _cfg.PropertyChanged += (s, e) => RefreshOutcome();
             RefreshOutcome();
+        }
+
+        private IReadOnlyList<CombineItem> Included() => _items.Where(i => i.Included).ToList();
+
+        private void OnRowSelected(object sender, SelectionChangedEventArgs e) => UpdatePrepStrip();
+
+        // Double-click anywhere on a row toggles its tick (the checkbox stays the visible truth).
+        private void OnRowDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (!_busy && list.SelectedItem is CombineItem { Eligible: true } item)
+                item.Included = !item.Included;
+        }
+
+        private void UpdatePrepStrip()
+        {
+            bool ok = !_busy && list.SelectedItem is CombineItem { Eligible: true, Frames: > 0 };
+            cullBtn.IsEnabled = ok;
+            cropBtn.IsEnabled = ok;
+            prepHint.Text = list.SelectedItem is CombineItem it
+                ? (it.Eligible ? $"acts on “{it.Name}”" : $"“{it.Name}” — {it.Reason}")
+                : "highlight a session first";
         }
 
         private void SortOldestFirst()
@@ -62,7 +98,7 @@ namespace FrameWrite.Wpf
 
         private (int totalFrames, int nth, double fps) Plan()
         {
-            int total = _items.Sum(i => i.Frames);
+            int total = Included().Sum(i => i.Frames);
             int nth = _cfg.SpeedUpEnabled ? Math.Max(1, _cfg.SpeedUpN) : 1;
             double fps = _cfg.UnitIndex == 1
                 ? VideoEncoder.FpsForDuration(total, nth, _cfg.DurationSeconds)
@@ -73,23 +109,24 @@ namespace FrameWrite.Wpf
         private void RefreshOutcome()
         {
             if (_busy) return;
+            var included = Included();
             var (total, nth, fps) = Plan();
             int kept = Math.Max(1, (total + nth - 1) / nth);
             double seconds = kept / fps + Math.Max(0, _cfg.HoldLastSeconds);
-            var canvas = VideoEncoder.CombineTargetSize(_items.Where(i => i.Frames > 0)
+            var canvas = VideoEncoder.CombineTargetSize(included.Where(i => i.Frames > 0)
                 .Select(i => (i.FrameSize, i.Crop)).ToList());
 
-            resultText.Text = _items.Count == 0 ? "No sessions left to combine."
-                : $"{_items.Count} sessions · {total} frames" + (nth > 1 ? $" → {kept} kept (1 in {nth})" : "")
+            resultText.Text = included.Count < 2
+                ? $"Tick two or more sessions ({included.Count} ticked)."
+                : $"{included.Count} sessions · {total} frames" + (nth > 1 ? $" → {kept} kept (1 in {nth})" : "")
                   + $" → ≈ {FormatLen(seconds)} at {fps:0.#} fps · canvas {canvas.Width}×{canvas.Height}"
                   + $" · {_cfg.Format.ToUpperInvariant()}";
 
-            string? blocked =
-                _items.Count < 2 ? "Needs at least two sessions."
-                : _items.Any(i => i.Frames == 0) ? "A listed session has no frames — remove it (✕)."
-                : null;
-            combineBtn.IsEnabled = blocked == null;
-            combineBtn.ToolTip = blocked ?? "Encode the list, top to bottom, into one video.";
+            combineBtn.IsEnabled = included.Count >= 2 && included.Count <= 24;
+            combineBtn.ToolTip = included.Count < 2 ? "Tick two or more sessions first."
+                : included.Count > 24 ? "Combine supports up to 24 sessions per run."
+                : "Encode the ticked sessions, oldest first, into one video.";
+            UpdatePrepStrip();
         }
 
         private static string FormatLen(double s)
@@ -101,16 +138,9 @@ namespace FrameWrite.Wpf
 
         // ---- per-row prep: the real dialogs, run against THAT session's folder ----
 
-        private void OnRemoveRow(object sender, RoutedEventArgs e)
+        private async void OnCullSelected(object sender, RoutedEventArgs e)
         {
-            if (_busy || (sender as FrameworkElement)?.Tag is not CombineItem item) return;
-            _items.Remove(item);
-            RefreshOutcome();
-        }
-
-        private async void OnCullRow(object sender, RoutedEventArgs e)
-        {
-            if (_busy || (sender as FrameworkElement)?.Tag is not CombineItem item || item.Frames < 1) return;
+            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1) return;
             var saved = SessionManager.LoadSession(item.Folder);
             var dlg = new CullDialog(item.Folder, item.Frames, saved?.CullMarkedFrames) { Owner = this };
             bool apply = dlg.ShowDialog() == true && dlg.MarkedForDeletion.Count > 0;
@@ -153,9 +183,9 @@ namespace FrameWrite.Wpf
                 MessageDialog.Show($"Backup saved first:\n{backupPath}", "Cull frames");
         }
 
-        private async void OnCropRow(object sender, RoutedEventArgs e)
+        private async void OnCropSelected(object sender, RoutedEventArgs e)
         {
-            if (_busy || (sender as FrameworkElement)?.Tag is not CombineItem item || item.Frames < 1) return;
+            if (_busy || list.SelectedItem is not CombineItem { Eligible: true } item || item.Frames < 1) return;
             var saved = SessionManager.LoadSession(item.Folder);
             var dlg = new CropDialog(item.Folder, saved?.EncodeCrop, _vm.OverlayTimestamp) { Owner = this };
             if (dlg.ShowDialog() != true) return;
@@ -223,18 +253,19 @@ namespace FrameWrite.Wpf
 
         private async void OnCombine(object sender, RoutedEventArgs e)
         {
-            if (_busy || _items.Count < 2 || _items.Any(i => i.Frames == 0)) return;
+            var included = Included();
+            if (_busy || included.Count < 2 || included.Count > 24 || included.Any(i => i.Frames == 0)) return;
             var (total, nth, fps) = Plan();
             int expectedOut = Math.Max(1, (total + nth - 1) / nth);
 
-            BeginBusy($"Combining {_items.Count} sessions…");
+            BeginBusy($"Combining {included.Count} sessions…");
             var token = _cts!.Token;   // survives EndBusy's dispose — needed for the cancel check
             VideoEncoder.Result result;
             try
             {
                 try
                 {
-                    result = await VideoEncoder.CombineAsync(_ffmpegPath, _items.Select(i => i.Folder).ToList(),
+                    result = await VideoEncoder.CombineAsync(_ffmpegPath, included.Select(i => i.Folder).ToList(),
                         fps, _cfg.Preset, _cfg.Crf, token,
                         outputName: $"combined_{DateTime.Now:yyyyMMdd_HHmmss}",
                         onFrameProgress: n => Dispatcher.BeginInvoke(new Action(() =>
@@ -251,7 +282,7 @@ namespace FrameWrite.Wpf
 
             if (result.Success)
             {
-                MessageDialog.Show($"Combined {_items.Count} sessions ({total} frames):\n{result.OutputPath}",
+                MessageDialog.Show($"Combined {included.Count} sessions ({total} frames):\n{result.OutputPath}",
                     "Sessions combined");
                 DialogResult = true;   // done — back to the picker
             }
@@ -275,6 +306,7 @@ namespace FrameWrite.Wpf
             _busy = true;
             _cts = new CancellationTokenSource();
             list.IsEnabled = false;
+            prepStrip.IsEnabled = false;
             settingsPanel.IsEnabled = false;
             combineBtn.IsEnabled = false;
             progressText.Text = status;
@@ -287,6 +319,7 @@ namespace FrameWrite.Wpf
             _cts = null;
             if (_closeWhenIdle) { Close(); return; }
             list.IsEnabled = true;
+            prepStrip.IsEnabled = true;
             settingsPanel.IsEnabled = true;
             progressText.Text = "";
             refreshItem?.Refresh();
@@ -373,7 +406,9 @@ namespace FrameWrite.Wpf
         public bool ShowLength => UnitIndex == 1;
     }
 
-    /// <summary>One staged session: fresh-from-disk facts, refreshable after a cull/crop.</summary>
+    /// <summary>One staged session: fresh-from-disk facts, refreshable after a cull/crop.
+    /// Included is the tick; Eligible=false rows (archived / recording / empty) grey out with the
+    /// reason in their detail line and can't be ticked.</summary>
     public sealed class CombineItem : System.ComponentModel.INotifyPropertyChanged
     {
         public string Folder { get; }
@@ -383,6 +418,21 @@ namespace FrameWrite.Wpf
         public System.Drawing.Size FrameSize { get; private set; }
         public System.Drawing.Rectangle? Crop { get; private set; }
         public DateTime SortKey { get; private set; }
+        public bool Eligible { get; private set; }
+        public string Reason { get; private set; } = "";
+        public System.Windows.Media.ImageSource? Thumbnail { get; private set; }
+
+        private bool _included;
+        public bool Included
+        {
+            get => _included;
+            set
+            {
+                if (_included == value || (value && !Eligible)) return;
+                _included = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Included)));
+            }
+        }
 
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
@@ -398,6 +448,7 @@ namespace FrameWrite.Wpf
             Name = string.IsNullOrWhiteSpace(s?.Name) ? Path.GetFileName(Folder) : s!.Name!;
             SortKey = s?.StartTime ?? DateTime.MinValue;
             Crop = s?.EncodeCrop;
+            Thumbnail = FramePreview.LoadLatest(Folder, 120);
             var files = SessionManager.GetFrameFiles(Folder);
             Frames = files.Length;
             FrameSize = System.Drawing.Size.Empty;
@@ -406,9 +457,18 @@ namespace FrameWrite.Wpf
                 // Header-level read for the real frame size (regions can lie after a destructive crop).
                 try { using var img = System.Drawing.Image.FromFile(files[0]); FrameSize = img.Size; } catch { }
             }
+
+            Reason = s?.Archived == true ? "archived — unarchive first"
+                : s?.Active == true ? "marked as recording"
+                : Frames == 0 ? "no frames"
+                : "";
+            Eligible = Reason.Length == 0;
+            if (!Eligible && _included) _included = false;   // e.g. culled to zero mid-staging
+
             string size = FrameSize.IsEmpty ? "?" : $"{FrameSize.Width}×{FrameSize.Height}";
-            Detail = $"{Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}"
-                + (Crop is { } c ? $"   ·   crop {c.Width}×{c.Height}" : "");
+            Detail = $"{SortKey:dd MMM}   ·   {Frames} frame{(Frames == 1 ? "" : "s")}   ·   {size}"
+                + (Crop is { } c ? $"   ·   crop {c.Width}×{c.Height}" : "")
+                + (Eligible ? "" : $"   ·   {Reason}");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(""));   // all props
         }
     }

@@ -76,10 +76,12 @@
                      local:NumericInput.AllowDecimal="False" LostFocus="OnFieldChanged"/>
             <TextBlock Text="W" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="12,0,6,0"/>
             <TextBox x:Name="wBox" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                     local:NumericInput.AllowDecimal="False" LostFocus="OnFieldChanged"/>
+                     local:NumericInput.AllowDecimal="False" local:NumericInput.Step="2" LostFocus="OnFieldChanged"
+                     ToolTip="Steps by 2 — H.264 needs even dimensions, so odd values round down."/>
             <TextBlock Text="H" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="12,0,6,0"/>
             <TextBox x:Name="hBox" Style="{StaticResource DarkTextBox}" Width="56" TextAlignment="Center"
-                     local:NumericInput.AllowDecimal="False" LostFocus="OnFieldChanged"/>
+                     local:NumericInput.AllowDecimal="False" local:NumericInput.Step="2" LostFocus="OnFieldChanged"
+                     ToolTip="Steps by 2 — H.264 needs even dimensions, so odd values round down."/>
             <TextBlock x:Name="cropInfo" Style="{StaticResource Muted}" FontFamily="Consolas" FontSize="11"
                        VerticalAlignment="Center" Margin="14,0,0,0"/>
         </StackPanel>
