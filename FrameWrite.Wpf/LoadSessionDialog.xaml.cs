@@ -45,7 +45,7 @@ namespace FrameWrite.Wpf
             // Seed the sort control from the shared preference (default: date, newest first).
             _sortReady = false;
             string by = _vm?.SessionSortBy ?? "date";
-            (by == "frames" ? sortFrames : by == "size" ? sortSize : sortDate).IsChecked = true;
+            (by == "frames" ? sortFrames : by == "size" ? sortSize : by == "name" ? sortName : sortDate).IsChecked = true;
             sortDir.IsChecked = _vm?.SessionSortDescending ?? true;
             SyncSortGlyph();
             _sortReady = true;
@@ -70,16 +70,17 @@ namespace FrameWrite.Wpf
         }
 
         private string SortField() => sortFrames.IsChecked == true ? "frames"
-            : sortSize.IsChecked == true ? "size" : "date";
+            : sortSize.IsChecked == true ? "size" : sortName.IsChecked == true ? "name" : "date";
 
         private void SyncSortGlyph() => sortDir.Content = sortDir.IsChecked == true ? "↓" : "↑";
 
-        /// <summary>The shared session comparer: field + direction (descending = newest/most first).</summary>
-        internal static Comparison<(DateTime date, int frames, long area)> SortComparer(string by, bool desc)
+        /// <summary>The shared session comparer: field + direction (descending = newest/Z/most first).</summary>
+        internal static Comparison<(string name, DateTime date, int frames, long area)> SortComparer(string by, bool desc)
         {
             int sign = desc ? -1 : 1;
             return by switch
             {
+                "name" => (a, b) => sign * string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase),
                 "frames" => (a, b) => sign * a.frames.CompareTo(b.frames),
                 "size" => (a, b) => sign * a.area.CompareTo(b.area),
                 _ => (a, b) => sign * a.date.CompareTo(b.date),
@@ -103,7 +104,7 @@ namespace FrameWrite.Wpf
             catch { /* best-effort listing — a bad folder shouldn't break the picker */ }
 
             var cmp = SortComparer(SortField(), sortDir.IsChecked == true);
-            items.Sort((a, b) => cmp((a.SortKey, a.FrameCount, a.PixelArea), (b.SortKey, b.FrameCount, b.PixelArea)));
+            items.Sort((a, b) => cmp((a.Name, a.SortKey, a.FrameCount, a.PixelArea), (b.Name, b.SortKey, b.FrameCount, b.PixelArea)));
 
             list.ItemsSource = items;
             emptyMsg.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;

@@ -28,25 +28,26 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" LastChildFill="False">
-            <StackPanel DockPanel.Dock="Left">
-                <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
-                <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
-                           Text="Tick the sessions to join — the video always runs oldest → newest, however the list is sorted. Settings below apply to this combine only."/>
-            </StackPanel>
-            <!-- Same sort control (and saved preference) as the session picker — one mental model. -->
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="COMBINE SESSIONS" Style="{StaticResource CardTitle}"/>
+            <TextBlock Style="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap"
+                       Text="Tick the sessions to join — the video always runs oldest → newest, however the list is sorted. Settings below apply to this combine only."/>
+            <!-- Same sort bar (and saved preference) as the session picker — one mental model. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,6">
+                <TextBlock Text="Sort" Style="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <RadioButton x:Name="sortDate" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Date"
                              Checked="OnSortChanged" ToolTip="Sort by session start date."/>
+                <RadioButton x:Name="sortName" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Name"
+                             Checked="OnSortChanged" ToolTip="Sort by session name."/>
                 <RadioButton x:Name="sortFrames" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Frames"
                              Checked="OnSortChanged" ToolTip="Sort by frame count."/>
                 <RadioButton x:Name="sortSize" Style="{StaticResource Seg}" GroupName="cmbsort" Content="Size"
                              Checked="OnSortChanged" ToolTip="Sort by frame size (pixels)."/>
                 <ToggleButton x:Name="sortDir" Style="{StaticResource HeaderToggle}" FontSize="12" Margin="6,0,0,0"
                               Click="OnSortChanged" VerticalAlignment="Center"
-                              ToolTip="Flip the direction (↓ largest/newest first)."/>
+                              ToolTip="Flip the direction (↓ = newest / Z / most first)."/>
             </StackPanel>
-        </DockPanel>
+        </StackPanel>
 
         <!-- EVERY session is listed (tick = include), so a wrong pick in the session list is fixed
              right here. Ineligible ones (archived / recording / empty) show greyed with the reason. -->

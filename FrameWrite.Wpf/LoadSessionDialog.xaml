@@ -13,25 +13,27 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" LastChildFill="False">
-            <StackPanel DockPanel.Dock="Left">
-                <TextBlock Text="SESSIONS" Style="{StaticResource CardTitle}"/>
-                <TextBlock Text="Ctrl/Shift-click selects several — Combine… turns them into one video."
-                           Style="{StaticResource Muted}" FontSize="10" Margin="0,0,0,6"/>
-            </StackPanel>
-            <!-- Sort (shared with the combine dialog): field + direction. Date is first and default. -->
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="SESSIONS" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Ctrl/Shift-click selects several — Combine… turns them into one video."
+                       Style="{StaticResource Muted}" FontSize="10"/>
+            <!-- Sort bar on its OWN row above the list it orders (shared control + saved preference
+                 with the combine dialog). Full dialog width available — nothing clips. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,6">
+                <TextBlock Text="Sort" Style="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <RadioButton x:Name="sortDate" Style="{StaticResource Seg}" GroupName="lssort" Content="Date"
                              Checked="OnSortChanged" ToolTip="Sort by session start date."/>
+                <RadioButton x:Name="sortName" Style="{StaticResource Seg}" GroupName="lssort" Content="Name"
+                             Checked="OnSortChanged" ToolTip="Sort by session name."/>
                 <RadioButton x:Name="sortFrames" Style="{StaticResource Seg}" GroupName="lssort" Content="Frames"
                              Checked="OnSortChanged" ToolTip="Sort by frame count."/>
                 <RadioButton x:Name="sortSize" Style="{StaticResource Seg}" GroupName="lssort" Content="Size"
                              Checked="OnSortChanged" ToolTip="Sort by capture-area size (pixels)."/>
                 <ToggleButton x:Name="sortDir" Style="{StaticResource HeaderToggle}" FontSize="12" Margin="6,0,0,0"
                               Click="OnSortChanged" VerticalAlignment="Center"
-                              ToolTip="Flip the direction (↓ largest/newest first)."/>
+                              ToolTip="Flip the direction (↓ = newest / Z / most first)."/>
             </StackPanel>
-        </DockPanel>
+        </StackPanel>
 
         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="6">

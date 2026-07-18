@@ -66,7 +66,7 @@ namespace FrameWrite.Wpf
             // order only: the encode itself always runs oldest -> newest.
             _sortReady = false;
             string by = vm.SessionSortBy;
-            (by == "frames" ? sortFrames : by == "size" ? sortSize : sortDate).IsChecked = true;
+            (by == "frames" ? sortFrames : by == "size" ? sortSize : by == "name" ? sortName : sortDate).IsChecked = true;
             sortDir.IsChecked = vm.SessionSortDescending;
             SyncSortGlyph();
             _sortReady = true;
@@ -85,7 +85,8 @@ namespace FrameWrite.Wpf
         {
             if (!_sortReady) return;
             SyncSortGlyph();
-            _vm.SessionSortBy = sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size" : "date";
+            _vm.SessionSortBy = sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size"
+                : sortName.IsChecked == true ? "name" : "date";
             _vm.SessionSortDescending = sortDir.IsChecked == true;
             var keep = list.SelectedItem as CombineItem;
             ApplySort();
@@ -118,10 +119,11 @@ namespace FrameWrite.Wpf
         private void ApplySort()
         {
             var cmp = LoadSessionDialog.SortComparer(
-                sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size" : "date",
+                sortFrames.IsChecked == true ? "frames" : sortSize.IsChecked == true ? "size"
+                    : sortName.IsChecked == true ? "name" : "date",
                 sortDir.IsChecked == true);
-            var ordered = _items.OrderBy(i => (i.SortKey, i.Frames, i.PixelArea),
-                Comparer<(DateTime, int, long)>.Create((a, b) => cmp(a, b))).ToList();
+            var ordered = _items.OrderBy(i => (i.Name, i.SortKey, i.Frames, i.PixelArea),
+                Comparer<(string, DateTime, int, long)>.Create((a, b) => cmp(a, b))).ToList();
             for (int i = 0; i < ordered.Count; i++)
             {
                 int cur = _items.IndexOf(ordered[i]);

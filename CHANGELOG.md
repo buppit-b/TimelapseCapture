@@ -3,6 +3,14 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.6.1] — 2026-07-18 — sort bar: own row + Name field (feedback)
+
+- **The sort control no longer clips** — it sits on its own right-aligned row directly above the
+  list it orders, in both the session picker and the combine dialog, with the full dialog width
+  available. **Name** joined the sort fields (Date / Name / Frames / Size). Column-header sorting
+  was considered and passed on deliberately: the rows are cards (thumbnail + name over details),
+  which is what keeps sessions recognizable — header sorting belongs to grid lists.
+
 ## [1.6.0] — 2026-07-17 — merge sessions + session-list sorting (feedback round)
 
 - **Merge into one session** (combine dialog, left of Combine): the ticked sessions' FRAMES

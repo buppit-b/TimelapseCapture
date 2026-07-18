@@ -37,7 +37,7 @@ namespace FrameWrite.Wpf.ViewModels
         public string SessionSortBy
         {
             get => _settings.SessionSortBy;
-            set { var v = value is "frames" or "size" ? value : "date"; if (_settings.SessionSortBy != v) { _settings.SessionSortBy = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
+            set { var v = value is "frames" or "size" or "name" ? value : "date"; if (_settings.SessionSortBy != v) { _settings.SessionSortBy = v; SettingsManager.Save(_settings); OnPropertyChanged(); } }
         }
         public bool SessionSortDescending
         {
