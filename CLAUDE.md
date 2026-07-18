@@ -26,7 +26,7 @@ removed 2026-07-12 at Spike's request — don't reinstate it.)*
 - **`FrameWrite.Wpf`** — the app. WPF + MVVM, clean dark theme, terminal/green accent.
 - **`FrameWrite.Core`** — UI-framework-agnostic shared library: capture engine, sessions,
   settings, ffmpeg, system stats.
-- **`FrameWrite.Tests`** — 181 tests (count moves with each batch — trust `dotnet test`), cover `SessionManager` (incl. `CullAndRenumber`,
+- **`FrameWrite.Tests`** — 205 tests (count moves with each batch — trust `dotnet test`), cover `SessionManager` (incl. `CullAndRenumber`, `MergeSessions`,
   `FindSessionRoot`), `OverlayRenderer.ResolveTokens`, `WindowEnumerator.CoversArea`,
   `AppPaths.ResolveDataDir` (portable vs %APPDATA%),
   `ValidationHelper`, `ScreenHelper` (region-relocate geometry), `WindowEnumerator` (filtering +
@@ -69,7 +69,7 @@ Small, single-maintainer app. The working bar:
 > builds and runs.**
 
 - **Verify before you trust** (including claims in this file).
-- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 100% (181 as of 1.2.1).
+- **Keep the build green** — `dotnet build` at 0 errors AND 0 warnings, `dotnet test` at 100% (205 as of 1.7.0).
 - **Respect the invariants below** — each came from a shipped bug.
 - Improving/simplifying nearby code is welcome; for a true architectural shift,
   align on the approach first.
@@ -307,6 +307,19 @@ custom chrome all landed).
 
 ## Handoff notes for the next thread
 
+- **DEVELOPMENT WRAPPED at 1.7.0 (2026-07-18, Spike's call).** The wrap arc (1.1.0→1.7.0, all
+  tagged) added: startup options, MP4/WebM/GIF export + GIF tuning, Archive session, multi-session
+  combine (staging dialog) + merge-into-one-session, session sorting + disk sizes, zoomable
+  crop/cull/trim (ZoomHost), tray pause/resume, drive gauge, Alt-drag-from-centre select, an app
+  icon, and three hardening/refactor batches. ROADMAP's top "PROJECT WRAP" section lists what's
+  parked and why (WGC slice 2, element tracking, UI reshape, overlay-at-encode, bug reporter,
+  live chunked storage). Auto-encode-on-stop is REJECTED by design, not parked. If development
+  resumes, start from ROADMAP's wrap section + the CHANGELOG.
+- New Core surfaces since 1.0: `SessionArchiver` (archive/unarchive, verified-before-delete),
+  `SessionManager.MergeSessions` (move/copy, crash-safe move), `VideoEncoder.CombineAsync`
+  (multi-input filter_complex) + `GifOptions`/`FormatArgs`, `FfmpegRunner.MakeFrameTap`/
+  `TailErrorLine`, `HumanFormat.Bytes`, `StartupRegistration`. New Wpf surfaces: `CombineDialog`
+  (staging + per-run `CombineSettings`), `ZoomHost`, the picker's archive/sort machinery.
 - **FrameWrite shipped 1.0.0 on 2026-07-13** (tag `v1.0.0`), capping the long RC arc (see CHANGELOG).
   Soak #1 substantively PASSED (2026-07-12, 5.5h, encodes clean). MIT LICENSE + README are in.
   Spike tests each build live and gives UX feedback. **Development continues past 1.0** — UI polish,

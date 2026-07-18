@@ -12,6 +12,43 @@ While pre-1.0 we stay on **`0.x`**: minor bumps for features, patch bumps for fi
 breaking changes are allowed but called out. The version lives in the two
 `.csproj` files (`<Version>`) and is shown in the **Settings** dialog (the cog).
 
+---
+
+## ⬛ PROJECT WRAP — development concluded at 1.7.0 (2026-07-18, Spike's call)
+
+The app wrapped as a **complete, hardened daily driver**: 205/205 tests, 0-warning build,
+release packaging proven. Everything on the agreed 1.1 line shipped, plus a post-1.0 arc that
+went well beyond it. Development can resume any time — this file + CHANGELOG + CLAUDE.md carry
+the full state.
+
+**Shipped over the wrap arc (1.1.0 → 1.7.0):** startup options (launch at sign-in + start
+capturing) · MP4/WebM/GIF export with GIF tuning · encode-to-exact-length + end-frame hold ·
+**Archive session** (frames → one verified video, 5–15× smaller, reversible) · **multi-session
+combine** (staging dialog: tick-to-include, per-session cull/crop, per-run settings, letterbox
+canvas) · **merge into one continuable session** (move/copy) · session-list sorting (date/name/
+frames/size on disk, shared preference) + per-row disk sizes · zoomable crop/cull/trim dialogs
+(ZoomHost) · tray pause/resume · pause cue · drive gauge + threshold tooltips · Alt-drag-from-
+centre region select · app icon (scripts/make-icon.ps1) · three hardening batches (5-fix, 5-fix,
+sweep) + a dedup refactor pass.
+
+**Explicitly parked (with reasons, for whenever development resumes):**
+- **WGC tracking slice 2** (occluded windows, persist tracking, client-area-only) — a week-class
+  arc; the BitBlt limits are documented in item 1 below.
+- **Element ("smart") tracking** — tabled 2026-07-16; design kept below (start with slice 0, the
+  picker-as-coverage-probe).
+- **The full UI elegance reshape + stats visual mode** — the sharpest UX feedback was addressed
+  piecemeal over the wrap arc (dialogs, combine, disk visibility); the layout reshape itself
+  remains open-ended.
+- **Overlay burn-at-encode / retroactive bake variants** — design noted below.
+- **In-app bug reporter** — only matters if the app goes public.
+- **Live chunked-video frame storage + capture-time downscale lever** — items 4–5 of the
+  frame-storage ladder below; Archive session (item 3) shipped and covers the main need.
+- **Auto-encode-on-stop** — REJECTED by design (Spike): encoding stays user-triggered.
+
+---
+
+**(Historical status below — kept for context.)**
+
 **Current: `0.9.4` — the 1.0 release candidate.** Everything on the 1.0 feature line has
 landed (window tracking, unattended safety, trim + cull, Simple mode + setup wizard, custom
 chrome, hardening/perf passes; 0-warning build, 68/68 tests).
