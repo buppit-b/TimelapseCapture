@@ -46,6 +46,9 @@ namespace FrameWrite.Wpf
 
             // Apply the saved theme before the first window renders (resources already exist here).
             try { ThemeManager.Apply(SettingsManager.Load().Theme); } catch { }
+            // Register the app-wide hide-from-capture handler BEFORE any window loads, so every
+            // window (main, dialogs, overlays, the frame viewer) picks up the setting consistently.
+            WindowCapture.Init();
             base.OnStartup(e);
         }
 

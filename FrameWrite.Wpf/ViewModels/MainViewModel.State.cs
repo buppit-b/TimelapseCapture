@@ -447,6 +447,9 @@ namespace FrameWrite.Wpf.ViewModels
                     OnPropertyChanged(nameof(NotCapturing));
                     OnPropertyChanged(nameof(SessionNeeded));
                     NotifyCaptureState();
+                    // Hide-from-capture is capture-scoped — starting/stopping flips whether the app
+                    // is excluded, so re-sync every window's affinity on the transition.
+                    WindowAffinityChanged?.Invoke();
                     CommandManager.InvalidateRequerySuggested();
                 }
             }

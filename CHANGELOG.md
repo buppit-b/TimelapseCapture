@@ -3,6 +3,20 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.7.1] — 2026-07-18 — hide-from-capture: scoped to capture + covers every window (bugfix)
+
+- **Fixed the "black screen" on the shipped exe.** With *Hide from captures* on, the app applied
+  `WDA_EXCLUDEFROMCAPTURE` to the main window **at all times** — so the window rendered normally to
+  the eye but was invisible to any screen capture, making the user's OWN screenshots / screen-shares
+  come out black (most visibly at launch). The exclusion is now **scoped to while a capture is
+  actually running** — its real purpose (keeping FrameWrite out of its own timelapse frames). When
+  idle, every window captures normally again. Confirmed via `GetWindowDisplayAffinity`: idle = none.
+- **Every window is covered now, not just the main one.** A single app-wide `Window.Loaded` handler
+  (new `WindowCapture` helper) applies the exclusion to dialogs, the frame viewer and overlays too —
+  previously only `MainWindow` was hidden, so a dialog open during capture could leak into the frames.
+- Setting relabelled "Hide FrameWrite from captures **while recording**" with a tooltip that spells
+  out the scope (idle screenshots are unaffected).
+
 ## [1.7.0] — 2026-07-18 — hardening + refactor sweep · Alt-drag region select
 
 - **Alt-drag-from-centre region select** (the last item of the agreed 1.1 line): hold Alt while

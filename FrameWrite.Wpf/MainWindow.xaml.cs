@@ -11,7 +11,6 @@ namespace FrameWrite.Wpf
     {
         [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-        [DllImport("user32.dll")] private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
         [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
         [DllImport("user32.dll")] private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
@@ -20,7 +19,6 @@ namespace FrameWrite.Wpf
         private const int WM_HOTKEY = 0x0312;
         private const int WM_GETMINMAXINFO = 0x0024;
         private const int HOTKEY_ID_BASE = 0x4600; // + index into MainViewModel.HotkeyActions
-        private const uint WDA_NONE = 0x0, WDA_EXCLUDEFROMCAPTURE = 0x11; // hide window from screen capture
         private const int MONITOR_DEFAULTTONEAREST = 2;
 
         [StructLayout(LayoutKind.Sequential)] private struct POINTL { public int X, Y; }
@@ -117,13 +115,17 @@ namespace FrameWrite.Wpf
             if (DataContext is MainViewModel vm)
             {
                 vm.HotkeysChanged += RefreshHotkey;
-                vm.WindowAffinityChanged += ApplyAffinity;
+                // Hide from capture ONLY while capturing (its true purpose — keep the app out of the
+                // timelapse). Applied 24/7 it also blacked out the user's own screenshots. The helper's
+                // class handler covers every window; this just keeps them all in sync on state changes.
+                WindowCapture.ShouldHide = () => vm.HideFromCapture && vm.IsCapturing;
+                vm.WindowAffinityChanged += WindowCapture.ApplyAll;
                 vm.FinishNotified += OnFinishNotified;
                 try { _tray = new TrayIcon(this, vm); }   // system-tray presence + recording status
                 catch (Exception ex) { FrameWrite.Logger.Log("Wpf", $"Tray icon unavailable: {ex.Message}"); }
             }
             RefreshHotkey();
-            ApplyAffinity();
+            WindowCapture.ApplyAll();
         }
 
         // A capture auto-stopped or an encode finished — chime and flash the taskbar (draws attention if
@@ -144,15 +146,6 @@ namespace FrameWrite.Wpf
                 dwTimeout = 0,
             };
             try { FlashWindowEx(ref fi); } catch { }
-        }
-
-        // Hide (or show) this window in screen captures per the setting.
-        private void ApplyAffinity()
-        {
-            var h = new WindowInteropHelper(this).Handle;
-            if (h == IntPtr.Zero) return;
-            bool hide = (DataContext as MainViewModel)?.HideFromCapture ?? false;
-            try { SetWindowDisplayAffinity(h, hide ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE); } catch { }
         }
 
         // Re-register every bound action's global hotkey to match the current keymap, and report
@@ -272,7 +265,7 @@ namespace FrameWrite.Wpf
             var handle = new WindowInteropHelper(this).Handle;
             foreach (int id in _registeredHotkeys) UnregisterHotKey(handle, id);
             _registeredHotkeys.Clear();
-            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= ApplyAffinity; vm.FinishNotified -= OnFinishNotified; }
+            if (DataContext is MainViewModel vm) { vm.HotkeysChanged -= RefreshHotkey; vm.WindowAffinityChanged -= WindowCapture.ApplyAll; vm.FinishNotified -= OnFinishNotified; }
             _source?.RemoveHook(WndProc);
             _tray?.Dispose();   // remove the tray icon so it doesn't linger after exit
             (DataContext as MainViewModel)?.OnAppClosing();

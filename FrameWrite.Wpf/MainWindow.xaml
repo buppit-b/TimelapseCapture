@@ -346,9 +346,9 @@
                             <CheckBox Content="Capture cursor" IsChecked="{Binding CaptureCursor}"
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                       ToolTip="Draw the mouse pointer into each frame (applies on the next capture start)."/>
-                            <CheckBox Content="Hide this window from captures" IsChecked="{Binding HideFromCapture}"
+                            <CheckBox Content="Hide FrameWrite from captures while recording" IsChecked="{Binding HideFromCapture}"
                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="18,0,0,0"
-                                      ToolTip="Exclude the FrameWrite window from screen captures so it never appears in frames (Win10 2004+)."/>
+                                      ToolTip="While a capture is running, exclude FrameWrite and its dialogs from screen capture so they never appear in your frames (Win10 2004+). Only applies during capture — when idle the app captures normally, so your own screenshots aren't affected."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

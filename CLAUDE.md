@@ -194,8 +194,10 @@ FrameWrite.Wpf/
 │                              BoolToVis/StrEq converters) · ThemeManager.Apply on startup
 ├── ThemeManager.cs            colour themes (Terminal/Ocean/Ember/Synth/Light), live swap
 ├── MainWindow.xaml(.cs)       two-column layout in a ScrollViewer (shrink-to-scroll); header
-│                              has Stay-on-top / Overlay / ⚙. Code-behind: global hotkey,
-│                              SetWindowDisplayAffinity (hide-from-capture), target commit
+│                              has Stay-on-top / Overlay / ⚙. Code-behind: global hotkey, target commit
+├── WindowCapture.cs          hide-from-capture (WDA_EXCLUDEFROMCAPTURE) for ALL app windows via a
+│                              Window.Loaded class handler; SCOPED to while-capturing (idle stays
+│                              capturable so the user's own screenshots aren't black)
 ├── Converters.cs / Behaviors.cs   StringEqualsConverter, NumericInput attached behaviour
 ├── FramePreview.cs            loads latest / Nth frame as a small frozen image
 ├── SettingsDialog · OverlayDialog · TrimDialog · LoadSessionDialog · MonitorPickerDialog ·

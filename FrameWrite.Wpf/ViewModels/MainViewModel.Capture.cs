@@ -77,13 +77,10 @@ namespace FrameWrite.Wpf.ViewModels
                 CaptureError = $"Couldn't start capture: {ex.Message}\nCheck the output folder exists and is writable.";
                 return;
             }
-            IsCapturing = true;
+            IsCapturing = true;   // the setter re-syncs hide-from-capture (excludes every window now that
+                                  // a capture is live) — with a deferred re-apply for windows not yet composed.
             IsPaused = false;
             PinTrackedWindow();   // optionally keep the tracked window above everything while capturing
-            // Re-assert hide-from-capture right as capture begins. The startup application doesn't always
-            // stick (the window renders as a black square in the frames until the setting is re-toggled);
-            // re-applying here — after the window is fully composed — makes the exclusion reliable.
-            if (HideFromCapture) WindowAffinityChanged?.Invoke();
             PlayStartStopCue();
         }
 
