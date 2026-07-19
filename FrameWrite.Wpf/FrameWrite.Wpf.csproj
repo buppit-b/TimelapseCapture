@@ -22,7 +22,7 @@
          scripts/make-icon.ps1. The tray icon stays runtime-drawn (it shows live status). -->
     <ApplicationIcon>Assets\framewrite.ico</ApplicationIcon>
     <Product>FrameWrite</Product>
-    <Version>1.7.1</Version>
+    <Version>1.7.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

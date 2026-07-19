@@ -66,11 +66,21 @@ namespace FrameWrite.Wpf
         {
             var app = Application.Current;
             if (app == null) return;
-            foreach (Window w in app.Windows) Apply(w);
-            app.Dispatcher.BeginInvoke(new Action(() =>
+            ApplyToOpenWindows(app);
+            app.Dispatcher.BeginInvoke(new Action(() => ApplyToOpenWindows(app)), DispatcherPriority.Background);
+        }
+
+        private static void ApplyToOpenWindows(Application app)
+        {
+            try
             {
-                foreach (Window w in app.Windows) Apply(w);
-            }), DispatcherPriority.Background);
+                // Snapshot first — a window opening/closing would otherwise throw "collection modified"
+                // mid-enumeration (and the deferred pass can run during shutdown).
+                var windows = new Window[app.Windows.Count];
+                app.Windows.CopyTo(windows, 0);
+                foreach (var w in windows) Apply(w);
+            }
+            catch { /* best-effort — never let a transient window churn break capture */ }
         }
     }
 }

@@ -463,9 +463,30 @@
                         </TextBlock>
                     </StackPanel>
                 </Border>
+
+                <!-- Preview lives in the LEFT (wider 1.8*) column: the frame renders larger here and
+                     isn't shoved to the bottom the way it was under the right column's encoder/stats
+                     stack. Collapsed by default — click the header to show the latest frame. -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <ToggleButton Style="{StaticResource SectionHeader}" Content="PREVIEW" IsChecked="{Binding PreviewExpanded}"
+                                      ToolTip="Show a thumbnail of the most recent captured frame. Collapsed by default to keep the window compact."/>
+                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
+                                BorderThickness="1" Height="180" ClipToBounds="True" Margin="0,8,0,0"
+                                Visibility="{Binding PreviewExpanded, Converter={StaticResource BoolToVis}}">
+                            <Grid Cursor="Hand" MouseLeftButtonUp="OnPreviewClick" Background="Transparent"
+                                  ToolTip="Open the frame viewer — zoom into any frame and scrub through the session.">
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
+                                <TextBlock Text="No frames captured yet" Style="{StaticResource Muted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding NoPreview, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
-            <!-- Right column: encoder + stats + preview -->
+            <!-- Right column: encoder + stats -->
             <StackPanel Grid.Column="1">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
@@ -932,24 +953,6 @@
                 </StackPanel>
             </Border>
 
-                <!-- Preview (collapsed by default — click the header to show the latest frame) -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <ToggleButton Style="{StaticResource SectionHeader}" Content="PREVIEW" IsChecked="{Binding PreviewExpanded}"
-                                      ToolTip="Show a thumbnail of the most recent captured frame. Collapsed by default to keep the window compact."/>
-                        <Border Background="#0A0A0A" CornerRadius="6" BorderBrush="{DynamicResource StrokeBrush}"
-                                BorderThickness="1" Height="150" ClipToBounds="True" Margin="0,8,0,0"
-                                Visibility="{Binding PreviewExpanded, Converter={StaticResource BoolToVis}}">
-                            <Grid Cursor="Hand" MouseLeftButtonUp="OnPreviewClick" Background="Transparent"
-                                  ToolTip="Open the frame viewer — zoom into any frame and scrub through the session.">
-                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
-                                <TextBlock Text="No frames captured yet" Style="{StaticResource Muted}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Visibility="{Binding NoPreview, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-                </Border>
             </StackPanel>
         </Grid>
         </Border>

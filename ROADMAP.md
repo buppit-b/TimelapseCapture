@@ -39,6 +39,11 @@ sweep) + a dedup refactor pass.
 - **The full UI elegance reshape + stats visual mode** — the sharpest UX feedback was addressed
   piecemeal over the wrap arc (dialogs, combine, disk visibility); the layout reshape itself
   remains open-ended.
+- **User-rearrangeable panels** *(Spike, 2026-07-18)* — a mode to drag/reorder the main-window cards
+  (Output/Session/Capture/Encoder/Target/Stats/Preview) between columns, **locked/off by default**,
+  toggled on for power users who want a custom layout. Persist the arrangement in settings. Noted
+  while fixing the Preview placement (moved to the wider left column) — the manual move is the
+  cheap fix; a general drag-to-rearrange system is the larger feature parked here.
 - **Overlay burn-at-encode / retroactive bake variants** — design noted below.
 - **In-app bug reporter** — only matters if the app goes public.
 - **Live chunked-video frame storage + capture-time downscale lever** — items 4–5 of the

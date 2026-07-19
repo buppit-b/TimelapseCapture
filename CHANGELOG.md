@@ -3,6 +3,18 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.7.2] — 2026-07-18 — preview moved to the wider column (feedback) + hardening
+
+- **Preview panel moved to the left column.** It was the last card in the content-heavy right
+  column (encoder + target + stats above it), so it got shoved to the bottom. The left column is
+  ~1.8× wider, so the frame now renders noticeably larger, sits higher, and the two columns
+  balance better. (Collapsed by default, as before.)
+- **Hardening:** `WindowCapture.ApplyAll` now snapshots the window collection before enumerating,
+  so a window opening/closing mid-pass (or the deferred pass firing during shutdown) can't throw.
+- Noted for the future (ROADMAP, parked): a **user-rearrangeable panels** mode — drag main-window
+  cards between columns, off/locked by default, arrangement persisted. The manual preview move is
+  the cheap fix; the general system is the larger parked feature.
+
 ## [1.7.1] — 2026-07-18 — hide-from-capture: scoped to capture + covers every window (bugfix)
 
 - **Fixed the "black screen" on the shipped exe.** With *Hide from captures* on, the app applied
