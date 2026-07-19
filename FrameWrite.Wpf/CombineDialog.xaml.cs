@@ -315,7 +315,7 @@ namespace FrameWrite.Wpf
             var (total, nth, fps) = Plan();
             int expectedOut = Math.Max(1, (total + nth - 1) / nth);
 
-            BeginBusy($"Combining {included.Count} sessions…");
+            BeginBusy($"Combining {included.Count} sessions…", cancellable: true);
             var token = _cts!.Token;   // survives EndBusy's dispose — needed for the cancel check
             VideoEncoder.Result result;
             try
@@ -438,14 +438,20 @@ namespace FrameWrite.Wpf
 
         // ---- busy plumbing (one op at a time; Close/X cancels a running combine safely) ----
 
-        private void BeginBusy(string status)
+        // Only the ffmpeg combine observes the cancellation token; cull / crop / merge run to
+        // completion (their Core ops take no token). Close behaves differently for the two — see OnCloseBtn.
+        private bool _cancellableOp;
+
+        private void BeginBusy(string status, bool cancellable = false)
         {
             _busy = true;
+            _cancellableOp = cancellable;
             _cts = new CancellationTokenSource();
             list.IsEnabled = false;
             prepStrip.IsEnabled = false;
             settingsPanel.IsEnabled = false;
             combineBtn.IsEnabled = false;
+            mergeBtn.IsEnabled = false;
             progressText.Text = status;
         }
 
@@ -465,7 +471,16 @@ namespace FrameWrite.Wpf
 
         private void OnCloseBtn(object sender, RoutedEventArgs e)
         {
-            if (_busy) { _cts?.Cancel(); return; }   // first press cancels the running op
+            if (_busy)
+            {
+                // A cancellable op (the ffmpeg combine) cancels but keeps the dialog open so the
+                // staging setup can be retweaked and retried. An uncancellable op (merge / cull /
+                // crop) can't be stopped, so honour Close by shutting the window once it finishes —
+                // otherwise Close appeared to do nothing at all during a merge.
+                if (_cancellableOp) _cts?.Cancel();
+                else _closeWhenIdle = true;
+                return;
+            }
             DialogResult = false;
         }
 

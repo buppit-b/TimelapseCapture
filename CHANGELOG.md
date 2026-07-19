@@ -3,6 +3,17 @@
 All notable changes to FrameWrite are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](ROADMAP.md).
 
+## [1.7.3] — 2026-07-18 — combine dialog: Close works during a merge (bugfix)
+
+- **Fixed a dead Close button during a merge.** The combine dialog's Close cancelled the
+  cancellation token — but merge (and cull/crop) don't observe it, so during a merge, pressing
+  Close did nothing and the user was stuck until it finished. Close now distinguishes the two:
+  the ffmpeg **combine** cancels but keeps the dialog open (so you can retweak and retry), while
+  an uncancellable **merge / cull / crop** closes the window as soon as it finishes — matching
+  what the window's X button already did.
+- The **Merge** button is now correctly greyed out (with the others) while any op is running —
+  it was left visually enabled, though clicking it was already a guarded no-op.
+
 ## [1.7.2] — 2026-07-18 — preview moved to the wider column (feedback) + hardening
 
 - **Preview panel moved to the left column.** It was the last card in the content-heavy right
